@@ -205,11 +205,26 @@ export interface UserProfileItem {
   avatarUrl?: string;
   bio?: string;
   phone?: string;
+  phoneNumber?: string;
+  coverImageUrl?: string;
+  travelStyle?: string;
+  budgetPreference?: string;
+  location?: string;
+  rank?: string;
+  role?: string;
+  tier?: string;
+  isVerified?: boolean;
+  destinationsCount?: number;
   tripsCount?: number;
+  itinerariesCount?: number;
   postsCount?: number;
   followingCount?: number;
   followersCount?: number;
   isFollowing?: boolean;
+  posts?: PostItem[];
+  itineraries?: ItineraryItem[];
+  totalXp?: number;
+  roles?: string[];
 }
 
 // ─── COMMUNITY POSTS API ───────────────────────────────────
@@ -243,6 +258,11 @@ export const postApi = {
     return res.data.data;
   },
 
+  async getBookmarkedPosts(): Promise<PostItem[]> {
+    const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts/bookmarked');
+    return res.data.data || [];
+  },
+
   async getComments(postId: number): Promise<CommentItem[]> {
     const res = await apiClient.get<ApiResponse<CommentItem[]>>(`/posts/${postId}/comments`);
     return res.data.data || [];
@@ -271,6 +291,18 @@ export const postApi = {
   },
 };
 
+export interface UpdateProfilePayload {
+  fullName?: string;
+  handle?: string;
+  bio?: string;
+  phone?: string;
+  phoneNumber?: string;
+  travelStyle?: string;
+  budgetPreference?: string;
+  avatarUrl?: string;
+  coverImageUrl?: string;
+}
+
 // ─── USER PROFILE & FOLLOW API ─────────────────────────────
 export const userApi = {
   async getMyProfile(): Promise<UserProfileItem> {
@@ -286,7 +318,7 @@ export const userApi = {
     return res.data.data;
   },
 
-  async updateProfile(payload: { fullName?: string; bio?: string; phone?: string; avatarUrl?: string }): Promise<UserProfileItem> {
+  async updateProfile(payload: UpdateProfilePayload): Promise<UserProfileItem> {
     const session = await authStorage.getSession();
     const res = await apiClient.put<ApiResponse<UserProfileItem>>('/users/profile', payload, {
       params: { email: session?.email },
@@ -297,6 +329,24 @@ export const userApi = {
   async toggleFollow(targetUserId: number): Promise<{ isFollowing: boolean }> {
     const res = await apiClient.post<ApiResponse<{ isFollowing: boolean }>>(`/users/${targetUserId}/follow`);
     return res.data.data;
+  },
+
+  async getFollowing(): Promise<any[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<any[]>>('/users/following');
+      return res.data.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getFollowers(): Promise<any[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<any[]>>('/users/followers');
+      return res.data.data || [];
+    } catch {
+      return [];
+    }
   },
 };
 

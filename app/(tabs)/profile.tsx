@@ -15,12 +15,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { WF_COLORS } from '@/constants/Colors';
-import { authApi, API_BASE_URL } from '@/src/services/api';
+import { authApi, API_BASE_URL, userApi, UserProfileItem } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import axios from 'axios';
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<UserSession | null>(null);
+  const [profileData, setProfileData] = useState<UserProfileItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Tab đăng nhập / đăng ký
@@ -41,6 +42,14 @@ export default function ProfileScreen() {
     try {
       const session = await authStorage.getSession();
       setUser(session);
+      if (session?.token) {
+        try {
+          const live = await userApi.getMyProfile();
+          setProfileData(live);
+        } catch (pe) {
+          console.warn('Could not fetch live profile', pe);
+        }
+      }
     } catch (e) {
       console.warn('Load session error', e);
     } finally {
@@ -119,6 +128,7 @@ export default function ProfileScreen() {
         onPress: async () => {
           await authApi.logout();
           setUser(null);
+          setProfileData(null);
         },
       },
     ]);
@@ -181,18 +191,18 @@ export default function ProfileScreen() {
             {/* User Travel Stats chuẩn Web */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statNum}>4</Text>
+                <Text style={styles.statNum}>{profileData?.tripsCount ?? 0}</Text>
                 <Text style={styles.statLabel}>Chuyến đi</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
-                <Text style={styles.statNum}>12</Text>
+                <Text style={styles.statNum}>{profileData?.postsCount ?? 0}</Text>
                 <Text style={styles.statLabel}>Bài viết</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
-                <Text style={styles.statNum}>28</Text>
-                <Text style={styles.statLabel}>Đã lưu</Text>
+                <Text style={styles.statNum}>{profileData?.followersCount ?? profileData?.followingCount ?? 0}</Text>
+                <Text style={styles.statLabel}>Theo dõi</Text>
               </View>
             </View>
 

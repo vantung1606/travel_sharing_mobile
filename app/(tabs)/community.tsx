@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
-import { postApi, PostItem, API_BASE_URL } from '@/src/services/api';
+import { postApi, PostItem, CommentItem, API_BASE_URL } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 import axios from 'axios';
 
@@ -49,9 +49,19 @@ export default function CommunityScreen() {
   const [hasError, setHasError] = useState<boolean>(false);
   const [selectedTag, setSelectedTag] = useState<string>('#TấtCả');
 
-  // Likes state
+  // Likes & Bookmarks state
   const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
   const [likesCount, setLikesCount] = useState<Record<number, number>>({});
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<Record<number, boolean>>({});
+
+  // Modal Bình Luận
+  const [commentModalVisible, setCommentModalVisible] = useState<boolean>(false);
+  const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
+  const [activePostTitle, setActivePostTitle] = useState<string>('');
+  const [commentsList, setCommentsList] = useState<CommentItem[]>([]);
+  const [loadingComments, setLoadingComments] = useState<boolean>(false);
+  const [newCommentText, setNewCommentText] = useState<string>('');
+  const [submittingComment, setSubmittingComment] = useState<boolean>(false);
 
   // Modal Tạo Bài Viết Mới
   const [createModalVisible, setCreateModalVisible] = useState<boolean>(false);
@@ -95,15 +105,94 @@ export default function CommunityScreen() {
     fetchPosts();
   };
 
-  const toggleLike = (postId: number) => {
-    setLikedPosts(prev => {
-      const isCurrentlyLiked = !!prev[postId];
-      setLikesCount(cPrev => ({
-        ...cPrev,
-        [postId]: (cPrev[postId] || 0) + (isCurrentlyLiked ? -1 : 1),
+  const toggleLike = async (postId: number) => {
+    const session = await authStorage.getSession();
+    if (!session) {
+      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để thích bài viết!');
+      return;
+    }
+
+    const isCurrentlyLiked = !!likedPosts[postId];
+    // Optimistic update
+    setLikedPosts(prev => ({ ...prev, [postId]: !isCurrentlyLiked }));
+    setLikesCount(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || 0) + (isCurrentlyLiked ? -1 : 1),
+    }));
+
+    try {
+      const res = await postApi.toggleLike(postId);
+      if (res) {
+        setLikedPosts(prev => ({ ...prev, [postId]: res.isLiked }));
+        setLikesCount(prev => ({ ...prev, [postId]: res.likeCount }));
+      }
+    } catch (err: any) {
+      // Rollback
+      setLikedPosts(prev => ({ ...prev, [postId]: isCurrentlyLiked }));
+      setLikesCount(prev => ({
+        ...prev,
+        [postId]: (prev[postId] || 0) + (isCurrentlyLiked ? 1 : -1),
       }));
-      return { ...prev, [postId]: !isCurrentlyLiked };
-    });
+    }
+  };
+
+  const toggleBookmark = async (postId: number) => {
+    const session = await authStorage.getSession();
+    if (!session) {
+      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để lưu bài viết!');
+      return;
+    }
+    try {
+      const res = await postApi.toggleBookmark(postId);
+      setBookmarkedPosts(prev => ({ ...prev, [postId]: res.isBookmarked }));
+      Alert.alert(
+        'Bộ sưu tập',
+        res.isBookmarked ? 'Đã lưu bài viết vào bộ sưu tập cá nhân! 🔖' : 'Đã bỏ lưu bài viết khỏi bộ sưu tập.'
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.response?.data?.message || 'Không thể lưu bài viết lúc này');
+    }
+  };
+
+  const handleOpenComments = async (post: PostItem) => {
+    setActiveCommentPostId(post.id);
+    setActivePostTitle(post.title || 'Bài viết cộng đồng');
+    setCommentModalVisible(true);
+    setLoadingComments(true);
+    try {
+      const list = await postApi.getComments(post.id);
+      setCommentsList(list || []);
+    } catch (e) {
+      console.warn('Lỗi lấy bình luận:', e);
+      setCommentsList([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!activeCommentPostId || !newCommentText.trim()) return;
+    const session = await authStorage.getSession();
+    if (!session) {
+      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập để gửi bình luận!');
+      return;
+    }
+
+    try {
+      setSubmittingComment(true);
+      const created = await postApi.addComment(activeCommentPostId, newCommentText.trim());
+      setCommentsList(prev => [...prev, created]);
+      setNewCommentText('');
+      setPosts(prev =>
+        prev.map(p =>
+          p.id === activeCommentPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p
+        )
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi gửi bình luận', err.response?.data?.message || err.message || 'Không thể gửi bình luận');
+    } finally {
+      setSubmittingComment(false);
+    }
   };
 
   const handleOpenCreateModal = async () => {
@@ -123,27 +212,14 @@ export default function CommunityScreen() {
 
     try {
       setSubmittingPost(true);
-      const session = await authStorage.getSession();
-      const token = await authStorage.getToken();
-
-      await axios.post(
-        `${API_BASE_URL}/posts`,
-        {
-          title: newTitle.trim() || undefined,
-          content: newContent.trim(),
-          category: newCategory,
-          locationName: newLocation.trim() || undefined,
-          coverImage: newCover.trim() || undefined,
-          images: newCover.trim() ? [newCover.trim()] : [],
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          params: { email: session?.email },
-        }
-      );
+      await postApi.createPost({
+        title: newTitle.trim() || undefined,
+        content: newContent.trim(),
+        category: newCategory,
+        locationName: newLocation.trim() || undefined,
+        coverImage: newCover.trim() || undefined,
+        images: newCover.trim() ? [newCover.trim()] : [],
+      });
 
       Alert.alert('Thành công! 🎉', 'Bài viết của bạn đã được đăng lên Bảng tin cộng đồng.');
       setCreateModalVisible(false);
@@ -221,18 +297,23 @@ export default function CommunityScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            activeOpacity={0.7}
+            onPress={() => handleOpenComments(item)}>
             <FontAwesome name="comment-o" size={16} color={WF_COLORS.slate500} />
             <Text style={styles.actionCount}>{item.commentsCount || 0}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <FontAwesome name="share-square-o" size={16} color={WF_COLORS.slate500} />
-            <Text style={styles.actionCount}>Chia sẻ</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <FontAwesome name="bookmark-o" size={16} color={WF_COLORS.slate500} />
+          <TouchableOpacity
+            style={styles.actionBtn}
+            activeOpacity={0.7}
+            onPress={() => toggleBookmark(item.id)}>
+            <FontAwesome
+              name={bookmarkedPosts[item.id] ? 'bookmark' : 'bookmark-o'}
+              size={16}
+              color={bookmarkedPosts[item.id] ? WF_COLORS.primary : WF_COLORS.slate500}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -384,6 +465,77 @@ export default function CommunityScreen() {
                 )}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── MODAL BÌNH LUẬN ─────────────────────────────────────── */}
+      <Modal visible={commentModalVisible} animationType="slide" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCardBox, { maxHeight: '82%' }]}>
+            <View style={styles.modalCardHeader}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={styles.modalCardTitle}>💬 Bình Luận</Text>
+                <Text style={styles.commentModalSub} numberOfLines={1}>{activePostTitle}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setCommentModalVisible(false)} style={{ padding: 4 }}>
+                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingComments ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator color={WF_COLORS.primary} />
+                <Text style={{ marginTop: 8, fontSize: 12, color: WF_COLORS.slate500 }}>Đang tải bình luận...</Text>
+              </View>
+            ) : commentsList.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <FontAwesome name="comments-o" size={36} color={WF_COLORS.slate400} />
+                <Text style={{ marginTop: 8, fontSize: 13, color: WF_COLORS.slate500 }}>Chưa có bình luận nào</Text>
+                <Text style={{ fontSize: 11, color: WF_COLORS.slate400, marginTop: 2 }}>Hãy là người đầu tiên chia sẻ cảm nghĩ!</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+                {commentsList.map((cmt) => (
+                  <View key={cmt.id} style={styles.commentRow}>
+                    <Image
+                      source={{ uri: cmt.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' }}
+                      style={styles.commentAvatar}
+                    />
+                    <View style={styles.commentContentBox}>
+                      <View style={styles.commentHeaderLine}>
+                        <Text style={styles.commentAuthor}>{cmt.userName || 'Thành viên'}</Text>
+                        <Text style={styles.commentTime}>
+                          {cmt.createdAt ? new Date(cmt.createdAt).toLocaleDateString('vi-VN') : ''}
+                        </Text>
+                      </View>
+                      <Text style={styles.commentBodyText}>{cmt.content}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* Input row */}
+            <View style={styles.commentInputRow}>
+              <TextInput
+                style={styles.commentTextInput}
+                placeholder="Viết bình luận của bạn..."
+                placeholderTextColor={WF_COLORS.slate400}
+                value={newCommentText}
+                onChangeText={setNewCommentText}
+              />
+              <TouchableOpacity
+                style={[styles.sendCommentBtn, (!newCommentText.trim() || submittingComment) && { opacity: 0.5 }]}
+                onPress={handleAddComment}
+                disabled={!newCommentText.trim() || submittingComment}>
+                {submittingComment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <FontAwesome name="send" size={13} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -752,5 +904,78 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+
+  commentModalSub: {
+    fontSize: 11,
+    color: WF_COLORS.slate500,
+    marginTop: 2,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+    marginTop: 2,
+  },
+  commentContentBox: {
+    flex: 1,
+    backgroundColor: WF_COLORS.slate100,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  commentHeaderLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  commentAuthor: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  commentTime: {
+    fontSize: 10,
+    color: WF_COLORS.slate400,
+  },
+  commentBodyText: {
+    fontSize: 12,
+    color: WF_COLORS.slate700,
+    lineHeight: 17,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: WF_COLORS.slate200,
+    gap: 8,
+  },
+  commentTextInput: {
+    flex: 1,
+    backgroundColor: WF_COLORS.slate100,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    height: 40,
+    fontSize: 13,
+    color: WF_COLORS.slate900,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+  },
+  sendCommentBtn: {
+    backgroundColor: WF_COLORS.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

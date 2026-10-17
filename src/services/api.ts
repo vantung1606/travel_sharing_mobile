@@ -161,6 +161,42 @@ export const placeApi = {
   },
 };
 
+export interface CommentItem {
+  id: number;
+  postId?: number;
+  userId?: number;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+  parentId?: number;
+}
+
+export interface CreatePostPayload {
+  title?: string;
+  content: string;
+  category?: string;
+  locationName?: string;
+  coverImage?: string;
+  images?: string[];
+  itineraryId?: number;
+}
+
+export interface UserProfileItem {
+  id: number;
+  email: string;
+  fullName: string;
+  handle?: string;
+  avatarUrl?: string;
+  bio?: string;
+  phone?: string;
+  tripsCount?: number;
+  postsCount?: number;
+  followingCount?: number;
+  followersCount?: number;
+  isFollowing?: boolean;
+}
+
 // ─── COMMUNITY POSTS API ───────────────────────────────────
 export const postApi = {
   async getCommunityPosts(params?: { category?: string; keyword?: string }): Promise<PostItem[]> {
@@ -179,6 +215,72 @@ export const postApi = {
     const res = await apiClient.get<ApiResponse<PostItem>>(`/posts/${id}`, {
       params: { email: session?.email },
     });
+    return res.data.data;
+  },
+
+  async toggleLike(id: number): Promise<{ isLiked: boolean; likeCount: number }> {
+    const res = await apiClient.post<ApiResponse<{ isLiked: boolean; likeCount: number }>>(`/posts/${id}/like`);
+    return res.data.data;
+  },
+
+  async toggleBookmark(id: number): Promise<{ isBookmarked: boolean }> {
+    const res = await apiClient.post<ApiResponse<{ isBookmarked: boolean }>>(`/posts/${id}/bookmark`);
+    return res.data.data;
+  },
+
+  async getComments(postId: number): Promise<CommentItem[]> {
+    const res = await apiClient.get<ApiResponse<CommentItem[]>>(`/posts/${postId}/comments`);
+    return res.data.data || [];
+  },
+
+  async addComment(postId: number, content: string, parentId?: number): Promise<CommentItem> {
+    const res = await apiClient.post<ApiResponse<CommentItem>>(`/posts/${postId}/comments`, {
+      content,
+      parentId,
+    });
+    return res.data.data;
+  },
+
+  async deleteComment(postId: number, commentId: number): Promise<void> {
+    await apiClient.delete(`/posts/${postId}/comments/${commentId}`);
+  },
+
+  async createPost(payload: CreatePostPayload): Promise<PostItem> {
+    const res = await apiClient.post<ApiResponse<PostItem>>('/posts', payload);
+    return res.data.data;
+  },
+
+  async cloneItineraryFromPost(postId: number): Promise<ItineraryItem> {
+    const res = await apiClient.post<ApiResponse<ItineraryItem>>(`/posts/${postId}/clone-itinerary`);
+    return res.data.data;
+  },
+};
+
+// ─── USER PROFILE & FOLLOW API ─────────────────────────────
+export const userApi = {
+  async getMyProfile(): Promise<UserProfileItem> {
+    const res = await apiClient.get<ApiResponse<UserProfileItem>>('/users/me');
+    return res.data.data;
+  },
+
+  async getUserProfile(id: number): Promise<UserProfileItem> {
+    const session = await authStorage.getSession();
+    const res = await apiClient.get<ApiResponse<UserProfileItem>>(`/users/${id}/profile`, {
+      params: { email: session?.email },
+    });
+    return res.data.data;
+  },
+
+  async updateProfile(payload: { fullName?: string; bio?: string; phone?: string; avatarUrl?: string }): Promise<UserProfileItem> {
+    const session = await authStorage.getSession();
+    const res = await apiClient.put<ApiResponse<UserProfileItem>>('/users/profile', payload, {
+      params: { email: session?.email },
+    });
+    return res.data.data;
+  },
+
+  async toggleFollow(targetUserId: number): Promise<{ isFollowing: boolean }> {
+    const res = await apiClient.post<ApiResponse<{ isFollowing: boolean }>>(`/users/${targetUserId}/follow`);
     return res.data.data;
   },
 };
@@ -464,6 +566,17 @@ export const chatApi = {
         isMe: true,
       };
     }
+  },
+
+  async createDirectRoom(targetUserId: number): Promise<ChatRoom> {
+    const session = await authStorage.getSession();
+    const res = await apiClient.post<ApiResponse<ChatRoom>>('/chat/direct', null, {
+      params: {
+        targetUserId,
+        email: session?.email,
+      },
+    });
+    return res.data.data;
   },
 };
 

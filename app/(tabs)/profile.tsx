@@ -40,6 +40,8 @@ import {
   calculateTierProgress,
   TierItem,
 } from '@/src/utils/tierSystem';
+import { FollowModal } from '@/components/FollowModal';
+import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 
 const { width } = Dimensions.get('window');
 
@@ -92,6 +94,14 @@ export default function ProfileScreen() {
 
   // Cloning itinerary state
   const [cloningId, setCloningId] = useState<number | null>(null);
+
+  // Follow Modal state (Xem danh sách người theo dõi / đang theo dõi)
+  const [followModalVisible, setFollowModalVisible] = useState<boolean>(false);
+  const [followModalInitialTab, setFollowModalInitialTab] = useState<'followers' | 'following'>('followers');
+
+  // Itinerary Detail Modal state (Xem chi tiết chuyến đi)
+  const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
+  const [itineraryDetailVisible, setItineraryDetailVisible] = useState<boolean>(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -663,17 +673,31 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              {/* Follower Stats Bar */}
+              {/* Follower Stats Bar - Clickable to open FollowModal */}
               <View style={styles.followBar}>
-                <View style={styles.followItem}>
+                <TouchableOpacity
+                  style={styles.followItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setFollowModalInitialTab('followers');
+                    setFollowModalVisible(true);
+                  }}
+                >
                   <Text style={styles.followCount}>{activeFollowersCount}</Text>
                   <Text style={styles.followLabel}>người theo dõi</Text>
-                </View>
+                </TouchableOpacity>
                 <Text style={styles.metaDot}>•</Text>
-                <View style={styles.followItem}>
+                <TouchableOpacity
+                  style={styles.followItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setFollowModalInitialTab('following');
+                    setFollowModalVisible(true);
+                  }}
+                >
                   <Text style={styles.followCount}>{activeFollowingCount}</Text>
                   <Text style={styles.followLabel}>đang theo dõi</Text>
-                </View>
+                </TouchableOpacity>
               </View>
 
               {/* Bio text */}
@@ -702,10 +726,10 @@ export default function ProfileScreen() {
                   style={[styles.bentoCard, styles.bentoCardBorder]}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.bentoLabel}>Lịch Trình AI Đã Tạo</Text>
+                  <Text style={styles.bentoLabel}>Lịch Trình Đã Tạo</Text>
                   <View style={styles.bentoValueRow}>
                     <Text style={[styles.bentoValue, { color: WF_COLORS.primary }]}>{itinsCount}</Text>
-                    <FontAwesome name="magic" size={12} color="#F59E0B" style={{ marginLeft: 4 }} />
+                    <FontAwesome name="map" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
                   </View>
                   <Text style={styles.bentoHint}>Đã đồng bộ GPS</Text>
                 </TouchableOpacity>
@@ -726,23 +750,37 @@ export default function ProfileScreen() {
 
               {/* Row 2 */}
               <View style={[styles.bentoRow, styles.bentoRowBorderTop]}>
-                <View style={styles.bentoCard}>
+                <TouchableOpacity
+                  style={styles.bentoCard}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setFollowModalInitialTab('followers');
+                    setFollowModalVisible(true);
+                  }}
+                >
                   <Text style={styles.bentoLabel}>Người Theo Dõi</Text>
                   <View style={styles.bentoValueRow}>
                     <Text style={[styles.bentoValue, { color: '#0284C7' }]}>{activeFollowersCount}</Text>
                     <FontAwesome name="users" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
                   </View>
-                  <Text style={styles.bentoHint}>Xem kết nối</Text>
-                </View>
+                  <Text style={styles.bentoHint}>Xem danh sách →</Text>
+                </TouchableOpacity>
 
-                <View style={[styles.bentoCard, styles.bentoCardBorder]}>
+                <TouchableOpacity
+                  style={[styles.bentoCard, styles.bentoCardBorder]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setFollowModalInitialTab('following');
+                    setFollowModalVisible(true);
+                  }}
+                >
                   <Text style={styles.bentoLabel}>Đang Theo Dõi</Text>
                   <View style={styles.bentoValueRow}>
                     <Text style={[styles.bentoValue, { color: '#6366F1' }]}>{activeFollowingCount}</Text>
                     <FontAwesome name="user-plus" size={12} color="#6366F1" style={{ marginLeft: 4 }} />
                   </View>
-                  <Text style={styles.bentoHint}>Quản lý</Text>
-                </View>
+                  <Text style={styles.bentoHint}>Quản lý →</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => setActiveTab('badges')}
@@ -780,7 +818,7 @@ export default function ProfileScreen() {
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'itineraries' && styles.subTabTextActive]}>
-                Lịch Trình AI
+                Lịch Trình
               </Text>
               <View
                 style={[
@@ -964,19 +1002,36 @@ export default function ProfileScreen() {
                       ? `${itin.budget.toLocaleString('vi-VN')} đ`
                       : '5.000.000 đ';
 
+                  const isAi = itin.isAiGenerated ?? (itin.title?.toLowerCase().includes('ai') || false);
+
                   return (
-                    <View key={itin.id} style={styles.itinCard}>
+                    <TouchableOpacity
+                      key={itin.id}
+                      style={styles.itinCard}
+                      activeOpacity={0.92}
+                      onPress={() => {
+                        setSelectedItinerary(itin);
+                        setItineraryDetailVisible(true);
+                      }}
+                    >
                       <View style={styles.itinCoverContainer}>
                         <Image source={{ uri: cover }} style={styles.itinCover} />
                         <View style={styles.itinCoverOverlay} />
                         <View style={styles.itinTopBadges}>
-                          <View style={styles.itinAiTag}>
-                            <FontAwesome name="magic" size={10} color="#FDE047" style={{ marginRight: 4 }} />
-                            <Text style={styles.itinAiTagText}>Tạo bởi AI</Text>
+                          <View style={isAi ? styles.itinAiTag : styles.itinManualTag}>
+                            <FontAwesome
+                              name={isAi ? 'magic' : 'pencil'}
+                              size={10}
+                              color={isAi ? '#FDE047' : '#FFFFFF'}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={isAi ? styles.itinAiTagText : styles.itinManualTagText}>
+                              {isAi ? 'Tạo bởi AI' : 'Thủ công'}
+                            </Text>
                           </View>
                           <View style={styles.itinDurationTag}>
                             <Text style={styles.itinDurationText}>
-                              {itin.daysCount ? `${itin.daysCount}N${itin.daysCount - 1}Đ` : '3N2Đ'}
+                              {itin.daysCount ? `${itin.daysCount}N${Math.max(1, itin.daysCount - 1)}Đ` : '3N2Đ'}
                             </Text>
                           </View>
                         </View>
@@ -999,6 +1054,18 @@ export default function ProfileScreen() {
 
                         <View style={styles.itinActionRow}>
                           <TouchableOpacity
+                            onPress={() => {
+                              setSelectedItinerary(itin);
+                              setItineraryDetailVisible(true);
+                            }}
+                            style={styles.itinViewBtn}
+                            activeOpacity={0.8}
+                          >
+                            <FontAwesome name="eye" size={12} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+                            <Text style={styles.itinViewBtnText}>Xem Chi Tiết</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
                             onPress={() => handleCloneItinerary(itin)}
                             disabled={cloningId === itin.id}
                             style={styles.itinCloneBtn}
@@ -1015,7 +1082,7 @@ export default function ProfileScreen() {
                           </TouchableOpacity>
                         </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -1534,6 +1601,26 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal xem danh sách Người theo dõi / Đang theo dõi */}
+      <FollowModal
+        visible={followModalVisible}
+        onClose={() => {
+          setFollowModalVisible(false);
+          loadProfile();
+        }}
+        initialTab={followModalInitialTab}
+        onFollowChange={loadProfile}
+      />
+
+      {/* Modal xem chi tiết lịch trình du lịch */}
+      <ItineraryDetailModal
+        visible={itineraryDetailVisible}
+        onClose={() => setItineraryDetailVisible(false)}
+        itinerary={selectedItinerary}
+        onItineraryUpdated={loadProfile}
+        canEdit={true}
+      />
     </SafeAreaView>
   );
 }
@@ -2201,6 +2288,35 @@ const styles = StyleSheet.create({
     marginTop: 10,
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    gap: 8,
+  },
+  itinViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  itinViewBtnText: {
+    color: WF_COLORS.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  itinManualTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  itinManualTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   itinCloneBtn: {
     flexDirection: 'row',

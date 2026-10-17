@@ -18,6 +18,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WF_COLORS } from '@/constants/Colors';
 import {
   authApi,
@@ -39,6 +40,11 @@ import {
   calculateTierProgress,
   TierItem,
 } from '@/src/utils/tierSystem';
+import {
+  VIETNAM_PROVINCES,
+  VIETNAM_REGIONS,
+  ProvinceItem,
+} from '@/src/constants/vietnamProvinces';
 
 const { width } = Dimensions.get('window');
 
@@ -54,14 +60,21 @@ const TRAVEL_STYLES = [
 
 const BUDGET_PREFERENCES = ['Tiết kiệm', 'Linh hoạt', 'Cao cấp'];
 
+export type ProfileTab = 'itineraries' | 'posts' | 'footprint' | 'ai-dna' | 'saved' | 'badges';
+
 export default function ProfileScreen() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [profileData, setProfileData] = useState<UserProfileItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Active sub-tab: 'itineraries' | 'posts' | 'saved' | 'badges'
-  const [activeTab, setActiveTab] = useState<'itineraries' | 'posts' | 'saved' | 'badges'>('itineraries');
+  // Active sub-tab: All 6 tabs matching web 100%
+  const [activeTab, setActiveTab] = useState<ProfileTab>('itineraries');
+
+  // Footprint map state
+  const [selectedFootprintRegion, setSelectedFootprintRegion] = useState<string>('all');
+  const [footprintSearch, setFootprintSearch] = useState<string>('');
+  const [manualVisitedIds, setManualVisitedIds] = useState<string[]>([]);
 
   // Bookmarked posts
   const [savedPosts, setSavedPosts] = useState<PostItem[]>([]);
@@ -139,6 +152,40 @@ export default function ProfileScreen() {
       console.warn('Could not load saved posts', err);
     } finally {
       setLoadingSaved(false);
+    }
+  };
+
+  // Load manual footprints from AsyncStorage
+  useEffect(() => {
+    if (user?.id) {
+      AsyncStorage.getItem(`wayfare_travel_footprints_${user.id}`)
+        .then((stored) => {
+          if (stored) {
+            try {
+              setManualVisitedIds(JSON.parse(stored));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.id]);
+
+  const handleToggleCheckin = async (provinceId: string) => {
+    let updated: string[];
+    if (manualVisitedIds.includes(provinceId)) {
+      updated = manualVisitedIds.filter((id) => id !== provinceId);
+      Alert.alert('Đã gỡ dấu chân', 'Đã bỏ đánh dấu tỉnh thành khỏi danh sách');
+    } else {
+      updated = [...manualVisitedIds, provinceId];
+      Alert.alert('🎉 Tuyệt vời!', 'Đã thêm dấu chân mới vào bản đồ 63 tỉnh thành!');
+    }
+    setManualVisitedIds(updated);
+    if (user?.id) {
+      try {
+        await AsyncStorage.setItem(`wayfare_travel_footprints_${user.id}`, JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Could not save footprint', err);
+      }
     }
   };
 
@@ -359,6 +406,39 @@ export default function ProfileScreen() {
   const activeFollowersCount = profileData?.followersCount || 0;
   const activeFollowingCount = profileData?.followingCount || 0;
 
+  // Footprint detection from posts and itineraries
+  const detectedProvinceIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    const checkTextAgainstProvinces = (text?: string) => {
+      if (!text) return;
+      const lower = text.toLowerCase();
+      VIETNAM_PROVINCES.forEach((prov) => {
+        if (prov.aliases.some((alias) => lower.includes(alias))) {
+          ids.add(prov.id);
+        }
+      });
+    };
+
+    displayPosts.forEach((p) => {
+      checkTextAgainstProvinces(p.title);
+      checkTextAgainstProvinces(p.content);
+      checkTextAgainstProvinces(p.locationTag);
+      checkTextAgainstProvinces(p.locationName);
+    });
+
+    displayItineraries.forEach((itin) => {
+      checkTextAgainstProvinces(itin.title);
+      checkTextAgainstProvinces(itin.destination);
+    });
+
+    return Array.from(ids);
+  }, [displayPosts, displayItineraries]);
+
+  // Combined visited provinces (detected from DB + manual check-in)
+  const allVisitedProvinceIds = React.useMemo(() => {
+    return Array.from(new Set([...detectedProvinceIds, ...manualVisitedIds]));
+  }, [detectedProvinceIds, manualVisitedIds]);
+
   // Dynamic calculation: extract unique destinations from user's actual itineraries & posts in database
   const visitedDestinationsCount = React.useMemo(() => {
     if (typeof profileData?.destinationsCount === 'number') {
@@ -376,8 +456,48 @@ export default function ProfileScreen() {
         uniqueDests.add(loc.trim().toLowerCase());
       }
     });
-    return uniqueDests.size;
-  }, [profileData?.destinationsCount, displayItineraries, displayPosts]);
+    return Math.max(uniqueDests.size, allVisitedProvinceIds.length);
+  }, [profileData?.destinationsCount, displayItineraries, displayPosts, allVisitedProvinceIds.length]);
+
+  // Explorer Rank for Footprint matching web
+  const explorerRank = React.useMemo(() => {
+    const count = allVisitedProvinceIds.length;
+    if (count >= 50) return { title: 'Bậc Thầy Chinh Phục Việt Nam', badge: '👑 Master Explorer', color: '#D97706', level: 5 };
+    if (count >= 30) return { title: 'Blogger Du Lịch Kỳ Cựu', badge: '🌟 Pro Explorer', color: '#7C3AED', level: 4 };
+    if (count >= 15) return { title: 'Phượt Thủ Đam Mê', badge: '🎒 Passionate Rider', color: '#0284C7', level: 3 };
+    if (count >= 5) return { title: 'Lãng Tử Khám Phá', badge: '🧭 Wanderer', color: '#059669', level: 2 };
+    return { title: 'Tập Sự Khởi Hành', badge: '🌿 Novice Traveler', color: '#475569', level: 1 };
+  }, [allVisitedProvinceIds.length]);
+
+  // Footprint region statistics (North 25, Central 14, Highlands 5, South 19)
+  const regionStats = React.useMemo(() => {
+    const stats: Record<string, { total: number; visited: number }> = {
+      north: { total: 25, visited: 0 },
+      central: { total: 14, visited: 0 },
+      highlands: { total: 5, visited: 0 },
+      south: { total: 19, visited: 0 },
+    };
+    VIETNAM_PROVINCES.forEach((p) => {
+      if (allVisitedProvinceIds.includes(p.id) && stats[p.region]) {
+        stats[p.region].visited += 1;
+      }
+    });
+    return stats;
+  }, [allVisitedProvinceIds]);
+
+  // Filtered provinces list for Footprint tab
+  const filteredProvinces = React.useMemo(() => {
+    return VIETNAM_PROVINCES.filter((prov) => {
+      const matchRegion = selectedFootprintRegion === 'all' || prov.region === selectedFootprintRegion;
+      const q = footprintSearch.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        prov.name.toLowerCase().includes(q) ||
+        prov.highlight.toLowerCase().includes(q) ||
+        prov.aliases.some((a) => a.includes(q));
+      return matchRegion && matchSearch;
+    });
+  }, [selectedFootprintRegion, footprintSearch]);
 
   const userTotalXP = calculateUserXP({
     itinsCount,
@@ -698,7 +818,7 @@ export default function ProfileScreen() {
               {/* Row 1 */}
               <View style={styles.bentoRow}>
                 <TouchableOpacity
-                  onPress={() => setActiveTab('badges')}
+                  onPress={() => setActiveTab('footprint')}
                   style={styles.bentoCard}
                   activeOpacity={0.7}
                 >
@@ -774,12 +894,13 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Sub-Tabs Navigation Bar */}
+          {/* Sub-Tabs Navigation Bar - Full 6 tabs exactly matching Web */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabScrollContainer}
           >
+            {/* TAB 1: ITINERARIES */}
             <TouchableOpacity
               onPress={() => setActiveTab('itineraries')}
               style={[styles.subTab, activeTab === 'itineraries' && styles.subTabActive]}
@@ -792,7 +913,7 @@ export default function ProfileScreen() {
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'itineraries' && styles.subTabTextActive]}>
-                Lịch Trình Của Tôi
+                Lịch Trình AI
               </Text>
               <View
                 style={[
@@ -811,6 +932,7 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
 
+            {/* TAB 2: POSTS */}
             <TouchableOpacity
               onPress={() => setActiveTab('posts')}
               style={[styles.subTab, activeTab === 'posts' && styles.subTabActive]}
@@ -842,6 +964,71 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
 
+            {/* TAB 3: FOOTPRINT */}
+            <TouchableOpacity
+              onPress={() => setActiveTab('footprint')}
+              style={[styles.subTab, activeTab === 'footprint' && styles.subTabActive]}
+              activeOpacity={0.8}
+            >
+              <FontAwesome
+                name="compass"
+                size={13}
+                color={activeTab === 'footprint' ? '#FFFFFF' : '#059669'}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.subTabText, activeTab === 'footprint' && styles.subTabTextActive]}>
+                Dấu Chân Du Lịch
+              </Text>
+              <View
+                style={[
+                  styles.tabHighlightBadge,
+                  activeTab === 'footprint' ? styles.tabHighlightBadgeActive : styles.tabHighlightBadgeInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabHighlightText,
+                    activeTab === 'footprint' ? styles.tabHighlightTextActive : styles.tabHighlightTextInactive,
+                  ]}
+                >
+                  {allVisitedProvinceIds.length}/63 Tỉnh
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* TAB 4: AI DNA */}
+            <TouchableOpacity
+              onPress={() => setActiveTab('ai-dna')}
+              style={[styles.subTab, activeTab === 'ai-dna' && styles.subTabActive]}
+              activeOpacity={0.8}
+            >
+              <FontAwesome
+                name="magic"
+                size={13}
+                color={activeTab === 'ai-dna' ? '#FFFFFF' : '#D97706'}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.subTabText, activeTab === 'ai-dna' && styles.subTabTextActive]}>
+                Gu Du Lịch & AI DNA
+              </Text>
+              <View
+                style={[
+                  styles.tabHighlightBadge,
+                  activeTab === 'ai-dna' ? styles.tabHighlightBadgeActive : styles.tabHighlightBadgeInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabHighlightText,
+                    activeTab === 'ai-dna' ? styles.tabHighlightTextActive : styles.tabHighlightTextInactive,
+                  ]}
+                >
+                  AI
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* TAB 5: SAVED */}
             <TouchableOpacity
               onPress={() => setActiveTab('saved')}
               style={[styles.subTab, activeTab === 'saved' && styles.subTabActive]}
@@ -873,6 +1060,7 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
 
+            {/* TAB 6: BADGES & TIERS */}
             <TouchableOpacity
               onPress={() => setActiveTab('badges')}
               style={[styles.subTab, activeTab === 'badges' && styles.subTabActive]}
@@ -1070,7 +1258,241 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* TAB 3: SAVED POSTS */}
+        {/* TAB 3: TRAVEL FOOTPRINT (63 Tỉnh Thành Việt Nam) */}
+        {activeTab === 'footprint' && (
+          <View style={styles.tabSection}>
+            {/* Footprint Progress Header Card */}
+            <View style={styles.footprintCard}>
+              <View style={styles.footprintTopRow}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.footprintTitle}>Dấu Chân 63 Tỉnh Thành</Text>
+                  <Text style={styles.footprintSubtitle}>
+                    Bản đồ chinh phục danh lam & thắng cảnh Việt Nam
+                  </Text>
+                </View>
+                <View style={[styles.explorerBadgePill, { borderColor: explorerRank.color }]}>
+                  <Text style={[styles.explorerBadgeText, { color: explorerRank.color }]}>
+                    {explorerRank.badge}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Progress bar */}
+              <View style={styles.progressContainer}>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${Math.min(100, Math.round((allVisitedProvinceIds.length / 63) * 100))}%`,
+                        backgroundColor: '#059669',
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.progressMeta}>
+                  <Text style={styles.progressMetaText}>
+                    Đã đặt chân: {allVisitedProvinceIds.length}/63 tỉnh thành
+                  </Text>
+                  <Text style={[styles.progressPercentText, { color: '#059669' }]}>
+                    {Math.round((allVisitedProvinceIds.length / 63) * 100)}%
+                  </Text>
+                </View>
+              </View>
+
+              {/* 4 Regions Overview Mini-Grid */}
+              <View style={styles.regionMiniGrid}>
+                <View style={styles.regionMiniBox}>
+                  <Text style={styles.regionMiniLabel}>Miền Bắc</Text>
+                  <Text style={styles.regionMiniValue}>{regionStats.north.visited}/25</Text>
+                </View>
+                <View style={styles.regionMiniBox}>
+                  <Text style={styles.regionMiniLabel}>Miền Trung</Text>
+                  <Text style={styles.regionMiniValue}>{regionStats.central.visited}/14</Text>
+                </View>
+                <View style={styles.regionMiniBox}>
+                  <Text style={styles.regionMiniLabel}>Tây Nguyên</Text>
+                  <Text style={styles.regionMiniValue}>{regionStats.highlands.visited}/5</Text>
+                </View>
+                <View style={styles.regionMiniBox}>
+                  <Text style={styles.regionMiniLabel}>Miền Nam</Text>
+                  <Text style={styles.regionMiniValue}>{regionStats.south.visited}/19</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Region Filter Chips */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.regionFilterRow}
+            >
+              {VIETNAM_REGIONS.map((reg) => {
+                const isActive = selectedFootprintRegion === reg.id;
+                return (
+                  <TouchableOpacity
+                    key={reg.id}
+                    onPress={() => setSelectedFootprintRegion(reg.id)}
+                    style={[styles.regionChip, isActive && styles.regionChipActive]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.regionChipText, isActive && styles.regionChipTextActive]}>
+                      {reg.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Search Box */}
+            <View style={styles.searchBoxContainer}>
+              <FontAwesome name="search" size={13} color="#94A3B8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchBoxInput}
+                placeholder="Tìm tỉnh thành, danh lam thắng cảnh..."
+                placeholderTextColor="#94A3B8"
+                value={footprintSearch}
+                onChangeText={setFootprintSearch}
+              />
+              {footprintSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setFootprintSearch('')}>
+                  <FontAwesome name="times-circle" size={14} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Provinces List */}
+            <View style={styles.provinceList}>
+              {filteredProvinces.map((prov) => {
+                const isVisited = allVisitedProvinceIds.includes(prov.id);
+                const isAutoDetected = detectedProvinceIds.includes(prov.id);
+
+                return (
+                  <View key={prov.id} style={[styles.provinceCard, isVisited && styles.provinceCardVisited]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={styles.provinceNameRow}>
+                        <Text style={styles.provinceName}>{prov.name}</Text>
+                        {isAutoDetected && (
+                          <View style={styles.autoDetectedTag}>
+                            <Text style={styles.autoDetectedTagText}>⚡ Đã quét</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.provinceHighlight}>📍 {prov.highlight}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => handleToggleCheckin(prov.id)}
+                      style={[styles.checkinBtn, isVisited ? styles.checkinBtnActive : styles.checkinBtnInactive]}
+                      activeOpacity={0.8}
+                    >
+                      {isVisited ? (
+                        <>
+                          <FontAwesome name="check" size={12} color="#059669" style={{ marginRight: 4 }} />
+                          <Text style={styles.checkinBtnTextActive}>Đã ghé</Text>
+                        </>
+                      ) : (
+                        <>
+                          <FontAwesome name="plus" size={11} color="#64748B" style={{ marginRight: 4 }} />
+                          <Text style={styles.checkinBtnTextInactive}>Đánh dấu</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Footprint Tip */}
+            <View style={styles.footprintTipBox}>
+              <FontAwesome name="lightbulb-o" size={15} color="#D97706" style={{ marginRight: 8, marginTop: 2 }} />
+              <Text style={styles.footprintTipText}>
+                Dấu chân được tự động ghi nhận khi bạn tạo Lịch trình hoặc đăng Bài viết chia sẻ có chứa địa danh, hoặc bạn có thể bấm "Đánh dấu" thủ công để lưu lại hành trình!
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* TAB 4: GU DU LỊCH & AI DNA */}
+        {activeTab === 'ai-dna' && (
+          <View style={styles.tabSection}>
+            {/* Header info */}
+            <View style={styles.aiDnaHeaderCard}>
+              <View style={styles.aiDnaIconCircle}>
+                <FontAwesome name="magic" size={20} color="#F59E0B" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.aiDnaTitle}>Cấu Hình Gu Du Lịch & AI DNA</Text>
+                <Text style={styles.aiDnaSubtitle}>
+                  Trợ lý WanderAI tự động ghi nhớ khẩu vị du lịch của bạn để tối ưu gợi ý tour cá nhân hóa
+                </Text>
+              </View>
+            </View>
+
+            {/* Quick edit button */}
+            <TouchableOpacity
+              onPress={() => setIsEditModalOpen(true)}
+              style={styles.editDnaBtn}
+              activeOpacity={0.8}
+            >
+              <FontAwesome name="sliders" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.editDnaBtnText}>Chỉnh sửa Gu du lịch & Hồ sơ</Text>
+            </TouchableOpacity>
+
+            {/* 4 DNA Cards 2x2 Grid */}
+            <View style={styles.dnaGrid}>
+              {/* Card 1 */}
+              <View style={[styles.dnaCard, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#0369A1' }]}>PHONG CÁCH DU LỊCH</Text>
+                <Text style={styles.dnaCardValue}>🧭 {displayTravelStyle}</Text>
+                <Text style={styles.dnaCardDesc}>Khẩu vị di chuyển & trải nghiệm điểm đến</Text>
+              </View>
+
+              {/* Card 2 */}
+              <View style={[styles.dnaCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#047857' }]}>MỨC NGÂN SÁCH ƯA THÍCH</Text>
+                <Text style={styles.dnaCardValue}>💰 {displayBudget}</Text>
+                <Text style={styles.dnaCardDesc}>Cân đối chi phí di chuyển, ăn uống & lưu trú</Text>
+              </View>
+
+              {/* Card 3 */}
+              <View style={[styles.dnaCard, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#B45309' }]}>CẤP BẬC NHÀ THÁM HIỂM</Text>
+                <Text style={styles.dnaCardValue}>
+                  {currentTier.icon} {currentTier.name}
+                </Text>
+                <Text style={styles.dnaCardDesc}>{currentTier.desc}</Text>
+              </View>
+
+              {/* Card 4 */}
+              <View style={[styles.dnaCard, { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#7E22CE' }]}>MỤC TIÊU NĂM 2026</Text>
+                <Text style={styles.dnaCardValue}>🇻🇳 {allVisitedProvinceIds.length}/63 Tỉnh Thành</Text>
+                <Text style={styles.dnaCardDesc}>
+                  Đã đánh dấu ({Math.round((allVisitedProvinceIds.length / 63) * 100)}% Việt Nam)
+                </Text>
+              </View>
+            </View>
+
+            {/* Bio note for AI */}
+            <View style={styles.aiNoteCard}>
+              <View style={styles.aiNoteHeader}>
+                <FontAwesome name="bolt" size={14} color="#F59E0B" style={{ marginRight: 6 }} />
+                <Text style={styles.aiNoteTitle}>Ghi chú riêng của bạn dành cho AI Engine</Text>
+              </View>
+              <View style={styles.aiNoteContentBox}>
+                <Text style={styles.aiNoteText}>
+                  "{displayBio || 'Thường đi du lịch trải nghiệm tự túc, thích chụp ảnh và khám phá ẩm thực bản địa độc đáo.'}"
+                </Text>
+              </View>
+              <Text style={styles.aiNoteFooter}>
+                * Dữ liệu này được tích hợp trực tiếp vào ngữ cảnh xử lý của thuật toán AI để sinh ra các lịch trình cá nhân hóa sát với mong muốn của bạn nhất.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* TAB 5: SAVED POSTS */}
         {activeTab === 'saved' && (
           <View style={styles.tabSection}>
             <View style={styles.sectionHeaderRow}>
@@ -1817,6 +2239,333 @@ const styles = StyleSheet.create({
   },
   tabCountTextInactive: {
     color: '#475569',
+  },
+  tabHighlightBadge: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+  },
+  tabHighlightBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  tabHighlightBadgeInactive: {
+    backgroundColor: '#FEF3C7',
+  },
+  tabHighlightText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  tabHighlightTextActive: {
+    color: '#FFFFFF',
+  },
+  tabHighlightTextInactive: {
+    color: '#92400E',
+  },
+
+  // Footprint Map Section Styles
+  footprintCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  footprintTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  footprintTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  footprintSubtitle: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  explorerBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  explorerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  regionMiniGrid: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  regionMiniBox: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  regionMiniLabel: {
+    fontSize: 9.5,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  regionMiniValue: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  regionFilterRow: {
+    gap: 6,
+    marginBottom: 12,
+  },
+  regionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  regionChipActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  regionChipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  regionChipTextActive: {
+    color: '#FFFFFF',
+  },
+  searchBoxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  searchBoxInput: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  provinceList: {
+    gap: 8,
+  },
+  provinceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  provinceCardVisited: {
+    borderColor: '#A7F3D0',
+    backgroundColor: '#F0FDF4',
+  },
+  provinceNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
+  },
+  provinceName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  autoDetectedTag: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  autoDetectedTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  provinceHighlight: {
+    fontSize: 11.5,
+    color: '#64748B',
+  },
+  checkinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  checkinBtnActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  checkinBtnInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  checkinBtnTextActive: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  checkinBtnTextInactive: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  footprintTipBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  footprintTipText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#92400E',
+    lineHeight: 16,
+  },
+
+  // AI DNA Section Styles
+  aiDnaHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  aiDnaIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiDnaTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  aiDnaSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  editDnaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: WF_COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  editDnaBtnText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: WF_COLORS.primary,
+  },
+  dnaGrid: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  dnaCard: {
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+  },
+  dnaCardLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  dnaCardValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  dnaCardDesc: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  aiNoteCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  aiNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiNoteTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  aiNoteContentBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  aiNoteText: {
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  aiNoteFooter: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    lineHeight: 14,
   },
 
   // Tab Section Content

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { authStorage } from './authStorage';
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.190:8081/api';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://travelsharingbackend-production.up.railway.app/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

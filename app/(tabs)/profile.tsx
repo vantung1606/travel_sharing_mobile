@@ -114,15 +114,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* 1. Breadcrumb chuẩn Web */}
-        <View style={styles.breadcrumbRow}>
-          <FontAwesome name="compass" size={12} color={WF_COLORS.primary} />
-          <Text style={styles.breadcrumbLink}>Trang chủ</Text>
-          <Text style={styles.breadcrumbDivider}>/</Text>
-          <Text style={styles.breadcrumbCurrent}>Hồ sơ cá nhân</Text>
-        </View>
 
         {/* 2. User Profile Card (Khi đã đăng nhập) */}
         {user ? (
@@ -299,7 +292,7 @@ export default function ProfileScreen() {
           <Text style={styles.versionSub}>Hệ sinh thái Chia sẻ Du lịch (Đồng bộ 100% Web)</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

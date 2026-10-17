@@ -227,7 +227,7 @@ export default function ExploreScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <FlatList
         data={places}
         keyExtractor={(item) => String(item.id)}
@@ -237,21 +237,6 @@ export default function ExploreScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
-            {/* 1. Breadcrumb Navigation chuẩn Web */}
-            <View style={styles.breadcrumbRow}>
-              <FontAwesome name="compass" size={12} color={WF_COLORS.primary} />
-              <Text style={styles.breadcrumbLink}>Trang chủ</Text>
-              <Text style={styles.breadcrumbDivider}>/</Text>
-              <Text style={styles.breadcrumbCurrent}>Khám phá</Text>
-            </View>
-
-            {/* 2. Page Title & Subtitle */}
-            <View style={styles.titleSection}>
-              <Text style={styles.pageTitle}>Khám Phá Điểm Đến</Text>
-              <Text style={styles.pageSubtitle}>
-                Theo dõi thời tiết thực tế & tọa độ du lịch trên khắp 63 tỉnh thành Việt Nam
-              </Text>
-            </View>
 
             {/* 3. Weather Tickers Bar (Trạm thời tiết du lịch nhanh của Web) */}
             <View style={styles.weatherTickerWrapper}>
@@ -530,7 +515,7 @@ export default function ExploreScreen() {
           </View>
         </Modal>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -249,13 +249,6 @@ export default function ItineraryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
-            {/* 1. Breadcrumb chuẩn Web */}
-            <View style={styles.breadcrumbRow}>
-              <FontAwesome name="compass" size={12} color={WF_COLORS.primary} />
-              <Text style={styles.breadcrumbLink}>Trang chủ</Text>
-              <Text style={styles.breadcrumbDivider}>/</Text>
-              <Text style={styles.breadcrumbCurrent}>Quản lý Lịch trình</Text>
-            </View>
 
             {/* 2. Page Title & Action Button */}
             <View style={styles.titleActionRow}>

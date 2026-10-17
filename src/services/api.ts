@@ -342,4 +342,118 @@ export const homeApi = {
   },
 };
 
+// ─── CHAT API ──────────────────────────────────────────────
+export interface ChatMessage {
+  id?: number | string;
+  roomId: number | string;
+  senderId?: number;
+  senderName?: string;
+  senderAvatar?: string;
+  content: string;
+  messageType?: 'TEXT' | 'IMAGE' | 'VOICE' | 'ITINERARY';
+  createdAt?: string;
+  isMe?: boolean;
+}
+
+export interface ChatRoom {
+  id: number | string;
+  name: string;
+  type?: 'DIRECT' | 'GROUP' | 'ITINERARY' | 'AI';
+  avatarUrl?: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount?: number;
+  membersCount?: number;
+}
+
+export const chatApi = {
+  async getRooms(): Promise<ChatRoom[]> {
+    try {
+      const session = await authStorage.getSession();
+      const res = await apiClient.get<ApiResponse<ChatRoom[]>>('/chat/rooms', {
+        params: { email: session?.email },
+      });
+      return res.data.data || [];
+    } catch (e) {
+      console.warn('Chat rooms API fallback', e);
+      return [
+        {
+          id: 'ai-bot',
+          name: 'Trợ lý Du lịch AI Wayfare 🤖',
+          type: 'AI',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          lastMessage: 'Chào bạn! Tôi có thể giúp gì cho chuyến du lịch sắp tới?',
+          lastMessageTime: 'Vừa xong',
+          unreadCount: 1,
+        },
+        {
+          id: 'group-dalat',
+          name: 'Hội Săn Mây Đà Lạt 2026 🌫️',
+          type: 'GROUP',
+          avatarUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=200&q=80',
+          lastMessage: 'Mọi người đã chuẩn bị áo ấm chưa, mai nhiệt độ xuống 16 độ đấy!',
+          lastMessageTime: '10 phút trước',
+          unreadCount: 3,
+        },
+        {
+          id: 'group-phuquoc',
+          name: 'Kinh Nghiệm Phượt Đảo Phú Quốc 🏖️',
+          type: 'GROUP',
+          avatarUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=200&q=80',
+          lastMessage: 'Hòn Mây Rút nước trong vắt, lặn san hô cực đỉnh luôn.',
+          lastMessageTime: '1 giờ trước',
+          unreadCount: 0,
+        },
+      ];
+    }
+  },
+
+  async getRoomMessages(roomId: number | string): Promise<ChatMessage[]> {
+    try {
+      const session = await authStorage.getSession();
+      const res = await apiClient.get<ApiResponse<ChatMessage[]>>(`/chat/rooms/${roomId}/messages`, {
+        params: { email: session?.email },
+      });
+      return res.data.data || [];
+    } catch (e) {
+      console.warn('Room messages fallback', e);
+      return [
+        {
+          id: 1,
+          roomId,
+          senderName: 'Trợ lý AI Wayfare',
+          senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          content: 'Xin chào! Tôi là Trợ lý Du lịch thông minh của Wayfare. Bạn muốn tìm địa điểm ăn ngon, lịch trình tiết kiệm hay góc sống ảo ở thành phố nào?',
+          createdAt: '10:00',
+          isMe: false,
+        },
+      ];
+    }
+  },
+
+  async sendMessage(roomId: number | string, content: string): Promise<ChatMessage> {
+    const session = await authStorage.getSession();
+    try {
+      const res = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/rooms/${roomId}/messages`, {
+        content,
+        messageType: 'TEXT',
+      }, {
+        params: { email: session?.email },
+      });
+      return res.data.data;
+    } catch (e) {
+      // Local mock response if offline / demo
+      return {
+        id: Date.now(),
+        roomId,
+        senderName: session?.fullName || 'Tôi',
+        senderAvatar: session?.avatar,
+        content,
+        createdAt: 'Vừa xong',
+        isMe: true,
+      };
+    }
+  },
+};
+
 export default apiClient;

@@ -240,7 +240,7 @@ export default function CommunityScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <FlatList
         data={posts}
         keyExtractor={(item) => String(item.id)}
@@ -250,21 +250,6 @@ export default function CommunityScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
-            {/* 1. Breadcrumb Navigation chuẩn Web */}
-            <View style={styles.breadcrumbRow}>
-              <FontAwesome name="compass" size={12} color={WF_COLORS.primary} />
-              <Text style={styles.breadcrumbLink}>Trang chủ</Text>
-              <Text style={styles.breadcrumbDivider}>/</Text>
-              <Text style={styles.breadcrumbCurrent}>Cộng đồng du lịch</Text>
-            </View>
-
-            {/* 2. Page Title */}
-            <View style={styles.titleSection}>
-              <Text style={styles.pageTitle}>Bảng Tin Cộng Đồng</Text>
-              <Text style={styles.pageSubtitle}>
-                Chia sẻ trải nghiệm & khoảnh khắc du lịch từ khắp mọi miền
-              </Text>
-            </View>
 
             {/* 3. Community Stories Row (Chuẩn Web) */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
@@ -402,7 +387,7 @@ export default function CommunityScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

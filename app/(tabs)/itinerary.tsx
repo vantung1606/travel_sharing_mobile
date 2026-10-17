@@ -31,6 +31,7 @@ import {
   ItineraryDetailItem,
 } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { aiService } from '@/src/services/aiService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
@@ -553,55 +554,180 @@ export default function ItineraryScreen() {
       return;
     }
 
+    // Kiểm tra tính hợp lệ của ngày đi và ngày về
+    if (aiStartDate && aiEndDate) {
+      const d1 = new Date(aiStartDate);
+      const d2 = new Date(aiEndDate);
+      if (d2.getTime() < d1.getTime()) {
+        Alert.alert('Lỗi thời gian', 'Ngày kết thúc phải diễn ra sau hoặc trùng với ngày bắt đầu chuyến đi!');
+        return;
+      }
+    }
+
+    // Kiểm tra người dùng đã đăng nhập chưa để lưu vào CSDL
+    const session = await authStorage.getSession();
+    if (!session) {
+      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để WanderAI lưu lịch trình vào CSDL!');
+      return;
+    }
+
     setIsAiGenerating(true);
-    setAiProgress(10);
+    setAiProgress(15);
     setAiCurrentStep('Khởi tạo kết nối & Định vị địa lý...');
 
+    let progressTimer: any = null;
+
     try {
-      setTimeout(() => {
-        setAiProgress(35);
-        setAiCurrentStep(`Nghiên cứu danh lam, di tích thực tế tại ${aiDest}...`);
+      progressTimer = setInterval(() => {
+        setAiProgress(prev => {
+          if (prev < 40) {
+            setAiCurrentStep(`Nghiên cứu danh lam, di tích thực tế tại ${aiDest}...`);
+            return prev + 15;
+          }
+          if (prev < 75) {
+            setAiCurrentStep(`Khảo sát ẩm thực & quán ăn đặc sản bản địa tại ${aiDest}...`);
+            return prev + 12;
+          }
+          if (prev < 90) {
+            setAiCurrentStep(`Tối ưu lộ trình từng ngày & cân đối ngân sách...`);
+            return prev + 5;
+          }
+          return prev;
+        });
       }, 700);
-
-      setTimeout(() => {
-        setAiProgress(70);
-        setAiCurrentStep('Khảo sát ẩm thực & quán ăn đặc sản bản địa...');
-      }, 1400);
-
-      setTimeout(() => {
-        setAiProgress(92);
-        setAiCurrentStep('Tối ưu lộ trình từng ngày & Cân đối ngân sách...');
-      }, 2100);
 
       const budgetOption = BUDGET_TIERS.find(b => b.id === aiBudgetTier) || BUDGET_TIERS[1];
       const companionObj = COMPANION_OPTIONS.find(c => c.id === aiCompanion) || COMPANION_OPTIONS[1];
-      const presetCover = COVER_PRESETS.find(c => c.label.includes(aiDest))?.url || COVER_PRESETS[0].url;
+      const interestLabels = aiSelectedInterests
+        .map(id => AI_INTEREST_OPTIONS.find(o => o.id === id)?.label)
+        .filter(Boolean)
+        .join(', ');
 
+      // Build Prompt chi tiết, chuyên sâu cho Gemini 3.8 Flash
+      const prompt = `Bạn là chuyên gia cố vấn du lịch bản địa hàng đầu tại Việt Nam.
+Hãy nghiên cứu và phân tích điểm đến: "${aiDest}".
+Lập lịch trình du lịch ${aiDays} ngày với các danh lam thắng cảnh, di tích lịch sử và quán ăn đặc sản có thật 100% tại "${aiDest}".
+Thông tin chuyến đi:
+- Điểm đến: ${aiDest}
+- Thời lượng: ${aiDays} ngày (${aiDays}N${Math.max(1, aiDays - 1)}Đ)
+- Đối tượng: ${companionObj.label}
+- Ngân sách: ${budgetOption.label} (${budgetOption.range})
+- Gu trải nghiệm: ${interestLabels || 'Khám phá, Ẩm thực'}
+${aiCustomNote ? `- Yêu cầu thêm: ${aiCustomNote}` : ''}
+
+QUY TẮC BẮT BUỘC:
+1. Nghiên cứu chính xác các địa điểm, quán ăn có thật 100% tại "${aiDest}". Tuyệt đối không dùng văn mẫu chung chung.
+2. Mỗi ngày có 3-4 hoạt động sắp xếp từ sáng đến tối.
+3. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:
+{
+  "title": "Tên chuyến đi hấp dẫn do AI sáng tạo (VD: Đà Lạt: Chuyến Đi Lãng Mạn Cho Cặp Đôi)",
+  "summaryTip": "Mẹo du lịch bản địa ngắn gọn...",
+  "placesList": ["Tên điểm thật 1", "Tên điểm thật 2", "Tên điểm thật 3", "Tên điểm thật 4"],
+  "days": [
+    {
+      "dayNumber": 1,
+      "title": "Chủ đề ngày...",
+      "activities": [
+        {
+          "time": "08:00",
+          "category": "Ẩm thực",
+          "location": "Tên địa danh hoặc quán ăn cụ thể",
+          "address": "Địa chỉ cụ thể tại ${aiDest}",
+          "note": "Kinh nghiệm ngắn gọn",
+          "cost": 50000,
+          "transit": "15 phút"
+        }
+      ]
+    }
+  ]
+}`;
+
+      // GỌI GOOGLE GEMINI 3.8 FLASH THỰC TẾ
+      const rawAiResponse = await aiService.generateText({
+        prompt,
+        model: 'gemini-3.8-flash',
+        maxTokens: 8192,
+        temperature: 0.3,
+      });
+
+      if (progressTimer) clearInterval(progressTimer);
+      setAiProgress(95);
+      setAiCurrentStep('Hoàn tất phân tích! Đang tổng hợp dữ liệu lịch trình...');
+
+      // Parse JSON an toàn
+      let parsedData: any = {};
+      try {
+        const cleaned = typeof rawAiResponse === 'string'
+          ? rawAiResponse.replace(/```json/gi, '').replace(/```/g, '').trim()
+          : '';
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedData = JSON.parse(jsonMatch[0]);
+        }
+      } catch (parseErr) {
+        console.warn('JSON parse error from Gemini:', parseErr);
+      }
+
+      // Biến đổi các hoạt động thật từ Gemini thành ItineraryDetailItem[]
       const aiActivities: ItineraryDetailItem[] = [];
-      const times = ['08:00', '11:00', '14:30', '18:30'];
-      const catList = ['Tham quan', 'Ẩm thực', 'Check-in', 'Chill'];
-      const actThemes = [
-        `Đón bình minh & Thưởng thức điểm tâm đặc sản ${aiDest}`,
-        `Check-in danh thắng nổi tiếng tại ${aiDest}`,
-        `Trải nghiệm văn hóa & góc view săn ảnh đẹp`,
-        `Thưởng thức tiệc tối & Chill ngắm cảnh về đêm`,
-      ];
+      if (parsedData.days && Array.isArray(parsedData.days) && parsedData.days.length > 0) {
+        parsedData.days.forEach((dayObj: any) => {
+          const dNum = Number(dayObj.dayNumber) || 1;
+          const acts = dayObj.activities || [];
+          acts.forEach((act: any, idx: number) => {
+            const numCost = typeof act.cost === 'number'
+              ? act.cost
+              : parseFloat(String(act.cost || '').replace(/\D/g, '')) || (idx === 1 ? 120000 : 50000);
 
-      for (let d = 1; d <= aiDays; d++) {
-        for (let a = 0; a < 4; a++) {
-          aiActivities.push({
-            dayNumber: d,
-            startTime: times[a],
-            locationName: `${actThemes[a]}`,
-            category: catList[a],
-            estimatedCost: a === 1 ? 120000 : 60000,
-            note: aiCustomNote ? `Gợi ý AI: ${aiCustomNote}` : `Lịch trình tối ưu cho ${companionObj.label}`,
+            aiActivities.push({
+              dayNumber: dNum,
+              visitOrder: idx + 1,
+              startTime: act.time || (idx === 0 ? '08:00' : idx === 1 ? '11:30' : idx === 2 ? '14:30' : '18:30'),
+              locationName: act.location || act.title || `${aiDest} - Trạm dừng ${idx + 1}`,
+              locationAddress: act.address || undefined,
+              category: act.category || (idx === 1 ? 'Ẩm thực' : idx === 3 ? 'Chill' : 'Tham quan'),
+              estimatedCost: numCost,
+              aiTip: act.note || parsedData.summaryTip || undefined,
+              transitInfo: act.transit || undefined,
+              note: act.note || undefined,
+            });
           });
+        });
+      }
+
+      // Fallback nếu JSON parse rỗng
+      if (aiActivities.length === 0) {
+        const times = ['08:00', '11:00', '14:30', '18:30'];
+        const catList = ['Tham quan', 'Ẩm thực', 'Check-in', 'Chill'];
+        const actThemes = [
+          `Đón bình minh & Thưởng thức điểm tâm đặc sản ${aiDest}`,
+          `Check-in danh thắng nổi tiếng tại ${aiDest}`,
+          `Trải nghiệm văn hóa & góc view săn ảnh đẹp`,
+          `Thưởng thức tiệc tối & Chill ngắm cảnh về đêm`,
+        ];
+
+        for (let d = 1; d <= aiDays; d++) {
+          for (let a = 0; a < 4; a++) {
+            aiActivities.push({
+              dayNumber: d,
+              visitOrder: a + 1,
+              startTime: times[a],
+              locationName: `${actThemes[a]}`,
+              category: catList[a],
+              estimatedCost: a === 1 ? 120000 : 60000,
+              note: aiCustomNote ? `Gợi ý AI: ${aiCustomNote}` : `Lịch trình tối ưu cho ${companionObj.label}`,
+            });
+          }
         }
       }
 
+      const presetCover = COVER_PRESETS.find(c => c.label.includes(aiDest))?.url || COVER_PRESETS[0].url;
+      const tripTitle = (parsedData.title && String(parsedData.title).trim())
+        ? String(parsedData.title).trim()
+        : `${aiDest}: Hành Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`;
+
       const created = await itineraryApi.createItinerary({
-        title: `${aiDest}: Hành Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`,
+        title: tripTitle,
         destination: aiDest.trim(),
         startDate: aiStartDate.trim() || undefined,
         endDate: aiEndDate.trim() || undefined,
@@ -620,11 +746,12 @@ export default function ItineraryScreen() {
         setIsAiGenerating(false);
         setAiModalVisible(false);
         fetchItineraries();
-        Alert.alert('Thành công', `WanderAI đã thiết kế xong lịch trình ${aiDest} cho bạn!`);
+        Alert.alert('Thành công', `WanderAI đã hoàn tất thiết kế lịch trình ${aiDest} cho bạn! 🎉`);
         handleOpenDetail(created);
       }, 500);
 
     } catch (err: any) {
+      if (progressTimer) clearInterval(progressTimer);
       setIsAiGenerating(false);
       Alert.alert('Lỗi tạo tour AI', err.response?.data?.message || err.message || 'Không thể tạo tour bằng AI lúc này.');
     }

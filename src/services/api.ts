@@ -422,6 +422,7 @@ export interface CreateItineraryPayload {
   coverImageUrl?: string;
   status?: string;
   isAiGenerated?: boolean;
+  groupType?: string;
   details?: ItineraryDetailItem[];
 }
 

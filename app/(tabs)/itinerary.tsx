@@ -64,9 +64,9 @@ const AI_INTEREST_OPTIONS = [
 // Khớp 100% với Web COMPANION OPTIONS
 const COMPANION_OPTIONS = [
   { id: 'solo', label: 'Cá nhân (Solo)' },
-  { id: 'couple', label: 'Cặp đôi (2 người)' },
-  { id: 'friends', label: 'Nhóm bạn (3-5 người)' },
-  { id: 'family', label: 'Gia đình có trẻ em' },
+  { id: 'couple', label: 'Cặp đôi' },
+  { id: 'friends', label: 'Bạn bè' },
+  { id: 'family', label: 'Gia đình' },
 ];
 
 // Khớp 100% với Web 4 BUDGET TIERS
@@ -75,13 +75,6 @@ const BUDGET_TIERS = [
   { id: 2, label: 'Tiêu chuẩn / Cân bằng', range: '4.0 - 7.0 Triệu VNĐ', budgetVal: 5500000 },
   { id: 3, label: 'Cao cấp / Thoải mái', range: '7.0 - 12.0 Triệu VNĐ', budgetVal: 9000000 },
   { id: 4, label: 'Nghỉ dưỡng VIP', range: '15.0+ Triệu VNĐ', budgetVal: 16000000 },
-];
-
-// Khớp 100% với Web PACING
-const PACING_OPTIONS = [
-  { id: 'relaxed', label: 'Thong thả (2-3 điểm/ngày)' },
-  { id: 'balanced', label: 'Cân bằng ✨ (3-4 điểm/ngày)' },
-  { id: 'max', label: 'Khám phá tối đa (5-6 điểm/ngày)' },
 ];
 
 const PACKING_CHECKLIST = [
@@ -141,20 +134,21 @@ export default function ItineraryScreen() {
   const [manualDest, setManualDest] = useState<string>('');
   const [manualStartDate, setManualStartDate] = useState<string>('2026-10-25');
   const [manualEndDate, setManualEndDate] = useState<string>('2026-10-28');
-  const [manualDays, setManualDays] = useState<number>(3);
+  const [manualDays, setManualDays] = useState<number>(4);
   const [manualBudgetFormatted, setManualBudgetFormatted] = useState<string>('4,500,000');
   const [manualCover, setManualCover] = useState<string>(COVER_PRESETS[0].url);
-  const [manualGroup, setManualGroup] = useState<string>('Nhóm bạn (3-5 người)');
+  const [manualGroup, setManualGroup] = useState<string>('Bạn bè');
   const [submittingManual, setSubmittingManual] = useState<boolean>(false);
 
   // ─── MODAL WANDERAI TRIP GENERATOR STATE ─────────────────
   const [aiModalVisible, setAiModalVisible] = useState<boolean>(false);
   const [aiDest, setAiDest] = useState<string>('Đà Lạt');
-  const [aiDays, setAiDays] = useState<number>(3);
+  const [aiStartDate, setAiStartDate] = useState<string>('2026-10-25');
+  const [aiEndDate, setAiEndDate] = useState<string>('2026-10-28');
+  const [aiDays, setAiDays] = useState<number>(4);
   const [aiCompanion, setAiCompanion] = useState<string>('couple');
   const [aiBudgetTier, setAiBudgetTier] = useState<number>(2);
   const [aiSelectedInterests, setAiSelectedInterests] = useState<string[]>(['checkin', 'food', 'culture']);
-  const [aiPacing, setAiPacing] = useState<string>('balanced');
   const [aiCustomNote, setAiCustomNote] = useState<string>('');
   const [isAiGenerating, setIsAiGenerating] = useState<boolean>(false);
   const [aiProgress, setAiProgress] = useState<number>(0);
@@ -170,12 +164,33 @@ export default function ItineraryScreen() {
         const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
         if (diffDays > 0 && diffDays <= 30) {
           setManualDays(diffDays);
+        } else {
+          setManualDays(1);
         }
       }
     } catch {
       // Ignore
     }
   }, [manualStartDate, manualEndDate]);
+
+  // Tự động tính số ngày khi đổi ngày đi hoặc ngày về trong Lập tour AI
+  useEffect(() => {
+    try {
+      if (aiStartDate && aiEndDate) {
+        const d1 = new Date(aiStartDate);
+        const d2 = new Date(aiEndDate);
+        const diffMs = d2.getTime() - d1.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
+        if (diffDays > 0 && diffDays <= 30) {
+          setAiDays(diffDays);
+        } else {
+          setAiDays(1);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, [aiStartDate, aiEndDate]);
 
   // ─── DATA FETCHING (CHỈ LẤY LỊCH TRÌNH CỦA TÔI TỪ CSDL) ───
   const fetchItineraries = useCallback(async () => {
@@ -507,6 +522,7 @@ export default function ItineraryScreen() {
         coverImageUrl: manualCover,
         status: 'UPCOMING',
         isAiGenerated: false,
+        groupType: manualGroup,
         details: sampleActivities,
       });
 
@@ -587,12 +603,13 @@ export default function ItineraryScreen() {
       const created = await itineraryApi.createItinerary({
         title: `${aiDest}: Hành Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`,
         destination: aiDest.trim(),
-        startDate: '2026-10-25',
-        endDate: '2026-10-28',
+        startDate: aiStartDate.trim() || undefined,
+        endDate: aiEndDate.trim() || undefined,
         budgetTotal: budgetOption.budgetVal * (aiCompanion === 'friends' ? 3 : aiCompanion === 'couple' ? 2 : 1),
         coverImageUrl: presetCover,
         status: 'UPCOMING',
         isAiGenerated: true,
+        groupType: companionObj.label,
         details: aiActivities,
       });
 
@@ -1310,26 +1327,37 @@ export default function ItineraryScreen() {
                 ))}
               </ScrollView>
 
-              {/* 2. Thời gian chuyến đi (Khớp với Web: 1, 2N1Đ, 3N2Đ, 4N3Đ, 5N4Đ, 7N6Đ) */}
+              {/* 2. Ngày bắt đầu & Ngày kết thúc + Đếm số ngày (Khớp 100% với Web) */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>2. Thời gian chuyến đi *</Text>
-              <View style={styles.optionRow}>
-                {[
-                  { d: 1, label: '1 ngày' },
-                  { d: 2, label: '2N1Đ' },
-                  { d: 3, label: '3N2Đ' },
-                  { d: 4, label: '4N3Đ' },
-                  { d: 5, label: '5N4Đ' },
-                  { d: 7, label: '7N6Đ' },
-                ].map(opt => (
-                  <TouchableOpacity
-                    key={opt.d}
-                    style={[styles.dayChoiceBtn, aiDays === opt.d && styles.dayChoiceBtnActive]}
-                    onPress={() => setAiDays(opt.d)}>
-                    <Text style={[styles.dayChoiceText, aiDays === opt.d && styles.dayChoiceTextActive]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: WF_COLORS.slate500, marginBottom: 4 }}>Ngày bắt đầu</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={WF_COLORS.slate400}
+                    value={aiStartDate}
+                    onChangeText={setAiStartDate}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: WF_COLORS.slate500, marginBottom: 4 }}>Ngày kết thúc</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={WF_COLORS.slate400}
+                    value={aiEndDate}
+                    onChangeText={setAiEndDate}
+                  />
+                </View>
+              </View>
+
+              {/* Ô tính ngày tự động */}
+              <View style={[styles.daysCalcBox, { marginTop: 8 }]}>
+                <FontAwesome name="calendar-check-o" size={14} color="#0284C7" style={{ marginRight: 6 }} />
+                <Text style={styles.daysCalcText}>
+                  Thời lượng chuyến đi: <Text style={{ fontWeight: 'bold', color: '#0284C7' }}>{aiDays} Ngày {aiDays > 1 ? `(${aiDays}N${aiDays - 1}Đ)` : '(Trong ngày)'}</Text>
+                </Text>
               </View>
 
               {/* 3. Bạn Đồng Hành */}
@@ -1388,28 +1416,8 @@ export default function ItineraryScreen() {
                 })}
               </View>
 
-              {/* 6. Nhịp độ di chuyển */}
-              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>6. Nhịp độ hành trình</Text>
-              <View style={{ gap: 6 }}>
-                {PACING_OPTIONS.map(p => (
-                  <TouchableOpacity
-                    key={p.id}
-                    style={[styles.budgetRow, aiPacing === p.id && styles.budgetRowActive]}
-                    onPress={() => setAiPacing(p.id)}>
-                    <Text style={[styles.choiceCardText, aiPacing === p.id && styles.choiceCardTextActive]}>
-                      {p.label}
-                    </Text>
-                    <FontAwesome
-                      name={aiPacing === p.id ? 'dot-circle-o' : 'circle-o'}
-                      size={16}
-                      color={aiPacing === p.id ? WF_COLORS.primary : WF_COLORS.slate400}
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* 7. Ghi chú cá nhân hóa riêng cho AI */}
-              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>7. Ghi chú riêng cho AI</Text>
+              {/* 6. Ghi chú cá nhân hóa riêng cho AI */}
+              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>6. Ghi chú riêng cho AI</Text>
               <TextInput
                 style={[styles.modalInput, { height: 75, textAlignVertical: 'top' }]}
                 placeholder="VD: Đi cùng người lớn tuổi ít leo trèo, thích ăn chay, muốn săn hoàng hôn..."

@@ -98,15 +98,24 @@ export interface PostItem {
 
 export interface ItineraryItem {
   id: number;
+  creatorId?: number;
+  creatorName?: string;
+  creatorEmail?: string;
+  creatorAvatar?: string;
   title: string;
   destination: string;
   startDate?: string;
   endDate?: string;
   daysCount?: number;
   budget?: number;
+  budgetTotal?: number;
+  coverImageUrl?: string;
+  isAiGenerated?: boolean;
   status?: string;
+  groupType?: string;
   coverImage?: string;
   authorName?: string;
+  details?: ItineraryDetailItem[];
 }
 
 // ─── AUTH API ──────────────────────────────────────────────

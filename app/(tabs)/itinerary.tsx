@@ -357,13 +357,35 @@ export default function ItineraryScreen() {
       return;
     }
 
-    try {
-      await itineraryApi.cloneItinerary(itin.id);
-      Alert.alert('Thành công', `Đã sao chép chuyến đi "${itin.title}" vào danh sách của bạn.`);
-      fetchItineraries();
-    } catch (err: any) {
-      Alert.alert('Lỗi sao chép', err.response?.data?.message || err.message || 'Không thể sao chép lịch trình.');
+    const isOwner =
+      (itin.creatorId && session.id && itin.creatorId === session.id) ||
+      (itin.creatorEmail && session.email && itin.creatorEmail === session.email) ||
+      (itin.creatorName && session.fullName && itin.creatorName === session.fullName);
+
+    if (isOwner) {
+      Alert.alert('Thông báo', 'Bạn là tác giả của lịch trình này nên không thể tự sao chép!');
+      return;
     }
+
+    Alert.alert(
+      'Xác nhận sao chép',
+      `Bạn có chắc chắn muốn sao chép chuyến đi "${itin.title}" vào kho của bạn không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Sao chép',
+          onPress: async () => {
+            try {
+              await itineraryApi.cloneItinerary(itin.id);
+              Alert.alert('Thành công 🎉', `Đã sao chép chuyến đi "${itin.title}" vào kho của bạn.`);
+              fetchItineraries();
+            } catch (err: any) {
+              Alert.alert('Lỗi sao chép', err.response?.data?.message || err.message || 'Không thể sao chép lịch trình.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteTrip = (itin: ItineraryItem) => {
@@ -789,6 +811,12 @@ Ví dụ chuẩn:
     const isUpcoming = (item.status || '').toLowerCase() === 'upcoming' || (item.status || '').toLowerCase() === 'active';
     const isCompleted = (item.status || '').toLowerCase() === 'completed';
 
+    const isOwner = Boolean(
+      (currentUser?.id && item.creatorId === currentUser.id) ||
+      (currentUser?.email && item.creatorEmail === currentUser.email) ||
+      (currentUser?.fullName && item.creatorName === currentUser.fullName)
+    );
+
     return (
       <View style={styles.cardContainer}>
         {/* Cover Image & Overlays */}
@@ -835,7 +863,7 @@ Ví dụ chuẩn:
         <View style={styles.cardBody}>
           <TouchableOpacity activeOpacity={0.85} onPress={() => handleOpenDetail(item)}>
             <Text style={styles.cardTitle} numberOfLines={2}>
-              {(item.title || '').replace(/^\[Sao chép\]\s*/i, '')}
+              {item.title}
             </Text>
           </TouchableOpacity>
 
@@ -865,12 +893,14 @@ Ví dụ chuẩn:
             </TouchableOpacity>
 
             <View style={styles.cardIconActions}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.actionIconBtn}
-                onPress={() => handleCloneTrip(item)}>
-                <FontAwesome name="clone" size={14} color={WF_COLORS.slate600} />
-              </TouchableOpacity>
+              {!isOwner && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.actionIconBtn}
+                  onPress={() => handleCloneTrip(item)}>
+                  <FontAwesome name="clone" size={14} color={WF_COLORS.slate600} />
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 activeOpacity={0.8}

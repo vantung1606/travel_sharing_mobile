@@ -186,7 +186,7 @@ export function ItineraryDetailModal({
             <FontAwesome name="chevron-left" size={14} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.navTitle} numberOfLines={1}>
-            {(fullItin?.title || 'Chi tiết chuyến đi').replace(/^\[Sao chép\]\s*/i, '')}
+            {fullItin?.title || 'Chi tiết chuyến đi'}
           </Text>
           <TouchableOpacity style={styles.circleBtn} onPress={handleShareTrip}>
             <FontAwesome name="share-alt" size={14} color="#0F172A" />
@@ -227,7 +227,7 @@ export function ItineraryDetailModal({
               </View>
 
               <Text style={styles.heroTitle} numberOfLines={3}>
-                {(fullItin?.title || '').replace(/^\[Sao chép\]\s*/i, '')}
+                {fullItin?.title}
               </Text>
             </View>
 

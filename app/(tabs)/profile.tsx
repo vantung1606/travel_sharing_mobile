@@ -17,12 +17,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
 import {
   authApi,
   userApi,
   postApi,
   itineraryApi,
+  uploadApi,
   UserProfileItem,
   PostItem,
   ItineraryItem,
@@ -75,6 +77,8 @@ export default function ProfileScreen() {
   const [editBudget, setEditBudget] = useState<string>('Linh hoạt');
   const [editAvatarUrl, setEditAvatarUrl] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
+  const [isUploadingCover, setIsUploadingCover] = useState<boolean>(false);
 
   // Auth form (when logged out)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -266,6 +270,73 @@ export default function ProfileScreen() {
     }
   };
 
+  // ─── DEVICE IMAGE PICKERS (AVATAR & COVER) ────────────────
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh đại diện!');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+        setIsUploadingAvatar(true);
+        const uploaded = await uploadApi.uploadSingle(res.assets[0].uri);
+        if (uploaded) {
+          setEditAvatarUrl(uploaded);
+          await userApi.updateProfile({ avatarUrl: uploaded });
+          setProfileData((prev) => (prev ? { ...prev, avatarUrl: uploaded } : prev));
+          if (user) {
+            const newSession = { ...user, avatar: uploaded };
+            await authStorage.saveSession(newSession);
+            setUser(newSession);
+          }
+          Alert.alert('Thành công! 🎉', 'Đã tải ảnh đại diện từ thiết bị lên máy chủ thành công!');
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', 'Không thể tải ảnh đại diện: ' + (err.message || 'Vui lòng thử lại'));
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handlePickCover = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để đổi ảnh bìa!');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.85,
+      });
+
+      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+        setIsUploadingCover(true);
+        const uploaded = await uploadApi.uploadSingle(res.assets[0].uri);
+        if (uploaded) {
+          await userApi.updateProfile({ coverImageUrl: uploaded });
+          setProfileData((prev) => (prev ? { ...prev, coverImageUrl: uploaded } : prev));
+          Alert.alert('Thành công! 📸', 'Đã cập nhật ảnh bìa mới từ thiết bị thành công!');
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', 'Không thể tải ảnh bìa: ' + (err.message || 'Vui lòng thử lại'));
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
+
   // ─── CLONE ITINERARY HANDLER ───────────────────────────────
   const handleCloneItinerary = async (itin: ItineraryItem) => {
     try {
@@ -288,18 +359,22 @@ export default function ProfileScreen() {
   const activeFollowersCount = profileData?.followersCount || 0;
   const activeFollowingCount = profileData?.followingCount || 0;
 
-  const destinationsCount =
+  // Real database calculation: 0 when empty so XP is not artificially inflated to Gold
+  const calcDestinationsCount =
     typeof profileData?.destinationsCount === 'number'
       ? profileData.destinationsCount
       : itinsCount > 0
       ? Math.min(itinsCount * 2, 25)
       : 0;
 
+  // Visual display matching Web: {currentUser.destinationsCount || 24}
+  const displayDestinationsCount = profileData?.destinationsCount || 24;
+
   const userTotalXP = calculateUserXP({
     itinsCount,
     postsCount,
     followersCount: activeFollowersCount,
-    destinationsCount,
+    destinationsCount: calcDestinationsCount,
   });
 
   const currentTier: TierItem = getUserTier({
@@ -495,12 +570,19 @@ export default function ProfileScreen() {
             <Image source={{ uri: coverUrl }} style={styles.coverImage} />
             <View style={styles.coverOverlay} />
             <TouchableOpacity
-              onPress={() => setIsEditModalOpen(true)}
+              onPress={handlePickCover}
+              disabled={isUploadingCover}
               style={styles.coverEditBtn}
               activeOpacity={0.8}
             >
-              <FontAwesome name="camera" size={12} color="#FFFFFF" />
-              <Text style={styles.coverEditBtnText}>Đổi ảnh bìa</Text>
+              {isUploadingCover ? (
+                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 4 }} />
+              ) : (
+                <FontAwesome name="camera" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+              )}
+              <Text style={styles.coverEditBtnText}>
+                {isUploadingCover ? 'Đang tải...' : 'Đổi ảnh bìa'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -508,16 +590,30 @@ export default function ProfileScreen() {
           <View style={styles.profileInfoContent}>
             {/* Avatar & Main Row */}
             <View style={styles.avatarRow}>
-              {/* Avatar with Prestige Tier Frame */}
-              <View style={styles.avatarWrapper}>
+              {/* Avatar with Prestige Tier Frame and Device Picker */}
+              <TouchableOpacity
+                onPress={handlePickAvatar}
+                disabled={isUploadingAvatar}
+                style={styles.avatarWrapper}
+                activeOpacity={0.85}
+              >
                 <Image
                   source={{ uri: avatarUrl }}
                   style={[styles.avatarImage, { borderColor: currentTier.avatarRingColor }]}
                 />
+                {isUploadingAvatar ? (
+                  <View style={styles.avatarLoadingOverlay}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <View style={styles.avatarCameraBadge}>
+                    <FontAwesome name="camera" size={10} color="#FFFFFF" />
+                  </View>
+                )}
                 <View style={[styles.tierCornerBadge, { backgroundColor: currentTier.cornerBgColor }]}>
                   <Text style={styles.tierCornerText}>{currentTier.cornerIcon}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Action Buttons Top-Right */}
               <View style={styles.actionRow}>
@@ -588,41 +684,83 @@ export default function ProfileScreen() {
               <Text style={styles.bioText}>{displayBio}</Text>
             </View>
 
-            {/* Key Travel Metrics Bento Bar */}
-            <View style={styles.bentoBar}>
-              <View style={styles.bentoItem}>
-                <Text style={styles.bentoLabel}>Điểm Đến Đã Ghé</Text>
-                <Text style={styles.bentoValue}>
-                  {destinationsCount}{' '}
-                  <FontAwesome name="map-pin" size={12} color={WF_COLORS.primary} />
-                </Text>
-                <Text style={styles.bentoHint}>Dấu chân du lịch</Text>
+            {/* Key Travel Metrics Bento Bar - Full 6 items exactly matching Web */}
+            <View style={styles.bentoContainer}>
+              {/* Row 1 */}
+              <View style={styles.bentoRow}>
+                <TouchableOpacity
+                  onPress={() => setActiveTab('badges')}
+                  style={styles.bentoCard}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.bentoLabel}>Điểm Đến Đã Ghé</Text>
+                  <View style={styles.bentoValueRow}>
+                    <Text style={styles.bentoValue}>{displayDestinationsCount}</Text>
+                    <FontAwesome name="map-marker" size={13} color={WF_COLORS.primary} style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.bentoHint}>Bản đồ dấu chân →</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setActiveTab('itineraries')}
+                  style={[styles.bentoCard, styles.bentoCardBorder]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.bentoLabel}>Lịch Trình AI Đã Tạo</Text>
+                  <View style={styles.bentoValueRow}>
+                    <Text style={[styles.bentoValue, { color: WF_COLORS.primary }]}>{itinsCount}</Text>
+                    <FontAwesome name="magic" size={12} color="#F59E0B" style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.bentoHint}>Đã đồng bộ GPS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setActiveTab('posts')}
+                  style={[styles.bentoCard, styles.bentoCardBorder]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.bentoLabel}>Bài Đăng Cộng Đồng</Text>
+                  <View style={styles.bentoValueRow}>
+                    <Text style={[styles.bentoValue, { color: '#0284C7' }]}>{postsCount}</Text>
+                    <FontAwesome name="globe" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.bentoHint}>Đã đăng công khai</Text>
+                </TouchableOpacity>
               </View>
 
-              <View style={[styles.bentoItem, styles.bentoItemBorder]}>
-                <Text style={styles.bentoLabel}>Lịch Trình Đã Tạo</Text>
-                <Text style={[styles.bentoValue, { color: WF_COLORS.primary }]}>
-                  {itinsCount}{' '}
-                  <FontAwesome name="calendar" size={12} color="#F59E0B" />
-                </Text>
-                <Text style={styles.bentoHint}>Đã đồng bộ GPS</Text>
-              </View>
+              {/* Row 2 */}
+              <View style={[styles.bentoRow, styles.bentoRowBorderTop]}>
+                <View style={styles.bentoCard}>
+                  <Text style={styles.bentoLabel}>Người Theo Dõi</Text>
+                  <View style={styles.bentoValueRow}>
+                    <Text style={[styles.bentoValue, { color: '#0284C7' }]}>{activeFollowersCount}</Text>
+                    <FontAwesome name="users" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.bentoHint}>Xem kết nối</Text>
+                </View>
 
-              <View style={[styles.bentoItem, styles.bentoItemBorder]}>
-                <Text style={styles.bentoLabel}>Bài Viết Chia Sẻ</Text>
-                <Text style={[styles.bentoValue, { color: '#0284C7' }]}>
-                  {postsCount}{' '}
-                  <FontAwesome name="globe" size={12} color="#0284C7" />
-                </Text>
-                <Text style={styles.bentoHint}>Công khai</Text>
-              </View>
+                <View style={[styles.bentoCard, styles.bentoCardBorder]}>
+                  <Text style={styles.bentoLabel}>Đang Theo Dõi</Text>
+                  <View style={styles.bentoValueRow}>
+                    <Text style={[styles.bentoValue, { color: '#6366F1' }]}>{activeFollowingCount}</Text>
+                    <FontAwesome name="user-plus" size={12} color="#6366F1" style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.bentoHint}>Quản lý</Text>
+                </View>
 
-              <View style={[styles.bentoItem, styles.bentoItemBorder]}>
-                <Text style={styles.bentoLabel}>Cấp Độ Danh Dự</Text>
-                <Text style={[styles.bentoValue, { color: '#B45309', fontSize: 13 }]} numberOfLines={1}>
-                  {currentTier.icon} {currentTier.name}
-                </Text>
-                <Text style={[styles.bentoHint, { color: '#B45309' }]}>{userTotalXP} XP</Text>
+                <TouchableOpacity
+                  onPress={() => setActiveTab('badges')}
+                  style={[styles.bentoCard, styles.bentoCardBorder]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.bentoLabel}>Cấp Độ Danh Dự</Text>
+                  <View style={styles.bentoValueRow}>
+                    <Text style={[styles.bentoValue, { color: '#B45309', fontSize: 11 }]} numberOfLines={1}>
+                      {currentTier.icon} {currentTier.name}
+                    </Text>
+                  </View>
+                  <Text style={[styles.bentoHint, { color: '#B45309' }]}>{userTotalXP} XP • Khung &rarr;</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -1127,26 +1265,42 @@ export default function ProfileScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalBody}>
-              {/* Avatar Preview & URL */}
+              {/* Avatar Picker from Device */}
               <View style={styles.modalAvatarRow}>
-                <Image
-                  source={{
-                    uri:
-                      editAvatarUrl.trim() ||
-                      avatarUrl ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                  }}
-                  style={[styles.modalAvatarPreview, { borderColor: currentTier.avatarRingColor }]}
-                />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.inputLabel}>URL Ảnh Đại Diện</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="https://..."
-                    placeholderTextColor="#94A3B8"
-                    value={editAvatarUrl}
-                    onChangeText={setEditAvatarUrl}
+                <View style={styles.modalAvatarWrapper}>
+                  <Image
+                    source={{
+                      uri:
+                        editAvatarUrl.trim() ||
+                        avatarUrl ||
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                    }}
+                    style={[styles.modalAvatarPreview, { borderColor: currentTier.avatarRingColor }]}
                   />
+                  {isUploadingAvatar && (
+                    <View style={styles.modalAvatarLoadingOverlay}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    </View>
+                  )}
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.inputLabel}>Ảnh đại diện</Text>
+                  <TouchableOpacity
+                    onPress={handlePickAvatar}
+                    disabled={isUploadingAvatar}
+                    style={styles.pickImageBtn}
+                    activeOpacity={0.8}
+                  >
+                    {isUploadingAvatar ? (
+                      <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+                    ) : (
+                      <FontAwesome name="camera" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+                    )}
+                    <Text style={styles.pickImageBtnText}>
+                      {isUploadingAvatar ? 'Đang tải ảnh lên...' : 'Chọn ảnh từ thiết bị'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.pickImageHint}>Tải trực tiếp ảnh từ thư viện máy của bạn</Text>
                 </View>
               </View>
 
@@ -1525,41 +1679,77 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  // Key Travel Metrics Bento Bar
-  bentoBar: {
-    flexDirection: 'row',
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 43,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+
+  // Key Travel Metrics Bento Bar (6 items grid)
+  bentoContainer: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 4,
+    marginTop: 6,
+    overflow: 'hidden',
   },
-  bentoItem: {
+  bentoRow: {
+    flexDirection: 'row',
+  },
+  bentoRowBorderTop: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  bentoCard: {
     flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    paddingHorizontal: 4,
   },
-  bentoItemBorder: {
+  bentoCardBorder: {
     borderLeftWidth: 1,
     borderLeftColor: '#E2E8F0',
   },
   bentoLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#64748B',
     textAlign: 'center',
     marginBottom: 2,
   },
+  bentoValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bentoValue: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
   },
   bentoHint: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '600',
     color: '#94A3B8',
     marginTop: 2,
@@ -2153,6 +2343,44 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 2,
     backgroundColor: '#FFFFFF',
+  },
+  modalAvatarWrapper: {
+    position: 'relative',
+    width: 50,
+    height: 50,
+  },
+  modalAvatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 25,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    marginTop: 3,
+  },
+  pickImageBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.primary,
+  },
+  pickImageHint: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 3,
   },
   inputGroup: {
     gap: 4,

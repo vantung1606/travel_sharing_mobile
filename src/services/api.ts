@@ -350,6 +350,29 @@ export const userApi = {
   },
 };
 
+// ─── UPLOAD API ────────────────────────────────────────────
+export const uploadApi = {
+  async uploadSingle(uri: string, name?: string, type?: string): Promise<string> {
+    const filename = name || uri.split('/').pop() || `upload_${Date.now()}.jpg`;
+    const match = /\.(\w+)$/.exec(filename);
+    const mime = type || (match ? `image/${match[1]}` : 'image/jpeg');
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      name: filename,
+      type: mime,
+    } as any);
+
+    const res = await apiClient.post<ApiResponse<string>>('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return res.data.data;
+  },
+};
+
 export interface ItineraryDetailItem {
   id?: number;
   itineraryId?: number;

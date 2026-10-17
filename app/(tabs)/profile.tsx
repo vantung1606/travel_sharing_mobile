@@ -359,22 +359,31 @@ export default function ProfileScreen() {
   const activeFollowersCount = profileData?.followersCount || 0;
   const activeFollowingCount = profileData?.followingCount || 0;
 
-  // Real database calculation: 0 when empty so XP is not artificially inflated to Gold
-  const calcDestinationsCount =
-    typeof profileData?.destinationsCount === 'number'
-      ? profileData.destinationsCount
-      : itinsCount > 0
-      ? Math.min(itinsCount * 2, 25)
-      : 0;
-
-  // Visual display matching Web: {currentUser.destinationsCount || 24}
-  const displayDestinationsCount = profileData?.destinationsCount || 24;
+  // Dynamic calculation: extract unique destinations from user's actual itineraries & posts in database
+  const visitedDestinationsCount = React.useMemo(() => {
+    if (typeof profileData?.destinationsCount === 'number') {
+      return profileData.destinationsCount;
+    }
+    const uniqueDests = new Set<string>();
+    displayItineraries.forEach((i) => {
+      if (i.destination && i.destination.trim()) {
+        uniqueDests.add(i.destination.trim().toLowerCase());
+      }
+    });
+    displayPosts.forEach((p) => {
+      const loc = p.locationTag || p.locationName;
+      if (loc && loc.trim()) {
+        uniqueDests.add(loc.trim().toLowerCase());
+      }
+    });
+    return uniqueDests.size;
+  }, [profileData?.destinationsCount, displayItineraries, displayPosts]);
 
   const userTotalXP = calculateUserXP({
     itinsCount,
     postsCount,
     followersCount: activeFollowersCount,
-    destinationsCount: calcDestinationsCount,
+    destinationsCount: visitedDestinationsCount,
   });
 
   const currentTier: TierItem = getUserTier({
@@ -695,7 +704,7 @@ export default function ProfileScreen() {
                 >
                   <Text style={styles.bentoLabel}>Điểm Đến Đã Ghé</Text>
                   <View style={styles.bentoValueRow}>
-                    <Text style={styles.bentoValue}>{displayDestinationsCount}</Text>
+                    <Text style={styles.bentoValue}>{visitedDestinationsCount}</Text>
                     <FontAwesome name="map-marker" size={13} color={WF_COLORS.primary} style={{ marginLeft: 4 }} />
                   </View>
                   <Text style={styles.bentoHint}>Bản đồ dấu chân →</Text>

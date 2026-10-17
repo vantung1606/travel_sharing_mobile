@@ -74,16 +74,26 @@ export interface PostItem {
   id: number;
   title?: string;
   content: string;
+  authorId?: number;
   authorName?: string;
   authorAvatar?: string;
+  authorHandle?: string;
+  authorRole?: string;
+  authorTier?: string;
   category?: string;
   locationName?: string;
+  locationTag?: string;
   coverImage?: string;
+  imageUrl?: string;
   images?: string[];
   likesCount?: number;
+  likeCount?: number;
   commentsCount?: number;
+  commentCount?: number;
   isLiked?: boolean;
+  isBookmarked?: boolean;
   createdAt?: string;
+  timeAgo?: string;
 }
 
 export interface ItineraryItem {
@@ -164,11 +174,16 @@ export const placeApi = {
 export interface CommentItem {
   id: number;
   postId?: number;
+  authorId?: number;
+  authorName?: string;
+  authorAvatar?: string;
+  authorHandle?: string;
   userId?: number;
-  userName: string;
+  userName?: string;
   userAvatar?: string;
   content: string;
   createdAt: string;
+  timeAgo?: string;
   parentId?: number;
 }
 

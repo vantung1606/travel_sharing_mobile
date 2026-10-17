@@ -181,11 +181,18 @@ export default function CommunityScreen() {
     try {
       setSubmittingComment(true);
       const created = await postApi.addComment(activeCommentPostId, newCommentText.trim());
-      setCommentsList(prev => [...prev, created]);
+      const enrichedComment: CommentItem = {
+        ...created,
+        authorName: created?.authorName || session.fullName || session.name || 'Tôi',
+        authorAvatar: created?.authorAvatar || session.avatar || session.avatarUrl,
+        authorHandle: created?.authorHandle || session.handle,
+        timeAgo: 'Vừa xong',
+      };
+      setCommentsList(prev => [...prev, enrichedComment]);
       setNewCommentText('');
       setPosts(prev =>
         prev.map(p =>
-          p.id === activeCommentPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p
+          p.id === activeCommentPostId ? { ...p, commentsCount: (p.commentsCount || p.commentCount || 0) + 1 } : p
         )
       );
     } catch (err: any) {
@@ -237,9 +244,9 @@ export default function CommunityScreen() {
 
   const renderPost = ({ item }: { item: PostItem }) => {
     const avatarUrl = item.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-    const postImage = item.coverImage || (item.images && item.images.length > 0 ? item.images[0] : null);
+    const postImage = item.coverImage || item.imageUrl || (item.images && item.images.length > 0 ? item.images[0] : null);
     const isLiked = !!likedPosts[item.id];
-    const likes = likesCount[item.id] ?? (item.likesCount || 0);
+    const likes = likesCount[item.id] ?? (item.likesCount ?? item.likeCount ?? 0);
 
     return (
       <View style={styles.postCard}>
@@ -248,9 +255,9 @@ export default function CommunityScreen() {
           <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           <View style={styles.authorInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.authorName}>{item.authorName || 'Thành viên Wayfare'}</Text>
+              <Text style={styles.authorName}>{item.authorName || (item.authorHandle ? '@' + item.authorHandle : 'Thành viên Wayfare')}</Text>
               <View style={styles.tierPill}>
-                <Text style={styles.tierPillText}>Lữ Hành Bạc</Text>
+                <Text style={styles.tierPillText}>{item.authorTier || 'Thành viên'}</Text>
               </View>
             </View>
             {item.locationName ? (
@@ -496,23 +503,26 @@ export default function CommunityScreen() {
               </View>
             ) : (
               <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-                {commentsList.map((cmt) => (
-                  <View key={cmt.id} style={styles.commentRow}>
-                    <Image
-                      source={{ uri: cmt.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' }}
-                      style={styles.commentAvatar}
-                    />
-                    <View style={styles.commentContentBox}>
-                      <View style={styles.commentHeaderLine}>
-                        <Text style={styles.commentAuthor}>{cmt.userName || 'Thành viên'}</Text>
-                        <Text style={styles.commentTime}>
-                          {cmt.createdAt ? new Date(cmt.createdAt).toLocaleDateString('vi-VN') : ''}
-                        </Text>
+                {commentsList.map((cmt) => {
+                  const authorName = cmt.authorName || cmt.userName || (cmt.authorHandle ? '@' + cmt.authorHandle : 'Thành viên Wayfare');
+                  const avatar = cmt.authorAvatar || cmt.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80';
+                  const time = cmt.timeAgo || (cmt.createdAt ? new Date(cmt.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong');
+                  return (
+                    <View key={cmt.id} style={styles.commentRow}>
+                      <Image
+                        source={{ uri: avatar }}
+                        style={styles.commentAvatar}
+                      />
+                      <View style={styles.commentContentBox}>
+                        <View style={styles.commentHeaderLine}>
+                          <Text style={styles.commentAuthor}>{authorName}</Text>
+                          <Text style={styles.commentTime}>{time}</Text>
+                        </View>
+                        <Text style={styles.commentBodyText}>{cmt.content}</Text>
                       </View>
-                      <Text style={styles.commentBodyText}>{cmt.content}</Text>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </ScrollView>
             )}
 

@@ -263,11 +263,6 @@ export default function HomeScreen() {
       
       {/* ─── 1. HERO BANNER ────────────────────────────────────────────── */}
       <View style={styles.heroSection}>
-        <View style={styles.vipBadge}>
-          <FontAwesome name="diamond" size={12} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
-          <Text style={styles.vipBadgeText}>WAYFARE CONCIERGE • TRẢI NGHIỆM ĐẲNG CẤP</Text>
-        </View>
-
         <Text style={styles.heroTitle}>
           Khám Phá Việt Nam{'\n'}
           <Text style={styles.heroTitleHighlight}>Thiết Kế Hành Trình Độc Bản</Text>
@@ -466,10 +461,7 @@ export default function HomeScreen() {
       {/* ─── 4. FEATURED ITINERARIES SHOWCASE ─────────────────────────── */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionSuper}>BỘ SƯU TẬP ĐẶC SẮC</Text>
-            <Text style={styles.sectionTitle}>Lịch Trình Tiêu Biểu</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Lịch Trình Tiêu Biểu</Text>
           <TouchableOpacity onPress={() => router.push('/(tabs)/itinerary')}>
             <Text style={styles.viewAllText}>Xem tất cả →</Text>
           </TouchableOpacity>
@@ -534,10 +526,7 @@ export default function HomeScreen() {
       {/* ─── 5. HIDDEN GEMS (VIÊN NGỌC ẨN) ────────────────────────────── */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionSuper}>ĐỘC ĐÁO & BẢN ĐỊA</Text>
-            <Text style={styles.sectionTitle}>Viên Ngọc Ẩn Của Du Khách</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Viên Ngọc Ẩn Của Du Khách</Text>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.gemsScroll}>
@@ -564,10 +553,7 @@ export default function HomeScreen() {
       {/* ─── 6. INTERACTIVE SANDBOX DAY TIMELINE ───────────────────────── */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionSuper}>LỊCH TRÌNH MẪU ĐÀ LẠT 3N2Đ</Text>
-            <Text style={styles.sectionTitle}>Trải Nghiệm Từng Khung Giờ</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Lịch Trình Mẫu Theo Ngày</Text>
         </View>
 
         {/* Day switch tabs */}

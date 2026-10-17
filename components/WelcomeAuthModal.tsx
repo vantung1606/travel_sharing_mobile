@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { WF_COLORS } from '@/constants/Colors';
 import { authApi } from '@/src/services/api';
 import { UserSession } from '@/src/services/authStorage';
@@ -70,14 +72,33 @@ export function WelcomeAuthModal({
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      const session = await authApi.loginWithGoogle();
+      const redirectUri = Linking.createURL('oauth');
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&response_type=token%20id_token&scope=openid%20profile%20email&nonce=wayfare_${Date.now()}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      if (result.type === 'success' && result.url) {
+        const urlPart = result.url.includes('#') ? result.url.split('#')[1] : (result.url.split('?')[1] || '');
+        const params = new URLSearchParams(urlPart);
+        const token = params.get('id_token') || params.get('access_token');
+        if (token) {
+          const session = await authApi.loginWithGoogle(token);
+          Alert.alert('Đăng nhập thành công! 🎉', `Chào mừng ${session.fullName} đến với Wayfare!`);
+          onLoginSuccess(session);
+          return;
+        }
+      }
+
       Alert.alert(
-        'Đăng nhập Google thành công! 🌐',
-        `Chào mừng ${session.fullName}! Tài khoản Google đã được đồng bộ với hệ sinh thái Wayfare VIP.`
+        'Đăng nhập Google',
+        'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng. Bạn có thể đăng nhập hoặc đăng ký tài khoản nhanh bằng Email & Mật khẩu ngay phía trên.'
       );
-      onLoginSuccess(session);
     } catch (err: any) {
-      Alert.alert('Lỗi Google OAuth', err.message || 'Không thể đăng nhập Google lúc này.');
+      Alert.alert(
+        'Đăng nhập Google',
+        err.message || 'Không thể mở trình duyệt xác thực Google. Vui lòng sử dụng Đăng nhập bằng Email!'
+      );
     } finally {
       setGoogleLoading(false);
     }
@@ -93,19 +114,15 @@ export function WelcomeAuthModal({
           contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}>
           
-          {/* VIP Brand Header */}
+          {/* Brand Header */}
           <View style={styles.brandHeader}>
             <Image
               source={require('@/assets/images/wayfare-logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
-            <View style={styles.vipTagPill}>
-              <FontAwesome name="diamond" size={11} color="#0284C7" style={{ marginRight: 5 }} />
-              <Text style={styles.vipTagText}>WAYFARE LUXURY TRAVEL • ECOSYSTEM</Text>
-            </View>
             <Text style={styles.brandSlogan}>
-              Trải nghiệm du lịch thông minh, kết nối cộng đồng & lên kế hoạch tự động chuẩn Web
+              Trải nghiệm du lịch thông minh, kết nối cộng đồng & lên kế hoạch hành trình
             </Text>
           </View>
 
@@ -230,23 +247,6 @@ export function WelcomeAuthModal({
             )}
           </View>
 
-          {/* VIP Benefits Privileges */}
-          <View style={styles.privilegesSection}>
-            <Text style={styles.privilegeTitle}>ĐẶC QUYỀN HỘI VIÊN WAYFARE VIP</Text>
-            <View style={styles.privilegeRow}>
-              <FontAwesome name="check-circle" size={14} color="#10B981" style={{ marginRight: 8, marginTop: 2 }} />
-              <Text style={styles.privilegeText}>Đồng bộ tức thời lịch trình du lịch cá nhân từ bản Web sang App.</Text>
-            </View>
-            <View style={styles.privilegeRow}>
-              <FontAwesome name="check-circle" size={14} color="#10B981" style={{ marginRight: 8, marginTop: 2 }} />
-              <Text style={styles.privilegeText}>Trợ lý AI Concierge tư vấn lộ trình ăn chơi, check-in 24/7 không giới hạn.</Text>
-            </View>
-            <View style={styles.privilegeRow}>
-              <FontAwesome name="check-circle" size={14} color="#10B981" style={{ marginRight: 8, marginTop: 2 }} />
-              <Text style={styles.privilegeText}>Lưu trữ không giới hạn điểm đến, bài viết chia sẻ và huy hiệu lữ hành.</Text>
-            </View>
-          </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
@@ -270,23 +270,6 @@ const styles = StyleSheet.create({
     width: 160,
     height: 48,
     marginBottom: 8,
-  },
-  vipTagPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    marginBottom: 10,
-  },
-  vipTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0284C7',
-    letterSpacing: 0.8,
   },
   brandSlogan: {
     fontSize: 12,
@@ -457,33 +440,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0284C7',
-  },
-
-  privilegesSection: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 18,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  privilegeTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  privilegeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  privilegeText: {
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 17,
-    flex: 1,
   },
 });

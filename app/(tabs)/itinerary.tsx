@@ -239,7 +239,7 @@ export default function ItineraryScreen() {
   const dayDetails = selectedItinerary?.details?.filter(d => (d.dayNumber || 1) === selectedDay) || [];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <FlatList
         data={itineraries}
         keyExtractor={(item) => String(item.id)}
@@ -580,7 +580,7 @@ export default function ItineraryScreen() {
           </View>
         </Modal>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { WF_COLORS } from '@/constants/Colors';
 import { authApi, API_BASE_URL } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
@@ -79,11 +81,30 @@ export default function ProfileScreen() {
   const handleGoogleLogin = async () => {
     try {
       setSubmitting(true);
-      const session = await authApi.loginWithGoogle();
-      setUser(session);
-      Alert.alert('Thành công! 🎉', `Đăng nhập Google thành công, xin chào ${session.fullName}!`);
+      const redirectUri = Linking.createURL('oauth');
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&response_type=token%20id_token&scope=openid%20profile%20email&nonce=wayfare_${Date.now()}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      if (result.type === 'success' && result.url) {
+        const urlPart = result.url.includes('#') ? result.url.split('#')[1] : (result.url.split('?')[1] || '');
+        const params = new URLSearchParams(urlPart);
+        const token = params.get('id_token') || params.get('access_token');
+        if (token) {
+          const session = await authApi.loginWithGoogle(token);
+          setUser(session);
+          Alert.alert('Thành công! 🎉', `Đăng nhập Google thành công, xin chào ${session.fullName}!`);
+          return;
+        }
+      }
+
+      Alert.alert(
+        'Đăng nhập Google',
+        'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng. Bạn có thể sử dụng Đăng nhập/Đăng ký tài khoản bằng Email bên trên.'
+      );
     } catch (e: any) {
-      Alert.alert('Lỗi', e.message || 'Không thể đăng nhập Google');
+      Alert.alert('Lỗi', e.message || 'Không thể đăng nhập Google lúc này.');
     } finally {
       setSubmitting(false);
     }

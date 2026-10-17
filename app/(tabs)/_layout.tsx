@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
 import { Image, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_COLORS } from '@/constants/Colors';
 import { ChatModal } from '@/components/ChatModal';
+import { NotificationModal } from '@/components/NotificationModal';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { notificationApi } from '@/src/services/api';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -23,17 +25,39 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
+
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const count = await notificationApi.getUnreadCount();
+      setUnreadNotifCount(count);
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   useEffect(() => {
     authStorage.getSession().then((session) => {
       setCurrentUser(session);
       if (!session) {
         setIsAuthOpen(true);
+      } else {
+        refreshUnreadCount();
       }
     });
-  }, []);
+  }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentUser) {
+        refreshUnreadCount();
+      }
+    }, 25000);
+    return () => clearInterval(interval);
+  }, [currentUser, refreshUnreadCount]);
 
   return (
     <>
@@ -81,8 +105,29 @@ export default function TabLayout() {
                 />
               </TouchableOpacity>
 
-              {/* Action Buttons: Chat & Profile */}
+              {/* Action Buttons: Notification, Chat & Profile */}
               <View style={styles.headerRightActions}>
+                {/* Nút Chuông Thông Báo */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (currentUser) {
+                      setIsNotificationOpen(true);
+                    } else {
+                      setIsAuthOpen(true);
+                    }
+                  }}
+                  style={styles.notifHeaderBtn}>
+                  <FontAwesome name="bell-o" size={18} color={WF_COLORS.slate700} />
+                  {unreadNotifCount > 0 && (
+                    <View style={styles.notifBadge}>
+                      <Text style={styles.notifBadgeText}>
+                        {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
                 {/* Nút Trò chuyện / Chat */}
                 <TouchableOpacity
                   activeOpacity={0.8}
@@ -173,12 +218,26 @@ export default function TabLayout() {
       {/* Modal Trò chuyện trực tuyến (Tin nhắn & Trợ lý AI) */}
       <ChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
+      {/* Modal Thông Báo Thời Gian Thực */}
+      <NotificationModal
+        visible={isNotificationOpen}
+        onClose={() => {
+          setIsNotificationOpen(false);
+          refreshUnreadCount();
+        }}
+        onNotificationRead={refreshUnreadCount}
+        onOpenChat={() => {
+          setIsChatOpen(true);
+        }}
+      />
+
       {/* Màn hình Xác thực Chào mừng / Đăng nhập VIP (Google & Email) */}
       <WelcomeAuthModal
         visible={isAuthOpen}
         onLoginSuccess={(sess) => {
           setCurrentUser(sess);
           setIsAuthOpen(false);
+          refreshUnreadCount();
         }}
         onContinueAsGuest={() => setIsAuthOpen(false)}
       />
@@ -241,4 +300,35 @@ const styles = StyleSheet.create({
   avatarHeaderBtn: {
     padding: 2,
   },
+  notifHeaderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  notifBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
 });
+

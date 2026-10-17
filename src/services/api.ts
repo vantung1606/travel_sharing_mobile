@@ -695,4 +695,91 @@ export const chatApi = {
   },
 };
 
+export interface NotificationDto {
+  id: number;
+  recipientId?: number;
+  actorId?: number;
+  actorName?: string;
+  actorHandle?: string;
+  actorAvatar?: string;
+  type: string;
+  message: string;
+  targetUrl?: string;
+  isRead: boolean;
+  time?: string;
+  createdAt?: string;
+}
+
+export const notificationApi = {
+  async getNotifications(email?: string): Promise<NotificationDto[]> {
+    const session = await authStorage.getSession();
+    const targetEmail = email || session?.email;
+    try {
+      const res = await apiClient.get<NotificationDto[]>('/notifications', {
+        params: targetEmail ? { email: targetEmail } : undefined,
+      });
+      return res.data || [];
+    } catch (e) {
+      console.warn('Failed to fetch notifications:', e);
+      return [];
+    }
+  },
+
+  async getUnreadCount(email?: string): Promise<number> {
+    const session = await authStorage.getSession();
+    const targetEmail = email || session?.email;
+    try {
+      const res = await apiClient.get<{ unreadCount: number }>('/notifications/unread-count', {
+        params: targetEmail ? { email: targetEmail } : undefined,
+      });
+      return res.data?.unreadCount ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  },
+
+  async markAsRead(id: number, email?: string): Promise<NotificationDto | null> {
+    const session = await authStorage.getSession();
+    const targetEmail = email || session?.email;
+    try {
+      const res = await apiClient.put<NotificationDto>(`/notifications/${id}/read`, null, {
+        params: targetEmail ? { email: targetEmail } : undefined,
+      });
+      return res.data;
+    } catch (e) {
+      console.warn(`Failed to mark notification ${id} as read:`, e);
+      return null;
+    }
+  },
+
+  async markAllAsRead(email?: string): Promise<boolean> {
+    const session = await authStorage.getSession();
+    const targetEmail = email || session?.email;
+    try {
+      await apiClient.put('/notifications/read-all', null, {
+        params: targetEmail ? { email: targetEmail } : undefined,
+      });
+      return true;
+    } catch (e) {
+      console.warn('Failed to mark all notifications as read:', e);
+      return false;
+    }
+  },
+
+  async deleteNotification(id: number, email?: string): Promise<boolean> {
+    const session = await authStorage.getSession();
+    const targetEmail = email || session?.email;
+    try {
+      await apiClient.delete(`/notifications/${id}`, {
+        params: targetEmail ? { email: targetEmail } : undefined,
+      });
+      return true;
+    } catch (e) {
+      console.warn(`Failed to delete notification ${id}:`, e);
+      return false;
+    }
+  },
+};
+
 export default apiClient;
+

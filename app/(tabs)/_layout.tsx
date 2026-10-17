@@ -7,7 +7,7 @@ import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
+  color: any;
 }) {
   return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
 }

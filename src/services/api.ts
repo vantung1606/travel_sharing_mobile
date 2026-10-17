@@ -579,6 +579,8 @@ export interface ChatMessage {
   messageType?: 'TEXT' | 'IMAGE' | 'VOICE' | 'ITINERARY';
   createdAt?: string;
   isMe?: boolean;
+  imageUrl?: string;
+  itineraryData?: any;
 }
 
 export interface ChatRoom {

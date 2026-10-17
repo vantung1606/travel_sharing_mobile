@@ -16,17 +16,21 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
+import { ChatModal } from '@/components/ChatModal';
 import {
   itineraryApi,
   ItineraryItem,
   ItineraryDetailItem,
 } from '@/src/services/api';
-import { authStorage } from '@/src/services/authStorage';
+import { authStorage, UserSession } from '@/src/services/authStorage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
@@ -98,14 +102,21 @@ function formatCurrency(num: number | string): string {
 }
 
 export default function ItineraryScreen() {
-  // ─── MAIN STATE ──────────────────────────────────────────
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  // ─── FLOATING NAVBAR DYNAMIC STATE ───────────────────────
+  const [isScrolled, setIsScrolled] = useState<boolean>(false);
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
+
+  // ─── MAIN DATA STATE ─────────────────────────────────────
   const [itineraries, setItineraries] = useState<ItineraryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'drafts' | 'all'>('upcoming');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilterTag, setActiveFilterTag] = useState<'all' | 'ai' | 'group' | 'family'>('all');
-  const [currentEmail, setCurrentEmail] = useState<string>('');
 
   // ─── MODAL DETAIL STATE ──────────────────────────────────
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
@@ -170,11 +181,10 @@ export default function ItineraryScreen() {
   const fetchItineraries = useCallback(async () => {
     try {
       const session = await authStorage.getSession();
-      setCurrentEmail(session?.email || '');
+      setCurrentUser(session);
 
       let list: ItineraryItem[] = [];
       if (session?.email) {
-        // Chỉ lấy đúng lịch trình thuộc sở hữu của người dùng đang đăng nhập trong CSDL
         list = await itineraryApi.getMyItineraries();
       } else {
         list = [];
@@ -191,13 +201,30 @@ export default function ItineraryScreen() {
 
   useEffect(() => {
     setLoading(true);
+    authStorage.getSession().then((session) => {
+      setCurrentUser(session);
+    });
     fetchItineraries();
   }, [fetchItineraries]);
 
   const onRefresh = () => {
     setRefreshing(true);
+    authStorage.getSession().then((session) => {
+      setCurrentUser(session);
+    });
     fetchItineraries();
   };
+
+  // ─── SCROLL HANDLER ĐỂ THAY ĐỔI NAVBAR TRONG SUỐT / NỀN TRẮNG (KHỚP 100% VỚI WEB) ───
+  const isScrolledRef = React.useRef<boolean>(false);
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    const shouldBeScrolled = scrollY > 20;
+    if (shouldBeScrolled !== isScrolledRef.current) {
+      isScrolledRef.current = shouldBeScrolled;
+      setIsScrolled(shouldBeScrolled);
+    }
+  }, []);
 
   // ─── STATS DASHBOARD KPIS ────────────────────────────────
   const statsKPI = useMemo(() => {
@@ -448,7 +475,6 @@ export default function ItineraryScreen() {
       const days = Number(manualDays) || 3;
       const rawBudget = parseFloat(manualBudgetFormatted.replace(/,/g, '')) || 4000000;
 
-      // Tạo các activity mẫu chuẩn bị lưu
       const sampleActivities: ItineraryDetailItem[] = [];
       const times = ['08:30', '11:30', '14:30', '18:30'];
       const actTitles = [
@@ -721,7 +747,94 @@ export default function ItineraryScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isScrolled ? 'dark-content' : 'light-content'}
+      />
+
+      {/* ─── DYNAMIC FLOATING NAVBAR (TRONG SUỐT Ở TRÊN CÙNG, TRƯỢT XUỐNG ĐỔI THÀNH NỀN TRẮNG) ─── */}
+      <View
+        style={[
+          styles.floatingNavbar,
+          {
+            paddingTop: insets.top + 6,
+            height: 52 + insets.top + 6,
+            backgroundColor: isScrolled ? '#FFFFFF' : 'transparent',
+            borderBottomWidth: isScrolled ? 1 : 0,
+            borderBottomColor: '#E2E8F0',
+            shadowOpacity: isScrolled ? 0.08 : 0,
+            elevation: isScrolled ? 4 : 0,
+          },
+        ]}>
+        {/* Brand Logo - Tự động đổi màu trắng/màu gốc theo vị trí cuộn */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/(tabs)')}
+          style={styles.navLogoWrapper}>
+          <Image
+            source={
+              isScrolled
+                ? require('@/assets/images/wayfare-logo.png')
+                : require('@/assets/images/wayfare-logo-white.png')
+            }
+            style={styles.navHeaderLogo}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+
+        {/* Action Buttons: Chat & Profile Avatar */}
+        <View style={styles.navRightActions}>
+          {/* Nút Chat */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setIsChatOpen(true)}
+            style={[
+              styles.navChatBtn,
+              {
+                backgroundColor: isScrolled ? '#F0F9FF' : 'rgba(255, 255, 255, 0.18)',
+                borderColor: isScrolled ? '#BAE6FD' : 'rgba(255, 255, 255, 0.35)',
+              },
+            ]}>
+            <FontAwesome
+              name="comments"
+              size={14}
+              color={isScrolled ? WF_COLORS.primary : '#FFFFFF'}
+              style={{ marginRight: 5 }}
+            />
+            <Text
+              style={[
+                styles.navChatBtnText,
+                { color: isScrolled ? WF_COLORS.primary : '#FFFFFF' },
+              ]}>
+              Chat
+            </Text>
+            <View style={styles.navLiveDot} />
+          </TouchableOpacity>
+
+          {/* Avatar Người Dùng */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push('/(tabs)/profile')}
+            style={styles.navAvatarBtn}>
+            {currentUser?.avatar ? (
+              <Image
+                source={{ uri: currentUser.avatar }}
+                style={[
+                  styles.navAvatarImg,
+                  { borderColor: isScrolled ? WF_COLORS.primary : '#FFFFFF' },
+                ]}
+              />
+            ) : (
+              <FontAwesome
+                name="user-circle"
+                size={28}
+                color={isScrolled ? WF_COLORS.slate700 : '#FFFFFF'}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <FlatList
         data={filteredItineraries}
@@ -729,11 +842,20 @@ export default function ItineraryScreen() {
         renderItem={renderItineraryCard}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
         ListHeaderComponent={
           <View style={styles.headerContainer}>
-            {/* ─── 1. FULL-BLEED TRANSPARENT HERO BANNER ──────── */}
-            <View style={styles.heroBox}>
+            {/* ─── 1. FULL-BLEED TRANSPARENT HERO BANNER (ẢNH TRÀN LÊN TẬN ĐỈNH) ─── */}
+            <View
+              style={[
+                styles.heroBox,
+                {
+                  height: 270 + insets.top,
+                  paddingTop: insets.top + 54,
+                },
+              ]}>
               <Image
                 source={{ uri: COVER_PRESETS[0].url }}
                 style={styles.heroBackdrop}
@@ -747,7 +869,7 @@ export default function ItineraryScreen() {
                   Lịch Trình Du Lịch
                 </Text>
 
-                {/* Subtitle rút ngắn theo yêu cầu */}
+                {/* Subtitle ngắn gọn */}
                 <Text style={styles.heroSubtitle}>
                   Tổ chức chuyến đi và kiến tạo lịch trình cùng AI.
                 </Text>
@@ -1532,6 +1654,9 @@ export default function ItineraryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ─── MODAL TRÒ CHUYỆN (CHAT & AI ASSISTANT) ─────────────── */}
+      <ChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </View>
   );
 }
@@ -1549,15 +1674,73 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  // Dynamic Floating Navbar
+  floatingNavbar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 99,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+  },
+  navLogoWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 38,
+  },
+  navHeaderLogo: {
+    width: 125,
+    height: 34,
+  },
+  navRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  navChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  navChatBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
+  },
+  navLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginLeft: 5,
+  },
+  navAvatarBtn: {
+    padding: 2,
+  },
+  navAvatarImg: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1.5,
+  },
+
   // 1. Full-Bleed Transparent Hero
   heroBox: {
     position: 'relative',
-    height: 260,
     backgroundColor: '#031726',
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingBottom: 22,
-    paddingTop: (StatusBar.currentHeight || 20) + 10,
   },
   heroBackdrop: {
     position: 'absolute',

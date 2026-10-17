@@ -130,6 +130,7 @@ export default function TabLayout() {
           name="itinerary"
           options={{
             title: 'Lịch trình',
+            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
           }}
         />

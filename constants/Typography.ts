@@ -1,5 +1,4 @@
-import React from 'react';
-import { Text, TextInput, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 /**
  * Standard Times New Roman / Serif font resolution across platforms:
@@ -12,47 +11,21 @@ export const SERIF_FONT = Platform.select({
   android: 'serif',
   web: 'Times New Roman, serif',
   default: 'serif',
-});
-
-// Flag to ensure single patching
-let isTypographyPatched = false;
+}) || 'serif';
 
 /**
- * Globally apply Times New Roman typography to all React Native Text & TextInput elements.
+ * Safe initializer for typography
  */
 export function applyGlobalSerifTypography() {
-  if (isTypographyPatched) return;
-  isTypographyPatched = true;
-
   try {
-    const OriginalText = Text as any;
-    if (OriginalText && !OriginalText.__serifApplied) {
-      const PatchedText = function (props: any) {
-        return React.createElement(OriginalText, {
-          ...props,
-          style: [{ fontFamily: SERIF_FONT }, props?.style],
-        });
-      };
-      Object.setPrototypeOf(PatchedText, OriginalText);
-      Object.assign(PatchedText, OriginalText);
-      PatchedText.__serifApplied = true;
-      (Text as any) = PatchedText;
+    const RN = require('react-native');
+    if (RN?.Text && typeof RN.Text === 'object' && RN.Text.defaultProps) {
+      RN.Text.defaultProps.style = [{ fontFamily: SERIF_FONT }, RN.Text.defaultProps.style];
     }
-
-    const OriginalTextInput = TextInput as any;
-    if (OriginalTextInput && !OriginalTextInput.__serifApplied) {
-      const PatchedTextInput = React.forwardRef(function (props: any, ref: any) {
-        return React.createElement(OriginalTextInput, {
-          ...props,
-          ref,
-          style: [{ fontFamily: SERIF_FONT }, props?.style],
-        });
-      });
-      Object.setPrototypeOf(PatchedTextInput, OriginalTextInput);
-      (PatchedTextInput as any).__serifApplied = true;
-      (TextInput as any) = PatchedTextInput;
+    if (RN?.TextInput && typeof RN.TextInput === 'object' && RN.TextInput.defaultProps) {
+      RN.TextInput.defaultProps.style = [{ fontFamily: SERIF_FONT }, RN.TextInput.defaultProps.style];
     }
-  } catch (e) {
-    console.warn('Could not patch global typography:', e);
+  } catch {
+    // Safe fallback for Hermes
   }
 }

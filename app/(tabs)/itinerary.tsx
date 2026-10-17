@@ -134,15 +134,17 @@ export default function ItineraryScreen() {
       setCurrentEmail(session?.email || '');
 
       let list: ItineraryItem[] = [];
-      try {
-        list = await itineraryApi.getAllItineraries();
-      } catch (err) {
-        console.warn('getAllItineraries fallback, trying getMyItineraries', err);
+      if (session?.email) {
+        // Chỉ lấy đúng lịch trình thuộc sở hữu của người dùng trong CSDL MySQL
         list = await itineraryApi.getMyItineraries();
+      } else {
+        // Chưa đăng nhập -> danh sách trống
+        list = [];
       }
       setItineraries(list || []);
     } catch (e) {
-      console.warn('Fetch itineraries error:', e);
+      console.warn('Fetch my itineraries error:', e);
+      setItineraries([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -706,19 +708,14 @@ export default function ItineraryScreen() {
                     activeOpacity={0.88}
                     style={styles.aiCtaBtn}
                     onPress={() => setAiModalVisible(true)}>
-                    <FontAwesome name="magic" size={13} color="#FEF08A" style={{ marginRight: 6 }} />
-                    <Text style={styles.aiCtaBtnText}>Lập Tour Bằng AI (30s) ✨</Text>
-                    <View style={styles.freeBadge}>
-                      <Text style={styles.freeBadgeText}>FREE</Text>
-                    </View>
+                    <Text style={styles.aiCtaBtnText}>Lập tour AI</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     activeOpacity={0.88}
                     style={styles.manualCtaBtn}
                     onPress={() => setManualModalVisible(true)}>
-                    <FontAwesome name="plus" size={12} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.manualCtaBtnText}>+ Tạo Thủ Công</Text>
+                    <Text style={styles.manualCtaBtnText}>Tạo thủ công</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -876,15 +873,14 @@ export default function ItineraryScreen() {
               <View style={styles.emptyIconCircle}>
                 <FontAwesome name="suitcase" size={36} color={WF_COLORS.primary} />
               </View>
-              <Text style={styles.emptyTitle}>Chưa có lịch trình phù hợp</Text>
+              <Text style={styles.emptyTitle}>Chưa có lịch trình</Text>
               <Text style={styles.emptySubtitle}>
-                Bấm vào nút "Lập Tour Bằng AI (30s) ✨" hoặc "+ Tạo Thủ Công" bên trên để bắt đầu ngay!
+                Bấm vào nút "Lập tour AI" hoặc "Tạo thủ công" bên trên để bắt đầu kế hoạch chuyến đi của bạn nhé!
               </Text>
               <TouchableOpacity
                 style={styles.emptyActionBtn}
                 onPress={() => setAiModalVisible(true)}>
-                <FontAwesome name="magic" size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.emptyActionBtnText}>Tạo Lịch Trình Với AI</Text>
+                <Text style={styles.emptyActionBtnText}>Lập tour AI</Text>
               </TouchableOpacity>
             </View>
           )
@@ -1102,10 +1098,7 @@ export default function ItineraryScreen() {
         <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesome name="magic" size={18} color="#0284C7" style={{ marginRight: 8 }} />
-              <Text style={styles.modalHeaderTitle}>Lập Tour Bằng AI (30s) ✨</Text>
-            </View>
+            <Text style={styles.modalHeaderTitle}>Lập Tour AI</Text>
             {!isAiGenerating && (
               <TouchableOpacity onPress={() => setAiModalVisible(false)}>
                 <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
@@ -1234,8 +1227,7 @@ export default function ItineraryScreen() {
                 activeOpacity={0.88}
                 style={styles.submitAiBtn}
                 onPress={handleStartAIGeneration}>
-                <FontAwesome name="magic" size={15} color="#FEF08A" style={{ marginRight: 8 }} />
-                <Text style={styles.submitAiBtnText}>Tạo Tour Bằng AI (30s) ✨</Text>
+                <Text style={styles.submitAiBtnText}>Lập tour AI</Text>
               </TouchableOpacity>
             </ScrollView>
           )}

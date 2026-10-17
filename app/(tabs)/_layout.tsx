@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
 import { Image, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_COLORS } from '@/constants/Colors';
 import { ChatModal } from '@/components/ChatModal';
+import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
+import { authStorage, UserSession } from '@/src/services/authStorage';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -17,6 +19,17 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    authStorage.getSession().then((session) => {
+      setCurrentUser(session);
+      if (!session) {
+        setIsAuthOpen(true);
+      }
+    });
+  }, []);
 
   return (
     <>
@@ -78,9 +91,22 @@ export default function TabLayout() {
                 {/* Nút Profile Avatar */}
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={() => router.push('/(tabs)/profile')}
+                  onPress={() => {
+                    if (currentUser) {
+                      router.push('/(tabs)/profile');
+                    } else {
+                      setIsAuthOpen(true);
+                    }
+                  }}
                   style={styles.avatarHeaderBtn}>
-                  <FontAwesome name="user-circle" size={24} color={WF_COLORS.slate700} />
+                  {currentUser?.avatar ? (
+                    <Image
+                      source={{ uri: currentUser.avatar }}
+                      style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: WF_COLORS.primary }}
+                    />
+                  ) : (
+                    <FontAwesome name="user-circle" size={24} color={WF_COLORS.slate700} />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -131,6 +157,16 @@ export default function TabLayout() {
 
       {/* Modal Trò chuyện trực tuyến (Tin nhắn & Trợ lý AI) */}
       <ChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
+
+      {/* Màn hình Xác thực Chào mừng / Đăng nhập VIP (Google & Email) */}
+      <WelcomeAuthModal
+        visible={isAuthOpen}
+        onLoginSuccess={(sess) => {
+          setCurrentUser(sess);
+          setIsAuthOpen(false);
+        }}
+        onContinueAsGuest={() => setIsAuthOpen(false)}
+      />
     </>
   );
 }

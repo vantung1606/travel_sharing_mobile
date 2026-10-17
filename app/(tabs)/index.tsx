@@ -263,18 +263,18 @@ export default function HomeScreen() {
       
       {/* ─── 1. HERO BANNER ────────────────────────────────────────────── */}
       <View style={styles.heroSection}>
-        <View style={styles.aiBadge}>
-          <FontAwesome name="magic" size={13} color="#D97706" />
-          <Text style={styles.aiBadgeText}>TRỢ LÝ LÊN LỊCH TRÌNH AI 4.0</Text>
+        <View style={styles.vipBadge}>
+          <FontAwesome name="diamond" size={12} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.vipBadgeText}>WAYFARE CONCIERGE • TRẢI NGHIỆM ĐẲNG CẤP</Text>
         </View>
 
         <Text style={styles.heroTitle}>
           Khám Phá Việt Nam{'\n'}
-          <Text style={styles.heroTitleHighlight}>Theo Cách Của Bạn</Text>
+          <Text style={styles.heroTitleHighlight}>Thiết Kế Hành Trình Độc Bản</Text>
         </Text>
 
         <Text style={styles.heroSubtitle}>
-          Lên kế hoạch du lịch thông minh trong vài giây cùng Trí Tuệ Nhân Tạo AI kết nối dữ liệu địa phương sống động.
+          Hệ thống hoạch định du lịch thông minh, tối ưu thời gian & kết nối trực tiếp dữ liệu Cloud Railway.
         </Text>
       </View>
 
@@ -282,12 +282,12 @@ export default function HomeScreen() {
       <View style={styles.dockCard}>
         <View style={styles.dockHeader}>
           <View style={styles.dockTitleGroup}>
-            <View style={styles.sparkleIconBox}>
-              <FontAwesome name="bolt" size={16} color="#FFFFFF" />
+            <View style={styles.conciergeIconBox}>
+              <FontAwesome name="compass" size={16} color={WF_COLORS.primary} />
             </View>
             <View>
-              <Text style={styles.dockTitle}>Khởi Tạo Lịch Trình Tức Thì</Text>
-              <Text style={styles.dockSub}>Cá nhân hóa theo sở thích & túi tiền</Text>
+              <Text style={styles.dockTitle}>Kiến Trúc Sư Hành Trình</Text>
+              <Text style={styles.dockSub}>Tự động hóa lộ trình theo phong cách & ngân sách</Text>
             </View>
           </View>
         </View>
@@ -394,8 +394,8 @@ export default function HomeScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <View style={styles.generateBtnContent}>
-              <FontAwesome name="magic" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.generateBtnText}>✨ Tạo Lịch Trình Ngay (AI)</Text>
+              <FontAwesome name="compass" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.generateBtnText}>Khởi Tạo Hành Trình Độc Bản</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -433,6 +433,33 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.statNumber}>{stats.totalUsers}+</Text>
           <Text style={styles.statLabel}>Thành viên</Text>
+        </View>
+      </View>
+
+      {/* ─── 3.1 VIP PRIVILEGE CLUB BANNER ───────────────────────── */}
+      <View style={styles.vipClubCard}>
+        <View style={styles.vipClubHeader}>
+          <View style={styles.vipCrownBadge}>
+            <FontAwesome name="trophy" size={14} color="#D97706" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.vipClubTitle}>HỘI VIÊN WAYFARE PRIVILEGE CLUB</Text>
+            <Text style={styles.vipClubSubtitle}>Đặc quyền cá nhân hóa & cố vấn du lịch chuyên sâu</Text>
+          </View>
+        </View>
+        <View style={styles.vipPerksRow}>
+          <View style={styles.vipPerkItem}>
+            <FontAwesome name="check-circle" size={12} color="#0284C7" style={{ marginRight: 5 }} />
+            <Text style={styles.vipPerkText}>Live Chat 24/7</Text>
+          </View>
+          <View style={styles.vipPerkItem}>
+            <FontAwesome name="check-circle" size={12} color="#0284C7" style={{ marginRight: 5 }} />
+            <Text style={styles.vipPerkText}>Lịch trình không giới hạn</Text>
+          </View>
+          <View style={styles.vipPerkItem}>
+            <FontAwesome name="check-circle" size={12} color="#0284C7" style={{ marginRight: 5 }} />
+            <Text style={styles.vipPerkText}>Đồng bộ Cloud Railway</Text>
+          </View>
         </View>
       </View>
 
@@ -615,24 +642,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: WF_COLORS.slate200,
   },
-  aiBadge: {
+  vipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: 20,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#BAE6FD',
   },
-  aiBadgeText: {
-    fontSize: 11,
+  vipBadgeText: {
+    fontSize: 10.5,
     fontWeight: '800',
-    color: '#B45309',
-    marginLeft: 6,
-    letterSpacing: 0.5,
+    color: '#0284C7',
+    letterSpacing: 0.6,
   },
   heroTitle: {
     fontSize: 24,
@@ -678,14 +704,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  sparkleIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EA580C',
+  conciergeIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#E0F2FE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   dockTitle: {
     fontSize: 15,
@@ -864,16 +892,16 @@ const styles = StyleSheet.create({
   },
 
   generateButton: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#0284C7',
     borderRadius: 14,
-    paddingVertical: 13,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
     elevation: 3,
-    shadowColor: '#EA580C',
+    shadowColor: '#0284C7',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 6,
   },
   generateBtnContent: {
@@ -922,6 +950,62 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: WF_COLORS.slate500,
     marginTop: 1,
+  },
+
+  // VIP Club Banner
+  vipClubCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+  },
+  vipClubHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  vipCrownBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vipClubTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.5,
+  },
+  vipClubSubtitle: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  vipPerksRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  vipPerkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vipPerkText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0284C7',
   },
 
   // Section Common

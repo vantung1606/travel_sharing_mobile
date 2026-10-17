@@ -76,6 +76,19 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setSubmitting(true);
+      const session = await authApi.loginWithGoogle();
+      setUser(session);
+      Alert.alert('Thành công! 🎉', `Đăng nhập Google thành công, xin chào ${session.fullName}!`);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể đăng nhập Google');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleLogout = async () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất tài khoản?', [
       { text: 'Hủy', style: 'cancel' },
@@ -243,6 +256,25 @@ export default function ProfileScreen() {
                   {authMode === 'login' ? 'Đăng nhập vào Wayfare' : 'Đăng ký tài khoản'}
                 </Text>
               )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>HOẶC TIẾP TỤC VỚI</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google Sign In Button */}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.googleBtn}
+              onPress={handleGoogleLogin}
+              disabled={submitting}>
+              <View style={styles.googleIconBadge}>
+                <Text style={styles.googleLetterG}>G</Text>
+              </View>
+              <Text style={styles.googleBtnText}>Tiếp tục với Google</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -540,6 +572,57 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: WF_COLORS.slate200,
+  },
+  dividerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: WF_COLORS.slate400,
+    marginHorizontal: 10,
+    letterSpacing: 0.8,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: WF_COLORS.slate200,
+    borderRadius: 12,
+    height: 46,
+    elevation: 1,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  googleIconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#EA4335',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  googleLetterG: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  googleBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
   },
   infoCard: {
     backgroundColor: WF_COLORS.white,

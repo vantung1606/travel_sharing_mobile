@@ -6,6 +6,10 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { LogBox } from 'react-native';
+import { applyGlobalSerifTypography } from '@/constants/Typography';
+
+// Initialize global Times New Roman / Serif typography across the entire app
+applyGlobalSerifTypography();
 
 LogBox.ignoreLogs(['Cannot connect to Expo CLI']);
 

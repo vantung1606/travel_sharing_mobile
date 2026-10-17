@@ -9,6 +9,7 @@ import { NotificationModal } from '@/components/NotificationModal';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { notificationApi } from '@/src/services/api';
+import { SERIF_FONT } from '@/constants/Typography';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -80,6 +81,7 @@ export default function TabLayout() {
             shadowRadius: 10,
           },
           tabBarLabelStyle: {
+            fontFamily: SERIF_FONT,
             fontSize: 11,
             fontWeight: '700',
             marginTop: 2,

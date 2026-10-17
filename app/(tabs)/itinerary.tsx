@@ -16,23 +16,22 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { itineraryApi, ItineraryItem } from '@/src/services/api';
 
 export default function ItineraryScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? 'dark';
   const theme = Colors[colorScheme];
 
   const [itineraries, setItineraries] = useState<ItineraryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [hasError, setHasError] = useState<boolean>(false);
 
   const fetchItineraries = useCallback(async () => {
     try {
-      setErrorMsg(null);
-      // Lấy danh sách lịch trình từ Backend Spring Boot
+      setHasError(false);
       const data = await itineraryApi.getAllItineraries();
       setItineraries(data || []);
     } catch (err: any) {
-      console.error('Fetch itineraries error:', err);
-      setErrorMsg('Không thể tải lịch trình. Vui lòng kiểm tra lại kết nối!');
+      console.warn('Fetch itineraries notice:', err.message || err);
+      setHasError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -52,11 +51,15 @@ export default function ItineraryScreen() {
     const imageUrl = item.coverImage || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80';
 
     return (
-      <TouchableOpacity activeOpacity={0.88} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
-        <View style={styles.destinationBadge}>
-          <FontAwesome name="map-marker" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-          <Text style={styles.destinationText}>{item.destination || 'Điểm đến'}</Text>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={styles.imageBox}>
+          <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          <View style={styles.destinationBadge}>
+            <FontAwesome name="map-marker" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <Text style={styles.destinationText}>{item.destination || 'Điểm đến'}</Text>
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -66,23 +69,25 @@ export default function ItineraryScreen() {
 
           <View style={styles.metaRow}>
             {item.daysCount ? (
-              <View style={styles.metaItem}>
-                <FontAwesome name="calendar-o" size={13} color="#0D9488" />
-                <Text style={styles.metaText}>{item.daysCount} ngày</Text>
+              <View style={[styles.metaPill, { backgroundColor: theme.badge }]}>
+                <FontAwesome name="calendar-o" size={12} color={theme.tint} />
+                <Text style={[styles.metaText, { color: theme.text }]}>{item.daysCount} ngày</Text>
               </View>
             ) : null}
 
             {item.budget ? (
-              <View style={styles.metaItem}>
-                <FontAwesome name="money" size={13} color="#F59E0B" />
-                <Text style={styles.metaText}>{item.budget.toLocaleString('vi-VN')} đ</Text>
+              <View style={[styles.metaPill, { backgroundColor: theme.badge }]}>
+                <FontAwesome name="money" size={12} color="#F59E0B" />
+                <Text style={[styles.metaText, { color: theme.text }]}>
+                  {item.budget.toLocaleString('vi-VN')} đ
+                </Text>
               </View>
             ) : null}
 
             {item.authorName ? (
-              <View style={styles.metaItem}>
-                <FontAwesome name="user-circle" size={13} color="#64748B" />
-                <Text style={styles.metaText}>{item.authorName}</Text>
+              <View style={[styles.metaPill, { backgroundColor: theme.badge }]}>
+                <FontAwesome name="user-circle" size={12} color={theme.textMuted} />
+                <Text style={[styles.metaText, { color: theme.textMuted }]}>{item.authorName}</Text>
               </View>
             ) : null}
           </View>
@@ -92,18 +97,26 @@ export default function ItineraryScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {loading ? (
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#0D9488" />
-          <Text style={[styles.helperText, { color: theme.text }]}>Đang tải lịch trình từ hệ thống...</Text>
+          <ActivityIndicator size="large" color={theme.tint} />
+          <Text style={[styles.helperText, { color: theme.textMuted }]}>Đang nạp lịch trình...</Text>
         </View>
-      ) : errorMsg ? (
+      ) : hasError ? (
         <View style={styles.centerBox}>
-          <FontAwesome name="exclamation-circle" size={40} color="#EF4444" />
-          <Text style={[styles.errorTitle, { color: theme.text }]}>Lỗi kết nối</Text>
-          <Text style={styles.errorSub}>{errorMsg}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchItineraries}>
+          <FontAwesome name="calendar" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
+          <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có kết nối máy chủ</Text>
+          <Text style={[styles.errorSub, { color: theme.textMuted }]}>
+            Lịch trình sẽ tự động hiển thị khi Backend Spring Boot được khởi động.
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: theme.tint }]}
+            onPress={() => {
+              setLoading(true);
+              fetchItineraries();
+            }}>
+            <FontAwesome name="refresh" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
             <Text style={styles.retryText}>Tải lại</Text>
           </TouchableOpacity>
         </View>
@@ -114,11 +127,14 @@ export default function ItineraryScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.tint]} />}
           ListEmptyComponent={
             <View style={styles.centerBox}>
-              <FontAwesome name="calendar" size={42} color="#94A3B8" />
-              <Text style={[styles.helperText, { color: theme.text }]}>Chưa có lịch trình nào được tạo</Text>
+              <FontAwesome name="calendar-check-o" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
+              <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có lịch trình</Text>
+              <Text style={[styles.errorSub, { color: theme.textMuted }]}>
+                Các chuyến đi được tạo trên Web sẽ hiển thị đồng bộ tại đây.
+              </Text>
             </View>
           }
         />
@@ -136,19 +152,24 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     marginBottom: 16,
+  },
+  imageBox: {
+    position: 'relative',
+    width: '100%',
+    height: 160,
   },
   cardImage: {
     width: '100%',
-    height: 160,
+    height: '100%',
   },
   destinationBadge: {
     position: 'absolute',
@@ -172,49 +193,52 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: 12,
     lineHeight: 22,
+    letterSpacing: -0.2,
   },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    gap: 8,
   },
-  metaItem: {
+  metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   metaText: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   centerBox: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 30,
-    marginTop: 60,
+    padding: 24,
   },
   helperText: {
     marginTop: 12,
     fontSize: 14,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    marginTop: 12,
+    marginTop: 14,
   },
   errorSub: {
     fontSize: 13,
-    color: '#64748B',
     textAlign: 'center',
     marginTop: 6,
     marginBottom: 16,
+    lineHeight: 18,
   },
   retryBtn: {
-    backgroundColor: '#0D9488',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,

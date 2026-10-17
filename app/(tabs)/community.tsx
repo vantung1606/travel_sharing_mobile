@@ -16,22 +16,22 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { postApi, PostItem } from '@/src/services/api';
 
 export default function CommunityScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? 'dark';
   const theme = Colors[colorScheme];
 
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [hasError, setHasError] = useState<boolean>(false);
 
   const fetchPosts = useCallback(async () => {
     try {
-      setErrorMsg(null);
+      setHasError(false);
       const data = await postApi.getCommunityPosts();
       setPosts(data || []);
     } catch (err: any) {
-      console.error('Fetch posts error:', err);
-      setErrorMsg('Không thể tải bài viết cộng đồng.');
+      console.warn('Fetch posts notice:', err.message || err);
+      setHasError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -58,20 +58,20 @@ export default function CommunityScreen() {
           <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           <View style={styles.authorInfo}>
             <Text style={[styles.authorName, { color: theme.text }]}>
-              {item.authorName || 'Người dùng Wayfare'}
+              {item.authorName || 'Thành viên Wayfare'}
             </Text>
             {item.locationName ? (
               <View style={styles.locationBadge}>
-                <FontAwesome name="map-marker" size={11} color="#0D9488" />
-                <Text style={styles.locationText} numberOfLines={1}>
+                <FontAwesome name="map-marker" size={11} color={theme.tint} />
+                <Text style={[styles.locationText, { color: theme.textMuted }]} numberOfLines={1}>
                   {item.locationName}
                 </Text>
               </View>
             ) : null}
           </View>
           {item.category ? (
-            <View style={styles.categoryPill}>
-              <Text style={styles.categoryPillText}>{item.category}</Text>
+            <View style={[styles.categoryPill, { backgroundColor: theme.badge }]}>
+              <Text style={[styles.categoryPillText, { color: theme.tint }]}>{item.category}</Text>
             </View>
           ) : null}
         </View>
@@ -92,25 +92,27 @@ export default function CommunityScreen() {
 
         {/* Footer Actions */}
         <View style={[styles.footerRow, { borderTopColor: theme.border }]}>
-          <TouchableOpacity style={styles.actionBtn}>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
             <FontAwesome
               name={item.isLiked ? 'heart' : 'heart-o'}
-              size={18}
-              color={item.isLiked ? '#EF4444' : '#64748B'}
+              size={17}
+              color={item.isLiked ? '#EF4444' : theme.textMuted}
             />
-            <Text style={[styles.actionCount, item.isLiked ? { color: '#EF4444' } : {}]}>
+            <Text style={[styles.actionCount, { color: item.isLiked ? '#EF4444' : theme.textMuted }]}>
               {item.likesCount || 0}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn}>
-            <FontAwesome name="comment-o" size={18} color="#64748B" />
-            <Text style={styles.actionCount}>{item.commentsCount || 0}</Text>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <FontAwesome name="comment-o" size={17} color={theme.textMuted} />
+            <Text style={[styles.actionCount, { color: theme.textMuted }]}>
+              {item.commentsCount || 0}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn}>
-            <FontAwesome name="share-square-o" size={18} color="#64748B" />
-            <Text style={styles.actionCount}>Chia sẻ</Text>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <FontAwesome name="share-square-o" size={17} color={theme.textMuted} />
+            <Text style={[styles.actionCount, { color: theme.textMuted }]}>Chia sẻ</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -118,18 +120,26 @@ export default function CommunityScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {loading ? (
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#0D9488" />
-          <Text style={[styles.helperText, { color: theme.text }]}>Đang tải bảng tin du lịch...</Text>
+          <ActivityIndicator size="large" color={theme.tint} />
+          <Text style={[styles.helperText, { color: theme.textMuted }]}>Đang nạp bảng tin cộng đồng...</Text>
         </View>
-      ) : errorMsg ? (
+      ) : hasError ? (
         <View style={styles.centerBox}>
-          <FontAwesome name="exclamation-circle" size={40} color="#EF4444" />
-          <Text style={[styles.errorTitle, { color: theme.text }]}>Lỗi kết nối</Text>
-          <Text style={styles.errorSub}>{errorMsg}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchPosts}>
+          <FontAwesome name="globe" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
+          <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có kết nối máy chủ</Text>
+          <Text style={[styles.errorSub, { color: theme.textMuted }]}>
+            Bảng tin bài viết sẽ xuất hiện khi Backend Spring Boot được khởi động.
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: theme.tint }]}
+            onPress={() => {
+              setLoading(true);
+              fetchPosts();
+            }}>
+            <FontAwesome name="refresh" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
             <Text style={styles.retryText}>Tải lại</Text>
           </TouchableOpacity>
         </View>
@@ -140,11 +150,14 @@ export default function CommunityScreen() {
           renderItem={renderPost}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0D9488']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.tint]} />}
           ListEmptyComponent={
             <View style={styles.centerBox}>
-              <FontAwesome name="commenting-o" size={42} color="#94A3B8" />
-              <Text style={[styles.helperText, { color: theme.text }]}>Chưa có bài viết nào trên cộng đồng</Text>
+              <FontAwesome name="comments-o" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
+              <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có bài viết nào</Text>
+              <Text style={[styles.errorSub, { color: theme.textMuted }]}>
+                Hãy là người đầu tiên chia sẻ khoảnh khắc du lịch tuyệt vời!
+              </Text>
             </View>
           }
         />
@@ -162,14 +175,14 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   postCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     marginBottom: 16,
   },
   authorRow: {
@@ -182,7 +195,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginRight: 10,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#334155',
   },
   authorInfo: {
     flex: 1,
@@ -191,6 +204,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 2,
+    letterSpacing: -0.2,
   },
   locationBadge: {
     flexDirection: 'row',
@@ -199,41 +213,39 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 12,
-    color: '#64748B',
   },
   categoryPill: {
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   categoryPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0F766E',
   },
   postTitle: {
     fontSize: 16,
     fontWeight: '700',
     paddingHorizontal: 14,
     marginBottom: 6,
+    letterSpacing: -0.2,
   },
   postBody: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
     paddingHorizontal: 14,
     marginBottom: 12,
   },
   postImage: {
     width: '100%',
     height: 220,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#1E293B',
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
   },
   actionBtn: {
@@ -243,34 +255,33 @@ const styles = StyleSheet.create({
   },
   actionCount: {
     fontSize: 13,
-    color: '#64748B',
     fontWeight: '600',
   },
   centerBox: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 30,
-    marginTop: 60,
+    padding: 24,
   },
   helperText: {
     marginTop: 12,
     fontSize: 14,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    marginTop: 12,
+    marginTop: 14,
   },
   errorSub: {
     fontSize: 13,
-    color: '#64748B',
     textAlign: 'center',
     marginTop: 6,
     marginBottom: 16,
+    lineHeight: 18,
   },
   retryBtn: {
-    backgroundColor: '#0D9488',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,

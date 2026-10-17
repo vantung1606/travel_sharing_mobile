@@ -1,6 +1,7 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
@@ -9,12 +10,13 @@ function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: any;
 }) {
-  return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
+  return <FontAwesome size={20} style={{ marginBottom: -2 }} {...props} />;
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? 'dark';
   const theme = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -24,13 +26,20 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: theme.card,
           borderTopColor: theme.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
+          borderTopWidth: 1,
+          height: 56 + Math.max(insets.bottom, 12),
+          paddingBottom: Math.max(insets.bottom, 10),
+          paddingTop: 8,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
+          marginTop: 2,
         },
         headerStyle: {
           backgroundColor: theme.card,
@@ -40,8 +49,9 @@ export default function TabLayout() {
           borderBottomColor: theme.border,
         },
         headerTitleStyle: {
-          fontWeight: '700',
-          fontSize: 18,
+          fontWeight: '800',
+          fontSize: 19,
+          letterSpacing: -0.3,
           color: theme.text,
         },
         headerShown: useClientOnlyValue(false, true),
@@ -78,7 +88,7 @@ export default function TabLayout() {
           headerTitle: 'Hồ Sơ Cá Nhân',
         }}
       />
-      {/* Ẩn tab two cũ của template */}
+      {/* Ẩn tab template cũ */}
       <Tabs.Screen
         name="two"
         options={{

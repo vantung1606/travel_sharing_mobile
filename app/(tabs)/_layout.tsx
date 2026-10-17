@@ -3,42 +3,35 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { Image, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { WF_COLORS } from '@/constants/Colors';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: any;
 }) {
-  return <FontAwesome size={21} style={{ marginBottom: -2 }} {...props} />;
+  return <FontAwesome size={22} style={{ marginBottom: -2 }} {...props} />;
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
-
-  const logoSource = colorScheme === 'dark'
-    ? require('@/assets/images/wayfare-logo-white.png')
-    : require('@/assets/images/wayfare-logo.png');
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: theme.tint,
-        tabBarInactiveTintColor: theme.tabIconDefault,
+        tabBarActiveTintColor: WF_COLORS.primary,
+        tabBarInactiveTintColor: WF_COLORS.slate400,
         tabBarStyle: {
-          backgroundColor: theme.card,
-          borderTopColor: theme.border,
+          backgroundColor: WF_COLORS.white,
+          borderTopColor: WF_COLORS.slate200,
           borderTopWidth: 1,
           height: 68 + Math.max(insets.bottom, 22),
           paddingBottom: Math.max(insets.bottom, 20) + 4,
           paddingTop: 10,
-          elevation: 12,
-          shadowColor: '#000',
+          elevation: 10,
+          shadowColor: '#0F172A',
           shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.15,
+          shadowOpacity: 0.08,
           shadowRadius: 10,
         },
         tabBarLabelStyle: {
@@ -47,17 +40,17 @@ export default function TabLayout() {
           marginTop: 2,
         },
         headerStyle: {
-          backgroundColor: theme.card,
-          elevation: 0,
-          shadowOpacity: 0,
+          backgroundColor: WF_COLORS.white,
+          elevation: 1,
+          shadowOpacity: 0.05,
           borderBottomWidth: 1,
-          borderBottomColor: theme.border,
+          borderBottomColor: WF_COLORS.slate200,
           height: 58,
         },
         headerTitle: () => (
           <View style={styles.headerLogoContainer}>
             <Image
-              source={logoSource}
+              source={require('@/assets/images/wayfare-logo.png')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -67,6 +60,13 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
+        options={{
+          title: 'Trang chủ',
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
         options={{
           title: 'Khám phá',
           tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
@@ -93,7 +93,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
-      {/* Ẩn tab template cũ */}
       <Tabs.Screen
         name="two"
         options={{
@@ -109,6 +108,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+    paddingLeft: 4,
   },
   headerLogo: {
     width: 140,

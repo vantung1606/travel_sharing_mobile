@@ -15,16 +15,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { itineraryApi, ItineraryItem, ItineraryDetailItem } from '@/src/services/api';
+import { WF_COLORS } from '@/constants/Colors';
+import { itineraryApi, ItineraryItem, API_BASE_URL } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 
 export default function ItineraryScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const theme = Colors[colorScheme];
-
-  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'drafts'>('upcoming');
   const [itineraries, setItineraries] = useState<ItineraryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -36,7 +32,7 @@ export default function ItineraryScreen() {
   const [newDestination, setNewDestination] = useState<string>('');
   const [newStartDate, setNewStartDate] = useState<string>('2026-10-25');
   const [newEndDate, setNewEndDate] = useState<string>('2026-10-28');
-  const [newBudget, setNewBudget] = useState<string>('5000000');
+  const [newBudget, setNewBudget] = useState<string>('3500000');
   const [newCover, setNewCover] = useState<string>('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80');
   const [submittingPlan, setSubmittingPlan] = useState<boolean>(false);
 
@@ -56,18 +52,7 @@ export default function ItineraryScreen() {
   const fetchItineraries = useCallback(async () => {
     try {
       setHasError(false);
-      let data: ItineraryItem[] = [];
-      if (activeTab === 'my') {
-        const session = await authStorage.getSession();
-        if (!session) {
-          Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để xem và quản lý lịch trình cá nhân của bạn!');
-          setActiveTab('all');
-          return;
-        }
-        data = await itineraryApi.getMyItineraries();
-      } else {
-        data = await itineraryApi.getAllItineraries();
-      }
+      const data = await itineraryApi.getAllItineraries();
       setItineraries(data || []);
     } catch (err: any) {
       console.warn('Fetch itineraries error:', err.message || err);
@@ -76,7 +61,7 @@ export default function ItineraryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -93,7 +78,7 @@ export default function ItineraryScreen() {
     if (!session) {
       Alert.alert(
         'Yêu cầu đăng nhập',
-        'Vui lòng đăng nhập ở tab "Tài khoản" để có thể tạo và lưu lịch trình vào CSDL!',
+        'Vui lòng đăng nhập ở tab "Tài khoản" để có thể tạo và lưu lịch trình chuyến đi!',
         [{ text: 'Đã hiểu' }]
       );
       return;
@@ -168,7 +153,6 @@ export default function ItineraryScreen() {
       setNewPlaceName('');
       setNewPlaceNote('');
 
-      // Reload detail
       const full = await itineraryApi.getItineraryById(selectedItinerary.id);
       setSelectedItinerary(full);
     } catch (err: any) {
@@ -202,48 +186,48 @@ export default function ItineraryScreen() {
 
     return (
       <TouchableOpacity
-        activeOpacity={0.9}
+        activeOpacity={0.92}
         onPress={() => handleOpenDetail(item)}
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        style={styles.card}>
         <View style={styles.imageBox}>
           <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
           <View style={styles.destinationBadge}>
-            <FontAwesome name="map-marker" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <FontAwesome name="map-marker" size={11} color="#FFFFFF" style={{ marginRight: 4 }} />
             <Text style={styles.destinationText}>{item.destination || 'Điểm đến'}</Text>
           </View>
           <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>{item.status || 'PLANNING'}</Text>
+            <Text style={styles.statusText}>{item.status || 'ACTIVE'}</Text>
           </View>
         </View>
 
         <View style={styles.content}>
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+          <Text style={styles.title} numberOfLines={2}>
             {item.title}
           </Text>
 
           <View style={styles.metaRow}>
             {item.startDate ? (
-              <View style={[styles.metaPill, { backgroundColor: theme.badge }]}>
-                <FontAwesome name="calendar-o" size={12} color={theme.tint} />
-                <Text style={[styles.metaText, { color: theme.text }]}>
+              <View style={styles.metaPill}>
+                <FontAwesome name="calendar" size={11} color={WF_COLORS.primary} />
+                <Text style={styles.metaText}>
                   {item.startDate} {item.endDate ? `→ ${item.endDate}` : ''}
                 </Text>
               </View>
             ) : null}
 
             {item.budgetTotal ? (
-              <View style={[styles.metaPill, { backgroundColor: theme.badge }]}>
+              <View style={styles.metaPill}>
                 <FontAwesome name="money" size={12} color="#F59E0B" />
-                <Text style={[styles.metaText, { color: theme.text }]}>
+                <Text style={styles.metaText}>
                   {item.budgetTotal.toLocaleString('vi-VN')} đ
                 </Text>
               </View>
             ) : null}
 
             {item.creatorName ? (
-              <View style={[styles.metaPill, { backgroundColor: theme.badge }]}>
-                <FontAwesome name="user-circle" size={12} color={theme.textMuted} />
-                <Text style={[styles.metaText, { color: theme.textMuted }]}>{item.creatorName}</Text>
+              <View style={styles.metaPill}>
+                <FontAwesome name="user-circle" size={12} color={WF_COLORS.slate500} />
+                <Text style={styles.metaText}>{item.creatorName}</Text>
               </View>
             ) : null}
           </View>
@@ -255,102 +239,123 @@ export default function ItineraryScreen() {
   const dayDetails = selectedItinerary?.details?.filter(d => (d.dayNumber || 1) === selectedDay) || [];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* Header Tabs & Create Plan Button */}
-      <View style={styles.topBar}>
-        <View style={[styles.tabSwitch, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <TouchableOpacity
-            style={[styles.switchBtn, activeTab === 'all' && { backgroundColor: theme.tint }]}
-            onPress={() => setActiveTab('all')}>
-            <Text style={[styles.switchText, activeTab === 'all' ? { color: '#FFFFFF', fontWeight: '700' } : { color: theme.textMuted }]}>
-              Khám phá
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.switchBtn, activeTab === 'my' && { backgroundColor: theme.tint }]}
-            onPress={() => setActiveTab('my')}>
-            <Text style={[styles.switchText, activeTab === 'my' ? { color: '#FFFFFF', fontWeight: '700' } : { color: theme.textMuted }]}>
-              Plan của tôi
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={[styles.createPlanBtn, { backgroundColor: theme.tint }]}
-          onPress={handleOpenCreateModal}>
-          <FontAwesome name="plus" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.createPlanBtnText}>Lên Plan mới</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Main List */}
-      {loading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={theme.tint} />
-          <Text style={[styles.helperText, { color: theme.textMuted }]}>Đang nạp lịch trình chuyến đi...</Text>
-        </View>
-      ) : hasError ? (
-        <View style={styles.centerBox}>
-          <FontAwesome name="calendar" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
-          <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có kết nối máy chủ</Text>
-          <Text style={[styles.errorSub, { color: theme.textMuted }]}>
-            Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.
-          </Text>
-          <TouchableOpacity style={[styles.retryBtn, { backgroundColor: theme.tint }]} onPress={fetchItineraries}>
-            <FontAwesome name="refresh" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.retryText}>Tải lại</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={itineraries}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.tint]} />}
-          ListEmptyComponent={
-            <View style={styles.centerBox}>
-              <FontAwesome name="suitcase" size={48} color={theme.textMuted} style={{ opacity: 0.5 }} />
-              <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có kế hoạch nào</Text>
-              <Text style={[styles.errorSub, { color: theme.textMuted }]}>
-                Bấm nút "Lên Plan mới" bên trên để tạo chuyến đi đầu tiên của bạn nhé!
-              </Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <FlatList
+        data={itineraries}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        ListHeaderComponent={
+          <View style={styles.headerWrapper}>
+            {/* 1. Breadcrumb chuẩn Web */}
+            <View style={styles.breadcrumbRow}>
+              <FontAwesome name="compass" size={12} color={WF_COLORS.primary} />
+              <Text style={styles.breadcrumbLink}>Trang chủ</Text>
+              <Text style={styles.breadcrumbDivider}>/</Text>
+              <Text style={styles.breadcrumbCurrent}>Quản lý Lịch trình</Text>
             </View>
-          }
-        />
-      )}
 
-      {/* ─── MODAL TẠO LỊCH TRÌNH MỚI ──────────────────────────── */}
+            {/* 2. Page Title & Action Button */}
+            <View style={styles.titleActionRow}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={styles.pageTitle}>Lịch Trình Chuyến Đi</Text>
+                <Text style={styles.pageSubtitle}>
+                  Khám phá & tổ chức các hành trình du lịch thông minh
+                </Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={styles.createTripBtn}
+                onPress={handleOpenCreateModal}>
+                <FontAwesome name="plus" size={12} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.createTripBtnText}>Lên Plan mới</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 3. Filter Tabs (Sắp diễn ra | Đã hoàn thành | Bản nháp) */}
+            <View style={styles.tabsRow}>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'upcoming' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('upcoming')}>
+                <Text style={[styles.tabBtnText, activeTab === 'upcoming' && styles.tabBtnTextActive]}>
+                  Sắp diễn ra
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'completed' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('completed')}>
+                <Text style={[styles.tabBtnText, activeTab === 'completed' && styles.tabBtnTextActive]}>
+                  Đã hoàn thành
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'drafts' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('drafts')}>
+                <Text style={[styles.tabBtnText, activeTab === 'drafts' && styles.tabBtnTextActive]}>
+                  Bản nháp
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.centerBox}>
+              <ActivityIndicator size="large" color={WF_COLORS.primary} />
+              <Text style={styles.loadingText}>Đang nạp lịch trình chuyến đi từ Railway...</Text>
+            </View>
+          ) : hasError ? (
+            <View style={styles.centerBox}>
+              <View style={styles.alertCard}>
+                <FontAwesome name="calendar" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
+                <Text style={styles.alertTitle}>Chưa có kết nối máy chủ</Text>
+                <Text style={styles.alertDesc}>Đang nạp từ: {API_BASE_URL}</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={fetchItineraries}>
+                  <Text style={styles.retryBtnText}>Tải lại dữ liệu</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.centerBox}>
+              <FontAwesome name="suitcase" size={44} color={WF_COLORS.slate400} style={{ opacity: 0.5 }} />
+              <Text style={styles.emptyTitle}>Chưa có kế hoạch chuyến đi</Text>
+              <Text style={styles.emptySub}>Bấm nút "Lên Plan mới" bên trên để tạo lịch trình đầu tiên nhé!</Text>
+            </View>
+          )
+        }
+      />
+
+      {/* ─── MODAL TẠO LỊCH TRÌNH ───────────────────────────────── */}
       <Modal visible={createModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>✈️ Lên Kế Hoạch Chuyến Đi</Text>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardBox}>
+            <View style={styles.modalCardHeader}>
+              <Text style={styles.modalCardTitle}>✈️ Lên Kế Hoạch Chuyến Đi</Text>
               <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <FontAwesome name="times" size={20} color={theme.textMuted} />
+                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Tên chuyến đi *</Text>
+                <Text style={styles.inputLabel}>Tên chuyến đi *</Text>
                 <TextInput
-                  style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                  style={styles.modalInput}
                   placeholder="VD: Khám phá Đà Nẵng 4N3Đ"
-                  placeholderTextColor={theme.textMuted}
+                  placeholderTextColor={WF_COLORS.slate400}
                   value={newTitle}
                   onChangeText={setNewTitle}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Điểm đến chính *</Text>
+                <Text style={styles.inputLabel}>Điểm đến chính *</Text>
                 <TextInput
-                  style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
-                  placeholder="VD: Đà Nẵng, Phú Quốc, Đà Lạt..."
-                  placeholderTextColor={theme.textMuted}
+                  style={styles.modalInput}
+                  placeholder="VD: Đà Nẵng, Mũi Né, Sa Pa..."
+                  placeholderTextColor={WF_COLORS.slate400}
                   value={newDestination}
                   onChangeText={setNewDestination}
                 />
@@ -358,21 +363,21 @@ export default function ItineraryScreen() {
 
               <View style={styles.inputRow}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={[styles.inputLabel, { color: theme.text }]}>Ngày đi (YYYY-MM-DD)</Text>
+                  <Text style={styles.inputLabel}>Ngày đi</Text>
                   <TextInput
-                    style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                    style={styles.modalInput}
                     placeholder="2026-10-25"
-                    placeholderTextColor={theme.textMuted}
+                    placeholderTextColor={WF_COLORS.slate400}
                     value={newStartDate}
                     onChangeText={setNewStartDate}
                   />
                 </View>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={[styles.inputLabel, { color: theme.text }]}>Ngày về (YYYY-MM-DD)</Text>
+                  <Text style={styles.inputLabel}>Ngày về</Text>
                   <TextInput
-                    style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                    style={styles.modalInput}
                     placeholder="2026-10-28"
-                    placeholderTextColor={theme.textMuted}
+                    placeholderTextColor={WF_COLORS.slate400}
                     value={newEndDate}
                     onChangeText={setNewEndDate}
                   />
@@ -380,11 +385,11 @@ export default function ItineraryScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Ngân sách dự kiến (VNĐ)</Text>
+                <Text style={styles.inputLabel}>Dự toán ngân sách (VNĐ)</Text>
                 <TextInput
-                  style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
-                  placeholder="5000000"
-                  placeholderTextColor={theme.textMuted}
+                  style={styles.modalInput}
+                  placeholder="3500000"
+                  placeholderTextColor={WF_COLORS.slate400}
                   value={newBudget}
                   onChangeText={setNewBudget}
                   keyboardType="numeric"
@@ -392,8 +397,8 @@ export default function ItineraryScreen() {
               </View>
 
               <TouchableOpacity
-                activeOpacity={0.85}
-                style={[styles.submitPlanBtn, { backgroundColor: theme.tint }, submittingPlan && { opacity: 0.7 }]}
+                activeOpacity={0.88}
+                style={[styles.submitPlanBtn, submittingPlan && { opacity: 0.7 }]}
                 onPress={handleCreateItinerary}
                 disabled={submittingPlan}>
                 {submittingPlan ? (
@@ -409,43 +414,43 @@ export default function ItineraryScreen() {
 
       {/* ─── MODAL CHI TIẾT LỊCH TRÌNH THEO NGÀY ───────────────── */}
       <Modal visible={detailModalVisible} animationType="slide" onRequestClose={() => setDetailModalVisible(false)}>
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
-          <View style={[styles.detailHeader, { borderBottomColor: theme.border }]}>
+        <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
+          <View style={styles.detailNavbar}>
             <TouchableOpacity onPress={() => setDetailModalVisible(false)} style={styles.backBtn}>
-              <FontAwesome name="chevron-left" size={16} color={theme.text} />
+              <FontAwesome name="chevron-left" size={15} color={WF_COLORS.slate700} />
             </TouchableOpacity>
-            <Text style={[styles.detailHeaderTitle, { color: theme.text }]} numberOfLines={1}>
+            <Text style={styles.detailNavTitle} numberOfLines={1}>
               {selectedItinerary?.title || 'Chi tiết chuyến đi'}
             </Text>
-            <View style={{ width: 36 }} />
+            <View style={{ width: 30 }} />
           </View>
 
           {loadingDetail ? (
             <View style={styles.centerBox}>
-              <ActivityIndicator size="large" color={theme.tint} />
+              <ActivityIndicator size="large" color={WF_COLORS.primary} />
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailScroll}>
               {/* Trip Overview Hero */}
-              <View style={[styles.overviewCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <Text style={[styles.overviewDestination, { color: theme.tint }]}>
+              <View style={styles.overviewHeroCard}>
+                <Text style={styles.overviewDestination}>
                   📍 {selectedItinerary?.destination}
                 </Text>
-                <Text style={[styles.overviewTitle, { color: theme.text }]}>
+                <Text style={styles.overviewTitle}>
                   {selectedItinerary?.title}
                 </Text>
 
                 <View style={styles.overviewMetaRow}>
-                  <View style={styles.overviewMetaItem}>
-                    <FontAwesome name="calendar" size={13} color={theme.tint} />
-                    <Text style={[styles.overviewMetaText, { color: theme.textMuted }]}>
+                  <View style={styles.overviewMetaPill}>
+                    <FontAwesome name="calendar" size={12} color={WF_COLORS.primary} style={{ marginRight: 5 }} />
+                    <Text style={styles.overviewMetaText}>
                       {selectedItinerary?.startDate} → {selectedItinerary?.endDate || ''}
                     </Text>
                   </View>
                   {selectedItinerary?.budgetTotal ? (
-                    <View style={styles.overviewMetaItem}>
-                      <FontAwesome name="money" size={13} color="#F59E0B" />
-                      <Text style={[styles.overviewMetaText, { color: theme.textMuted }]}>
+                    <View style={styles.overviewMetaPill}>
+                      <FontAwesome name="money" size={12} color="#F59E0B" style={{ marginRight: 5 }} />
+                      <Text style={styles.overviewMetaText}>
                         {selectedItinerary.budgetTotal.toLocaleString('vi-VN')} đ
                       </Text>
                     </View>
@@ -458,73 +463,50 @@ export default function ItineraryScreen() {
                 {[1, 2, 3, 4, 5].map((day) => (
                   <TouchableOpacity
                     key={day}
-                    style={[
-                      styles.dayChip,
-                      selectedDay === day
-                        ? { backgroundColor: theme.tint, borderColor: theme.tint }
-                        : { backgroundColor: theme.card, borderColor: theme.border },
-                    ]}
+                    style={[styles.dayChipBtn, selectedDay === day && styles.dayChipBtnActive]}
                     onPress={() => setSelectedDay(day)}>
-                    <Text
-                      style={[
-                        styles.dayChipText,
-                        selectedDay === day ? { color: '#FFFFFF', fontWeight: '700' } : { color: theme.text },
-                      ]}>
+                    <Text style={[styles.dayChipText, selectedDay === day && styles.dayChipTextActive]}>
                       Ngày {day}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Day Actions & List */}
+              {/* Day Section Header */}
               <View style={styles.daySectionHeader}>
-                <Text style={[styles.daySectionTitle, { color: theme.text }]}>
-                  Kế hoạch Ngày {selectedDay}
+                <Text style={styles.daySectionTitle}>
+                  Điểm đến & Hoạt động (Ngày {selectedDay})
                 </Text>
                 <TouchableOpacity
-                  style={[styles.addStopBtn, { backgroundColor: theme.badge }]}
+                  style={styles.addStopBtn}
                   onPress={() => setAddDetailModalVisible(true)}>
-                  <FontAwesome name="plus" size={12} color={theme.tint} style={{ marginRight: 4 }} />
-                  <Text style={[styles.addStopBtnText, { color: theme.tint }]}>Thêm điểm dừng</Text>
+                  <FontAwesome name="plus" size={11} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.addStopBtnText}>Thêm điểm dừng</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Day Stops Timeline */}
+              {/* Timeline stops */}
               {dayDetails.length === 0 ? (
-                <View style={[styles.emptyDayBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                  <FontAwesome name="map-o" size={32} color={theme.textMuted} style={{ opacity: 0.5 }} />
-                  <Text style={[styles.emptyDayText, { color: theme.textMuted }]}>
-                    Chưa có điểm dừng nào trong Ngày {selectedDay}.
-                  </Text>
-                  <Text style={[styles.emptyDaySub, { color: theme.textMuted }]}>
-                    Bấm "+ Thêm điểm dừng" để lên lịch tham quan cho ngày này!
-                  </Text>
+                <View style={styles.emptyDayBox}>
+                  <FontAwesome name="map-o" size={30} color={WF_COLORS.slate400} style={{ opacity: 0.5 }} />
+                  <Text style={styles.emptyDayText}>Chưa có điểm dừng nào trong Ngày {selectedDay}.</Text>
+                  <Text style={styles.emptyDaySub}>Bấm "+ Thêm điểm dừng" để lên lịch tham quan cho ngày này!</Text>
                 </View>
               ) : (
                 dayDetails.map((detail, idx) => (
-                  <View
-                    key={detail.id || idx}
-                    style={[styles.stopCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <View key={detail.id || idx} style={styles.stopCard}>
                     <View style={styles.stopTimeCol}>
-                      <FontAwesome name="clock-o" size={12} color={theme.tint} />
-                      <Text style={[styles.stopTime, { color: theme.tint }]}>
-                        {detail.startTime || `${idx + 8}:00`}
-                      </Text>
+                      <FontAwesome name="clock-o" size={12} color={WF_COLORS.primary} />
+                      <Text style={styles.stopTimeText}>{detail.startTime || `${idx + 8}:00`}</Text>
                     </View>
 
                     <View style={styles.stopContentCol}>
-                      <Text style={[styles.stopName, { color: theme.text }]}>
-                        {detail.locationName}
-                      </Text>
+                      <Text style={styles.stopNameText}>{detail.locationName}</Text>
                       {detail.category ? (
-                        <Text style={[styles.stopCategory, { color: theme.textMuted }]}>
-                          {detail.category}
-                        </Text>
+                        <Text style={styles.stopCategoryText}>{detail.category}</Text>
                       ) : null}
                       {detail.note ? (
-                        <Text style={[styles.stopNote, { color: theme.textMuted }]}>
-                          📝 {detail.note}
-                        </Text>
+                        <Text style={styles.stopNoteText}>📝 {detail.note}</Text>
                       ) : null}
                     </View>
 
@@ -544,23 +526,21 @@ export default function ItineraryScreen() {
 
         {/* ─── SUB-MODAL THÊM ĐIỂM DỪNG VÀO NGÀY ───────────────── */}
         <Modal visible={addDetailModalVisible} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  ➕ Thêm Điểm Dừng (Ngày {selectedDay})
-                </Text>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCardBox}>
+              <View style={styles.modalCardHeader}>
+                <Text style={styles.modalCardTitle}>➕ Thêm Điểm Dừng (Ngày {selectedDay})</Text>
                 <TouchableOpacity onPress={() => setAddDetailModalVisible(false)}>
-                  <FontAwesome name="times" size={18} color={theme.textMuted} />
+                  <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Tên địa điểm / Hoạt động *</Text>
+                <Text style={styles.inputLabel}>Tên địa điểm / Hoạt động *</Text>
                 <TextInput
-                  style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                  style={styles.modalInput}
                   placeholder="VD: Cầu Vàng, Ăn mì Quảng Bà Mua..."
-                  placeholderTextColor={theme.textMuted}
+                  placeholderTextColor={WF_COLORS.slate400}
                   value={newPlaceName}
                   onChangeText={setNewPlaceName}
                 />
@@ -568,21 +548,21 @@ export default function ItineraryScreen() {
 
               <View style={styles.inputRow}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={[styles.inputLabel, { color: theme.text }]}>Giờ bắt đầu</Text>
+                  <Text style={styles.inputLabel}>Giờ bắt đầu</Text>
                   <TextInput
-                    style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                    style={styles.modalInput}
                     placeholder="09:00"
-                    placeholderTextColor={theme.textMuted}
+                    placeholderTextColor={WF_COLORS.slate400}
                     value={newPlaceTime}
                     onChangeText={setNewPlaceTime}
                   />
                 </View>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={[styles.inputLabel, { color: theme.text }]}>Thể loại</Text>
+                  <Text style={styles.inputLabel}>Thể loại</Text>
                   <TextInput
-                    style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                    style={styles.modalInput}
                     placeholder="Tham quan"
-                    placeholderTextColor={theme.textMuted}
+                    placeholderTextColor={WF_COLORS.slate400}
                     value={newPlaceCategory}
                     onChangeText={setNewPlaceCategory}
                   />
@@ -590,19 +570,17 @@ export default function ItineraryScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Ghi chú thêm</Text>
+                <Text style={styles.inputLabel}>Ghi chú thêm</Text>
                 <TextInput
-                  style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                  style={styles.modalInput}
                   placeholder="Vé vào cổng, lưu ý trang phục..."
-                  placeholderTextColor={theme.textMuted}
+                  placeholderTextColor={WF_COLORS.slate400}
                   value={newPlaceNote}
                   onChangeText={setNewPlaceNote}
                 />
               </View>
 
-              <TouchableOpacity
-                style={[styles.submitPlanBtn, { backgroundColor: theme.tint }]}
-                onPress={handleAddStopToDay}>
+              <TouchableOpacity style={styles.submitPlanBtn} onPress={handleAddStopToDay}>
                 <Text style={styles.submitPlanBtnText}>Thêm vào lịch trình</Text>
               </TouchableOpacity>
             </View>
@@ -616,60 +594,113 @@ export default function ItineraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: WF_COLORS.slate50,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  list: {
+    paddingBottom: 24,
+  },
+  headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 10,
+    backgroundColor: WF_COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: WF_COLORS.slate200,
+    marginBottom: 12,
   },
-  tabSwitch: {
-    flexDirection: 'row',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 3,
-  },
-  switchBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  switchText: {
-    fontSize: 12,
-  },
-  createPlanBtn: {
+  breadcrumbRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  breadcrumbLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WF_COLORS.slate500,
+  },
+  breadcrumbDivider: {
+    fontSize: 12,
+    color: WF_COLORS.slate400,
+  },
+  breadcrumbCurrent: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  titleActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: WF_COLORS.slate900,
+    letterSpacing: -0.4,
+  },
+  pageSubtitle: {
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+    marginTop: 2,
+  },
+  createTripBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WF_COLORS.primary,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    shadowColor: '#000',
+    paddingVertical: 9,
+    borderRadius: 12,
+    shadowColor: WF_COLORS.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
-  createPlanBtnText: {
+  createTripBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 12,
   },
-  list: {
-    padding: 16,
-    gap: 16,
+  tabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  tabBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: WF_COLORS.slate100,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+  },
+  tabBtnActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  tabBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+  },
+  tabBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   card: {
+    backgroundColor: WF_COLORS.white,
+    marginHorizontal: 16,
+    marginBottom: 14,
     borderRadius: 18,
     borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   imageBox: {
     position: 'relative',
@@ -682,25 +713,25 @@ const styles = StyleSheet.create({
   },
   destinationBadge: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 10,
+    left: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   destinationText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   statusBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(13, 148, 136, 0.9)',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(2, 132, 199, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -708,7 +739,7 @@ const styles = StyleSheet.create({
   statusText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   content: {
     padding: 14,
@@ -716,9 +747,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 10,
+    color: WF_COLORS.slate900,
+    marginBottom: 8,
     lineHeight: 22,
-    letterSpacing: -0.2,
   },
   metaRow: {
     flexDirection: 'row',
@@ -728,124 +759,153 @@ const styles = StyleSheet.create({
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    gap: 5,
+    backgroundColor: WF_COLORS.slate100,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    color: WF_COLORS.slate700,
   },
   centerBox: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 30,
     alignItems: 'center',
-    padding: 24,
   },
-  helperText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginTop: 14,
-  },
-  errorSub: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 13,
+    color: WF_COLORS.slate500,
+  },
+  alertCard: {
+    backgroundColor: WF_COLORS.white,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    alignItems: 'center',
+    width: '100%',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  alertDesc: {
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+    marginVertical: 6,
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 16,
-    lineHeight: 18,
   },
   retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: WF_COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 6,
   },
-  retryText: {
+  retryBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 12,
   },
-  // Modal styles
-  modalOverlay: {
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+    marginTop: 10,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  // Modal Styles
+  modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 18,
+    padding: 16,
   },
-  modalCard: {
+  modalCardBox: {
     width: '100%',
-    maxHeight: '85%',
+    backgroundColor: WF_COLORS.white,
     borderRadius: 20,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
+    maxHeight: '85%',
   },
-  modalHeader: {
+  modalCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  modalTitle: {
-    fontSize: 18,
+  modalCardTitle: {
+    fontSize: 17,
     fontWeight: '700',
+    color: WF_COLORS.slate900,
   },
   inputGroup: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   inputRow: {
     flexDirection: 'row',
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 6,
+    color: WF_COLORS.slate700,
+    marginBottom: 5,
   },
   modalInput: {
+    backgroundColor: WF_COLORS.slate100,
     borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
     borderRadius: 10,
-    paddingHorizontal: 14,
-    height: 44,
-    fontSize: 14,
+    paddingHorizontal: 12,
+    height: 42,
+    fontSize: 13,
+    color: WF_COLORS.slate900,
   },
   submitPlanBtn: {
+    backgroundColor: WF_COLORS.primary,
     height: 46,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
   submitPlanBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
     fontWeight: '700',
+    fontSize: 14,
   },
-  // Detail Modal styles
-  detailHeader: {
+  // Detail Modal
+  modalSafeContainer: {
+    flex: 1,
+    backgroundColor: WF_COLORS.white,
+  },
+  detailNavbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
+    borderBottomColor: WF_COLORS.slate200,
   },
   backBtn: {
-    padding: 8,
+    padding: 6,
   },
-  detailHeaderTitle: {
-    fontSize: 17,
+  detailNavTitle: {
+    fontSize: 16,
     fontWeight: '700',
+    color: WF_COLORS.slate900,
     flex: 1,
     textAlign: 'center',
   },
@@ -853,122 +913,162 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  overviewCard: {
+  overviewHeroCard: {
+    backgroundColor: WF_COLORS.primarySoft,
     borderRadius: 16,
     borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   overviewDestination: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
+    color: WF_COLORS.primary,
     marginBottom: 4,
   },
   overviewTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '800',
-    marginBottom: 12,
-    letterSpacing: -0.3,
+    color: WF_COLORS.slate900,
+    marginBottom: 10,
   },
   overviewMetaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    gap: 8,
   },
-  overviewMetaItem: {
+  overviewMetaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: WF_COLORS.white,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
   },
   overviewMetaText: {
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
   },
   daySelectorRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  dayChip: {
+  dayChipBtn: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 20,
+    backgroundColor: WF_COLORS.slate100,
     borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+  },
+  dayChipBtnActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
   },
   dayChipText: {
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+  },
+  dayChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   daySectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   daySectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+    color: WF_COLORS.slate900,
   },
   addStopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    backgroundColor: WF_COLORS.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   addStopBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+    color: WF_COLORS.primary,
   },
   emptyDayBox: {
+    backgroundColor: WF_COLORS.slate50,
     borderRadius: 14,
     borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
     padding: 24,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   emptyDayText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    color: WF_COLORS.slate700,
     marginTop: 8,
   },
   emptyDaySub: {
-    fontSize: 12,
+    fontSize: 11,
+    color: WF_COLORS.slate500,
+    marginTop: 2,
     textAlign: 'center',
-    marginTop: 4,
   },
   stopCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: WF_COLORS.white,
     borderRadius: 14,
     borderWidth: 1,
-    padding: 14,
+    borderColor: WF_COLORS.slate200,
+    padding: 12,
     marginBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   stopTimeCol: {
     alignItems: 'center',
-    marginRight: 14,
-    width: 48,
+    width: 44,
+    marginRight: 12,
   },
-  stopTime: {
-    fontSize: 12,
+  stopTimeText: {
+    fontSize: 11,
     fontWeight: '700',
-    marginTop: 3,
+    color: WF_COLORS.primary,
+    marginTop: 2,
   },
   stopContentCol: {
     flex: 1,
   },
-  stopName: {
-    fontSize: 15,
+  stopNameText: {
+    fontSize: 14,
     fontWeight: '700',
+    color: WF_COLORS.slate900,
     marginBottom: 2,
   },
-  stopCategory: {
+  stopCategoryText: {
     fontSize: 11,
+    color: WF_COLORS.slate500,
     marginBottom: 2,
   },
-  stopNote: {
-    fontSize: 12,
+  stopNoteText: {
+    fontSize: 11,
+    color: WF_COLORS.slate600,
   },
   deleteStopBtn: {
-    padding: 8,
+    padding: 6,
   },
 });

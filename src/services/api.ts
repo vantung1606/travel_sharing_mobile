@@ -250,8 +250,95 @@ export const itineraryApi = {
     await apiClient.delete(`/itineraries/details/${detailId}`);
   },
 
-  async deleteItinerary(id: number): Promise<void> {
-    await apiClient.delete(`/itineraries/${id}`);
+  async aiQuickGenerate(payload: {
+    destination: string;
+    budget: string;
+    style: string;
+    duration: string;
+  }): Promise<ItineraryItem> {
+    const session = await authStorage.getSession();
+    const res = await apiClient.post<ApiResponse<ItineraryItem>>('/itineraries/ai-quick-generate', payload, {
+      params: { email: session?.email },
+    });
+    return res.data.data;
+  },
+
+  async cloneItinerary(id: number): Promise<ItineraryItem> {
+    const session = await authStorage.getSession();
+    const res = await apiClient.post<ApiResponse<ItineraryItem>>(`/itineraries/${id}/clone`, null, {
+      params: { email: session?.email },
+    });
+    return res.data.data;
+  },
+};
+
+// ─── HOME API ──────────────────────────────────────────────
+export interface HomeStatsData {
+  totalItineraries: number;
+  totalPlaces: number;
+  totalPosts: number;
+  totalUsers: number;
+  totalLikes?: number;
+  totalComments?: number;
+}
+
+export interface FeaturedItineraryItem {
+  id: string | number;
+  region: string;
+  title: string;
+  desc: string;
+  duration: string;
+  tag: string;
+  category: string;
+  rating: number;
+  saves: string;
+  price: string;
+  location: string;
+  image: string;
+}
+
+export const homeApi = {
+  async getStats(): Promise<HomeStatsData> {
+    try {
+      const res = await apiClient.get<ApiResponse<HomeStatsData>>('/home/stats');
+      return res.data.data;
+    } catch (e) {
+      return {
+        totalItineraries: 128,
+        totalPlaces: 84,
+        totalPosts: 320,
+        totalUsers: 1450,
+      };
+    }
+  },
+
+  async getFeaturedItineraries(region = 'all'): Promise<FeaturedItineraryItem[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<FeaturedItineraryItem[]>>('/home/featured-itineraries', {
+        params: { region },
+      });
+      return res.data.data || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getCommunityHighlights(): Promise<PostItem[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<PostItem[]>>('/home/community-highlights');
+      return res.data.data || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getTrendingDestinations(): Promise<string[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<string[]>>('/home/trending-destinations');
+      return res.data.data || [];
+    } catch (e) {
+      return ['Đà Lạt', 'Phú Quốc', 'Sa Pa', 'Đà Nẵng & Hội An', 'Mù Cang Chải', 'Ninh Bình'];
+    }
   },
 };
 

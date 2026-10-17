@@ -8,29 +8,77 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TextInput,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { postApi, PostItem } from '@/src/services/api';
+import { WF_COLORS } from '@/constants/Colors';
+import { postApi, PostItem, API_BASE_URL } from '@/src/services/api';
+import { authStorage } from '@/src/services/authStorage';
+import axios from 'axios';
+
+// Stories cộng đồng chuẩn 100% bản Web
+const COMMUNITY_STORIES = [
+  { id: 'dalat', location: 'Đà Lạt', badge: '🌸', image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80' },
+  { id: 'danang', location: 'Đà Nẵng', badge: '🌊', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
+  { id: 'phuquoc', location: 'Phú Quốc', badge: '🏖️', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80' },
+  { id: 'hagiang', location: 'Hà Giang', badge: '🏍️', image: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=300&q=80' },
+  { id: 'sapa', location: 'Sa Pa', badge: '🌾', image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=300&q=80' },
+  { id: 'hoian', location: 'Hội An', badge: '🏮', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
+];
+
+const TRAVEL_HASHTAGS = [
+  '#TấtCả',
+  '#KinhNghiệm',
+  '#ReviewẨmThực',
+  '#PhượtSolo',
+  '#ĐàNẵng',
+  '#ĐàLạt',
+  '#PhúQuốc',
+  '#CheckIn',
+  '#TiếtKiệm',
+];
 
 export default function CommunityScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const theme = Colors[colorScheme];
-
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
+  const [selectedTag, setSelectedTag] = useState<string>('#TấtCả');
+
+  // Likes state
+  const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
+  const [likesCount, setLikesCount] = useState<Record<number, number>>({});
+
+  // Modal Tạo Bài Viết Mới
+  const [createModalVisible, setCreateModalVisible] = useState<boolean>(false);
+  const [newTitle, setNewTitle] = useState<string>('');
+  const [newContent, setNewContent] = useState<string>('');
+  const [newLocation, setNewLocation] = useState<string>('');
+  const [newCategory, setNewCategory] = useState<string>('Kinh nghiệm');
+  const [newCover, setNewCover] = useState<string>('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80');
+  const [submittingPost, setSubmittingPost] = useState<boolean>(false);
 
   const fetchPosts = useCallback(async () => {
     try {
       setHasError(false);
       const data = await postApi.getCommunityPosts();
       setPosts(data || []);
+
+      // Khởi tạo likes
+      const likesMap: Record<number, boolean> = {};
+      const countMap: Record<number, number> = {};
+      data.forEach(p => {
+        likesMap[p.id] = !!p.isLiked;
+        countMap[p.id] = p.likesCount || 0;
+      });
+      setLikedPosts(likesMap);
+      setLikesCount(countMap);
     } catch (err: any) {
-      console.warn('Fetch posts notice:', err.message || err);
+      console.warn('Fetch posts error:', err.message || err);
       setHasError(true);
     } finally {
       setLoading(false);
@@ -47,41 +95,111 @@ export default function CommunityScreen() {
     fetchPosts();
   };
 
+  const toggleLike = (postId: number) => {
+    setLikedPosts(prev => {
+      const isCurrentlyLiked = !!prev[postId];
+      setLikesCount(cPrev => ({
+        ...cPrev,
+        [postId]: (cPrev[postId] || 0) + (isCurrentlyLiked ? -1 : 1),
+      }));
+      return { ...prev, [postId]: !isCurrentlyLiked };
+    });
+  };
+
+  const handleOpenCreateModal = async () => {
+    const session = await authStorage.getSession();
+    if (!session) {
+      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để chia sẻ bài viết lên cộng đồng!');
+      return;
+    }
+    setCreateModalVisible(true);
+  };
+
+  const handleCreatePost = async () => {
+    if (!newContent.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập nội dung bài viết');
+      return;
+    }
+
+    try {
+      setSubmittingPost(true);
+      const session = await authStorage.getSession();
+      const token = await authStorage.getToken();
+
+      await axios.post(
+        `${API_BASE_URL}/posts`,
+        {
+          title: newTitle.trim() || undefined,
+          content: newContent.trim(),
+          category: newCategory,
+          locationName: newLocation.trim() || undefined,
+          coverImage: newCover.trim() || undefined,
+          images: newCover.trim() ? [newCover.trim()] : [],
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          params: { email: session?.email },
+        }
+      );
+
+      Alert.alert('Thành công! 🎉', 'Bài viết của bạn đã được đăng lên Bảng tin cộng đồng.');
+      setCreateModalVisible(false);
+      setNewTitle('');
+      setNewContent('');
+      setNewLocation('');
+      fetchPosts();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Không thể đăng bài viết';
+      Alert.alert('Lỗi đăng bài', msg);
+    } finally {
+      setSubmittingPost(false);
+    }
+  };
+
   const renderPost = ({ item }: { item: PostItem }) => {
     const avatarUrl = item.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
     const postImage = item.coverImage || (item.images && item.images.length > 0 ? item.images[0] : null);
+    const isLiked = !!likedPosts[item.id];
+    const likes = likesCount[item.id] ?? (item.likesCount || 0);
 
     return (
-      <View style={[styles.postCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <View style={styles.postCard}>
         {/* Author Header */}
         <View style={styles.authorRow}>
           <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           <View style={styles.authorInfo}>
-            <Text style={[styles.authorName, { color: theme.text }]}>
-              {item.authorName || 'Thành viên Wayfare'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.authorName}>{item.authorName || 'Thành viên Wayfare'}</Text>
+              <View style={styles.tierPill}>
+                <Text style={styles.tierPillText}>Lữ Hành Bạc</Text>
+              </View>
+            </View>
             {item.locationName ? (
               <View style={styles.locationBadge}>
-                <FontAwesome name="map-marker" size={11} color={theme.tint} />
-                <Text style={[styles.locationText, { color: theme.textMuted }]} numberOfLines={1}>
+                <FontAwesome name="map-marker" size={10} color={WF_COLORS.primary} />
+                <Text style={styles.locationText} numberOfLines={1}>
                   {item.locationName}
                 </Text>
               </View>
             ) : null}
           </View>
+
           {item.category ? (
-            <View style={[styles.categoryPill, { backgroundColor: theme.badge }]}>
-              <Text style={[styles.categoryPillText, { color: theme.tint }]}>{item.category}</Text>
+            <View style={styles.categoryPill}>
+              <Text style={styles.categoryPillText}>{item.category}</Text>
             </View>
           ) : null}
         </View>
 
         {/* Post Content */}
         {item.title ? (
-          <Text style={[styles.postTitle, { color: theme.text }]}>{item.title}</Text>
+          <Text style={styles.postTitle}>{item.title}</Text>
         ) : null}
 
-        <Text style={[styles.postBody, { color: theme.text }]} numberOfLines={4}>
+        <Text style={styles.postBody} numberOfLines={5}>
           {item.content}
         </Text>
 
@@ -91,28 +209,30 @@ export default function CommunityScreen() {
         ) : null}
 
         {/* Footer Actions */}
-        <View style={[styles.footerRow, { borderTopColor: theme.border }]}>
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+        <View style={styles.footerRow}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(item.id)} activeOpacity={0.7}>
             <FontAwesome
-              name={item.isLiked ? 'heart' : 'heart-o'}
-              size={17}
-              color={item.isLiked ? '#EF4444' : theme.textMuted}
+              name={isLiked ? 'heart' : 'heart-o'}
+              size={16}
+              color={isLiked ? '#EF4444' : WF_COLORS.slate500}
             />
-            <Text style={[styles.actionCount, { color: item.isLiked ? '#EF4444' : theme.textMuted }]}>
-              {item.likesCount || 0}
+            <Text style={[styles.actionCount, isLiked && { color: '#EF4444', fontWeight: '700' }]}>
+              {likes}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <FontAwesome name="comment-o" size={17} color={theme.textMuted} />
-            <Text style={[styles.actionCount, { color: theme.textMuted }]}>
-              {item.commentsCount || 0}
-            </Text>
+            <FontAwesome name="comment-o" size={16} color={WF_COLORS.slate500} />
+            <Text style={styles.actionCount}>{item.commentsCount || 0}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <FontAwesome name="share-square-o" size={17} color={theme.textMuted} />
-            <Text style={[styles.actionCount, { color: theme.textMuted }]}>Chia sẻ</Text>
+            <FontAwesome name="share-square-o" size={16} color={WF_COLORS.slate500} />
+            <Text style={styles.actionCount}>Chia sẻ</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <FontAwesome name="bookmark-o" size={16} color={WF_COLORS.slate500} />
           </TouchableOpacity>
         </View>
       </View>
@@ -120,48 +240,168 @@ export default function CommunityScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {loading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={theme.tint} />
-          <Text style={[styles.helperText, { color: theme.textMuted }]}>Đang nạp bảng tin cộng đồng...</Text>
-        </View>
-      ) : hasError ? (
-        <View style={styles.centerBox}>
-          <FontAwesome name="globe" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
-          <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có kết nối máy chủ</Text>
-          <Text style={[styles.errorSub, { color: theme.textMuted }]}>
-            Bảng tin bài viết sẽ xuất hiện khi Backend Spring Boot được khởi động.
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryBtn, { backgroundColor: theme.tint }]}
-            onPress={() => {
-              setLoading(true);
-              fetchPosts();
-            }}>
-            <FontAwesome name="refresh" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.retryText}>Tải lại</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderPost}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.tint]} />}
-          ListEmptyComponent={
-            <View style={styles.centerBox}>
-              <FontAwesome name="comments-o" size={44} color={theme.textMuted} style={{ opacity: 0.5 }} />
-              <Text style={[styles.errorTitle, { color: theme.text }]}>Chưa có bài viết nào</Text>
-              <Text style={[styles.errorSub, { color: theme.textMuted }]}>
-                Hãy là người đầu tiên chia sẻ khoảnh khắc du lịch tuyệt vời!
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderPost}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        ListHeaderComponent={
+          <View style={styles.headerWrapper}>
+            {/* 1. Breadcrumb Navigation chuẩn Web */}
+            <View style={styles.breadcrumbRow}>
+              <FontAwesome name="compass" size={12} color={WF_COLORS.primary} />
+              <Text style={styles.breadcrumbLink}>Trang chủ</Text>
+              <Text style={styles.breadcrumbDivider}>/</Text>
+              <Text style={styles.breadcrumbCurrent}>Cộng đồng du lịch</Text>
+            </View>
+
+            {/* 2. Page Title */}
+            <View style={styles.titleSection}>
+              <Text style={styles.pageTitle}>Bảng Tin Cộng Đồng</Text>
+              <Text style={styles.pageSubtitle}>
+                Chia sẻ trải nghiệm & khoảnh khắc du lịch từ khắp mọi miền
               </Text>
             </View>
-          }
-        />
-      )}
+
+            {/* 3. Community Stories Row (Chuẩn Web) */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
+              {COMMUNITY_STORIES.map((story) => (
+                <View key={story.id} style={styles.storyItem}>
+                  <View style={styles.storyRing}>
+                    <Image source={{ uri: story.image }} style={styles.storyImage} />
+                    <View style={styles.storyBadge}>
+                      <Text style={{ fontSize: 10 }}>{story.badge}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.storyLabel} numberOfLines={1}>{story.location}</Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* 4. Quick Post Creator Prompt */}
+            <TouchableOpacity style={styles.createPromptBox} onPress={handleOpenCreateModal} activeOpacity={0.88}>
+              <Image
+                source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80' }}
+                style={styles.promptAvatar}
+              />
+              <Text style={styles.promptPlaceholder}>
+                Chia sẻ khoảnh khắc chuyến đi của bạn...
+              </Text>
+              <View style={styles.promptPostBtn}>
+                <FontAwesome name="pencil" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={styles.promptPostBtnText}>Đăng bài</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* 5. Travel Hashtags Scroll */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagsScroll}>
+              {TRAVEL_HASHTAGS.map((tag) => {
+                const isSelected = selectedTag === tag;
+                return (
+                  <TouchableOpacity
+                    key={tag}
+                    onPress={() => setSelectedTag(tag)}
+                    style={[styles.hashtagChip, isSelected && styles.hashtagChipActive]}>
+                    <Text style={[styles.hashtagText, isSelected && styles.hashtagTextActive]}>
+                      {tag}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.centerBox}>
+              <ActivityIndicator size="large" color={WF_COLORS.primary} />
+              <Text style={styles.loadingText}>Đang nạp bảng tin cộng đồng từ Railway...</Text>
+            </View>
+          ) : hasError ? (
+            <View style={styles.centerBox}>
+              <View style={styles.alertCard}>
+                <FontAwesome name="globe" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
+                <Text style={styles.alertTitle}>Chưa có kết nối máy chủ</Text>
+                <Text style={styles.alertDesc}>Đang nạp từ: {API_BASE_URL}</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={fetchPosts}>
+                  <Text style={styles.retryBtnText}>Tải lại dữ liệu</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.centerBox}>
+              <FontAwesome name="comments-o" size={44} color={WF_COLORS.slate400} style={{ opacity: 0.5 }} />
+              <Text style={styles.emptyTitle}>Chưa có bài viết nào</Text>
+              <Text style={styles.emptySub}>Hãy là người đầu tiên chia sẻ khoảnh khắc du lịch tuyệt vời!</Text>
+            </View>
+          )
+        }
+      />
+
+      {/* ─── MODAL TẠO BÀI VIẾT MỚI ────────────────────────────── */}
+      <Modal visible={createModalVisible} animationType="slide" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardBox}>
+            <View style={styles.modalCardHeader}>
+              <Text style={styles.modalCardTitle}>✍️ Tạo Bài Viết Mới</Text>
+              <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
+                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Tiêu đề bài viết</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="VD: Trải nghiệm trượt cát tại Mũi Né"
+                  placeholderTextColor={WF_COLORS.slate400}
+                  value={newTitle}
+                  onChangeText={setNewTitle}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Địa điểm check-in</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="VD: Mũi Né, Phan Thiết, Bình Thuận"
+                  placeholderTextColor={WF_COLORS.slate400}
+                  value={newLocation}
+                  onChangeText={setNewLocation}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Nội dung chia sẻ *</Text>
+                <TextInput
+                  style={[styles.modalInput, { height: 90, textAlignVertical: 'top', paddingTop: 8 }]}
+                  placeholder="Cảm nghĩ, mẹo du lịch, lưu ý trang phục, quán ăn ngon..."
+                  placeholderTextColor={WF_COLORS.slate400}
+                  value={newContent}
+                  onChangeText={setNewContent}
+                  multiline
+                />
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={[styles.submitPostBtn, submittingPost && { opacity: 0.7 }]}
+                onPress={handleCreatePost}
+                disabled={submittingPost}>
+                {submittingPost ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitPostBtnText}>Đăng lên Cộng đồng</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -169,21 +409,163 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: WF_COLORS.slate50,
   },
   list: {
-    padding: 16,
-    gap: 16,
+    paddingBottom: 24,
+  },
+  headerWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: WF_COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: WF_COLORS.slate200,
+    marginBottom: 12,
+  },
+  breadcrumbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  breadcrumbLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WF_COLORS.slate500,
+  },
+  breadcrumbDivider: {
+    fontSize: 12,
+    color: WF_COLORS.slate400,
+  },
+  breadcrumbCurrent: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  titleSection: {
+    marginBottom: 10,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: WF_COLORS.slate900,
+    letterSpacing: -0.4,
+  },
+  pageSubtitle: {
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+    marginTop: 2,
+  },
+  storiesScroll: {
+    gap: 14,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  storyItem: {
+    alignItems: 'center',
+    width: 60,
+  },
+  storyRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: WF_COLORS.primary,
+    padding: 2,
+    position: 'relative',
+    marginBottom: 4,
+  },
+  storyImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+  },
+  storyBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: WF_COLORS.white,
+    borderRadius: 8,
+    paddingHorizontal: 2,
+  },
+  storyLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+  },
+  createPromptBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WF_COLORS.slate100,
+    borderRadius: 14,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    marginBottom: 10,
+  },
+  promptAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    marginRight: 10,
+  },
+  promptPlaceholder: {
+    flex: 1,
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+  },
+  promptPostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WF_COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  promptPostBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  hashtagsScroll: {
+    gap: 8,
+    paddingBottom: 2,
+  },
+  hashtagChip: {
+    backgroundColor: WF_COLORS.slate100,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+  },
+  hashtagChipActive: {
+    backgroundColor: WF_COLORS.primaryLight,
+    borderColor: WF_COLORS.primary,
+  },
+  hashtagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+  },
+  hashtagTextActive: {
+    color: WF_COLORS.primary,
+    fontWeight: '700',
   },
   postCard: {
+    backgroundColor: WF_COLORS.white,
+    marginHorizontal: 16,
+    marginBottom: 14,
     borderRadius: 18,
     borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   authorRow: {
     flexDirection: 'row',
@@ -191,102 +573,197 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     marginRight: 10,
-    backgroundColor: '#334155',
+    backgroundColor: WF_COLORS.slate200,
   },
   authorInfo: {
     flex: 1,
   },
   authorName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
-    letterSpacing: -0.2,
+    color: WF_COLORS.slate900,
+  },
+  tierPill: {
+    backgroundColor: WF_COLORS.amberLight,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  tierPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#B45309',
   },
   locationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
+    marginTop: 2,
   },
   locationText: {
-    fontSize: 12,
+    fontSize: 11,
+    color: WF_COLORS.slate500,
   },
   categoryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: WF_COLORS.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   categoryPillText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
+    color: WF_COLORS.primary,
   },
   postTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+    color: WF_COLORS.slate900,
     paddingHorizontal: 14,
-    marginBottom: 6,
-    letterSpacing: -0.2,
+    marginBottom: 4,
   },
   postBody: {
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
+    color: WF_COLORS.slate700,
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   postImage: {
     width: '100%',
     height: 220,
-    backgroundColor: '#1E293B',
+    backgroundColor: WF_COLORS.slate100,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
+    borderTopColor: WF_COLORS.slate100,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   actionCount: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    color: WF_COLORS.slate600,
   },
   centerBox: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 30,
     alignItems: 'center',
-    padding: 24,
   },
-  helperText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginTop: 14,
-  },
-  errorSub: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 13,
+    color: WF_COLORS.slate500,
+  },
+  alertCard: {
+    backgroundColor: WF_COLORS.white,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    alignItems: 'center',
+    width: '100%',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  alertDesc: {
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+    marginVertical: 6,
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 16,
-    lineHeight: 18,
   },
   retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: WF_COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 6,
   },
-  retryText: {
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+    marginTop: 10,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: WF_COLORS.slate500,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  // Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCardBox: {
+    width: '100%',
+    backgroundColor: WF_COLORS.white,
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  modalCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalCardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  inputGroup: {
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+    marginBottom: 5,
+  },
+  modalInput: {
+    backgroundColor: WF_COLORS.slate100,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 42,
+    fontSize: 13,
+    color: WF_COLORS.slate900,
+  },
+  submitPostBtn: {
+    backgroundColor: WF_COLORS.primary,
+    height: 46,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  submitPostBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,

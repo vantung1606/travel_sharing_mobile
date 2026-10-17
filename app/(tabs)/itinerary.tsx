@@ -18,6 +18,7 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -123,6 +124,7 @@ export default function ItineraryScreen() {
   const [addStopModalVisible, setAddStopModalVisible] = useState<boolean>(false);
   const [stopDayNum, setStopDayNum] = useState<number>(1);
   const [stopName, setStopName] = useState<string>('');
+  const [stopAddress, setStopAddress] = useState<string>('');
   const [stopTime, setStopTime] = useState<string>('08:30');
   const [stopCategory, setStopCategory] = useState<string>('Tham quan');
   const [stopNote, setStopNote] = useState<string>('');
@@ -427,6 +429,7 @@ export default function ItineraryScreen() {
       const newDetail: ItineraryDetailItem = {
         itineraryId: selectedItinerary.id,
         locationName: stopName.trim(),
+        locationAddress: stopAddress.trim() || undefined,
         startTime: stopTime.trim(),
         category: stopCategory,
         dayNumber: stopDayNum,
@@ -438,6 +441,7 @@ export default function ItineraryScreen() {
       Alert.alert('Thành công', `Đã thêm "${stopName}" vào Ngày ${stopDayNum}`);
       setAddStopModalVisible(false);
       setStopName('');
+      setStopAddress('');
       setStopNote('');
 
       // Reload detail
@@ -632,7 +636,7 @@ QUY TẮC BẮT BUỘC:
           "time": "08:00",
           "category": "Ẩm thực",
           "location": "Tên địa danh hoặc quán ăn cụ thể",
-          "address": "Địa chỉ cụ thể tại ${aiDest}",
+          "address": "Địa chỉ cụ thể tại ${aiDest} (BẮT BUỘC ghi rõ số nhà, tên đường hoặc phường/xã, quận/huyện)",
           "note": "Kinh nghiệm ngắn gọn",
           "cost": 50000,
           "transit": "15 phút"
@@ -679,12 +683,17 @@ QUY TẮC BẮT BUỘC:
               ? act.cost
               : parseFloat(String(act.cost || '').replace(/\D/g, '')) || (idx === 1 ? 120000 : 50000);
 
+            const locName = act.location || act.title || `${aiDest} - Trạm dừng ${idx + 1}`;
+            const locAddr = (act.address && typeof act.address === 'string' && act.address.trim())
+              ? act.address.trim()
+              : `${locName}, ${aiDest}, Việt Nam`;
+
             aiActivities.push({
               dayNumber: dNum,
               visitOrder: idx + 1,
               startTime: act.time || (idx === 0 ? '08:00' : idx === 1 ? '11:30' : idx === 2 ? '14:30' : '18:30'),
-              locationName: act.location || act.title || `${aiDest} - Trạm dừng ${idx + 1}`,
-              locationAddress: act.address || undefined,
+              locationName: locName,
+              locationAddress: locAddr,
               category: act.category || (idx === 1 ? 'Ẩm thực' : idx === 3 ? 'Chill' : 'Tham quan'),
               estimatedCost: numCost,
               aiTip: act.note || parsedData.summaryTip || undefined,
@@ -1351,18 +1360,50 @@ QUY TẮC BẮT BUỘC:
 
                         <Text style={styles.timelineCardTitle}>{detail.locationName}</Text>
 
+                        {/* Hàng Địa chỉ cụ thể & Bản đồ Google Maps (Khớp 100% với Web) */}
+                        <View style={styles.timelineAddressBox}>
+                          <View style={styles.timelineAddressLeft}>
+                            <FontAwesome name="map-marker" size={13} color="#0284C7" style={{ marginTop: 2, marginRight: 6 }} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.timelineAddressText} numberOfLines={2}>
+                                {detail.locationAddress || (selectedItinerary?.destination ? `${selectedItinerary.destination}, Việt Nam` : 'Việt Nam')}
+                              </Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={styles.timelineMapBtn}
+                            onPress={() => {
+                              const q = encodeURIComponent(`${detail.locationName}, ${detail.locationAddress || selectedItinerary?.destination || ''}`);
+                              Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`).catch(() => {
+                                Alert.alert('Thông báo', 'Không thể mở ứng dụng bản đồ');
+                              });
+                            }}>
+                            <Text style={styles.timelineMapBtnText}>Bản đồ</Text>
+                            <FontAwesome name="external-link" size={9} color="#0284C7" style={{ marginLeft: 3 }} />
+                          </TouchableOpacity>
+                        </View>
+
                         {detail.note ? (
                           <Text style={styles.timelineCardNote}>💡 {detail.note}</Text>
                         ) : null}
 
-                        {detail.estimatedCost ? (
+                        {/* Hàng Chi phí & Di chuyển (Khớp 100% với Web) */}
+                        <View style={styles.timelineBottomRow}>
                           <View style={styles.timelineCostRow}>
-                            <FontAwesome name="money" size={11} color="#D97706" style={{ marginRight: 4 }} />
-                            <Text style={styles.timelineCostText}>
-                              ~{detail.estimatedCost.toLocaleString('vi-VN')} đ
+                            <FontAwesome name="money" size={11} color={detail.estimatedCost ? "#D97706" : "#64748B"} style={{ marginRight: 4 }} />
+                            <Text style={[styles.timelineCostText, !detail.estimatedCost && { color: '#64748B', fontWeight: '500' }]}>
+                              {detail.estimatedCost ? `~${detail.estimatedCost.toLocaleString('vi-VN')} đ` : 'Theo thực tế'}
                             </Text>
                           </View>
-                        ) : null}
+
+                          {detail.transitInfo ? (
+                            <View style={styles.timelineTransitRow}>
+                              <FontAwesome name="car" size={11} color="#64748B" style={{ marginRight: 4 }} />
+                              <Text style={styles.timelineTransitText}>{detail.transitInfo}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
                     </View>
                   ))
@@ -1729,6 +1770,15 @@ QUY TẮC BẮT BUỘC:
                 placeholderTextColor={WF_COLORS.slate400}
                 value={stopName}
                 onChangeText={setStopName}
+              />
+
+              <Text style={[styles.aiInputLabel, { marginTop: 12 }]}>Địa chỉ cụ thể</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="VD: Đường Kim Liên, Nam Đàn, Nghệ An..."
+                placeholderTextColor={WF_COLORS.slate400}
+                value={stopAddress}
+                onChangeText={setStopAddress}
               />
 
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
@@ -2650,19 +2700,76 @@ const styles = StyleSheet.create({
   timelineCardNote: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 6,
     lineHeight: 16,
     fontFamily: SERIF_FONT,
+  },
+  timelineAddressBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  timelineAddressLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  timelineAddressText: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 15,
+    fontFamily: SERIF_FONT,
+  },
+  timelineMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  timelineMapBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0284C7',
+    fontFamily: SERIF_FONT,
+  },
+  timelineBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   timelineCostRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
   },
   timelineCostText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#D97706',
+    fontFamily: SERIF_FONT,
+  },
+  timelineTransitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timelineTransitText: {
+    fontSize: 11,
+    color: '#64748B',
     fontFamily: SERIF_FONT,
   },
   checklistSection: {

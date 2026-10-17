@@ -172,6 +172,47 @@ export const postApi = {
   },
 };
 
+export interface ItineraryDetailItem {
+  id?: number;
+  itineraryId?: number;
+  placeId?: number;
+  locationName: string;
+  locationAddress?: string;
+  category?: string;
+  dayNumber: number;
+  visitOrder?: number;
+  startTime?: string;
+  estimatedCost?: number;
+  aiTip?: string;
+  transitInfo?: string;
+  note?: string;
+}
+
+export interface ItineraryItem {
+  id: number;
+  title: string;
+  destination: string;
+  startDate?: string;
+  endDate?: string;
+  budgetTotal?: number;
+  status?: string;
+  coverImageUrl?: string;
+  creatorName?: string;
+  creatorAvatar?: string;
+  creatorEmail?: string;
+  details?: ItineraryDetailItem[];
+}
+
+export interface CreateItineraryPayload {
+  title: string;
+  destination: string;
+  startDate?: string;
+  endDate?: string;
+  budgetTotal?: number;
+  coverImageUrl?: string;
+  status?: string;
+}
+
 // ─── ITINERARIES API ───────────────────────────────────────
 export const itineraryApi = {
   async getMyItineraries(): Promise<ItineraryItem[]> {
@@ -193,6 +234,24 @@ export const itineraryApi = {
       params: { email: session?.email },
     });
     return res.data.data;
+  },
+
+  async createItinerary(payload: CreateItineraryPayload): Promise<ItineraryItem> {
+    const res = await apiClient.post<ApiResponse<ItineraryItem>>('/itineraries', payload);
+    return res.data.data;
+  },
+
+  async addDetail(itineraryId: number, detail: ItineraryDetailItem): Promise<ItineraryDetailItem> {
+    const res = await apiClient.post<ApiResponse<ItineraryDetailItem>>(`/itineraries/${itineraryId}/details`, detail);
+    return res.data.data;
+  },
+
+  async deleteDetail(detailId: number): Promise<void> {
+    await apiClient.delete(`/itineraries/details/${detailId}`);
+  },
+
+  async deleteItinerary(id: number): Promise<void> {
+    await apiClient.delete(`/itineraries/${id}`);
   },
 };
 

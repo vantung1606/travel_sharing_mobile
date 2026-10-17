@@ -159,11 +159,6 @@ export const getUserTier = (userOrXP: UserStatsForXP | number | null | undefined
   else if (rawRank.includes('vàng') || rawRank.includes('gold')) dbTierLevel = Math.max(dbTierLevel, 3);
   else if (rawRank.includes('bạc') || rawRank.includes('silver')) dbTierLevel = Math.max(dbTierLevel, 2);
 
-  const email = String(user.email || '').trim().toLowerCase();
-  if (email.startsWith('tung1@') || email.startsWith('admin@')) dbTierLevel = Math.max(dbTierLevel, 4);
-  else if (email.startsWith('tung2@')) dbTierLevel = Math.max(dbTierLevel, 3);
-  else if (email.startsWith('tung3@')) dbTierLevel = Math.max(dbTierLevel, 2);
-
   if (Array.isArray(user.roles) && user.roles.some((r) => r === 'ROLE_ADMIN')) {
     dbTierLevel = Math.max(dbTierLevel, 4);
   }

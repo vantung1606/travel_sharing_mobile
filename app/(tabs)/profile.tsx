@@ -293,7 +293,7 @@ export default function ProfileScreen() {
       ? profileData.destinationsCount
       : itinsCount > 0
       ? Math.min(itinsCount * 2, 25)
-      : 24;
+      : 0;
 
   const userTotalXP = calculateUserXP({
     itinsCount,

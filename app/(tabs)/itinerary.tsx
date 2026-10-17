@@ -894,8 +894,8 @@ Ví dụ chuẩn:
         style={[
           styles.floatingNavbar,
           {
-            paddingTop: insets.top + 6,
-            height: 52 + insets.top + 6,
+            paddingTop: Math.max(insets.top, 6),
+            height: 44 + Math.max(insets.top, 6),
             backgroundColor: isScrolled ? '#FFFFFF' : 'transparent',
             borderBottomWidth: isScrolled ? 1 : 0,
             borderBottomColor: '#E2E8F0',
@@ -988,8 +988,8 @@ Ví dụ chuẩn:
               style={[
                 styles.heroBox,
                 {
-                  paddingTop: insets.top + 48,
-                  paddingBottom: 16,
+                  paddingTop: Math.max(insets.top, 6) + 44,
+                  paddingBottom: 14,
                 },
               ]}>
               <Image

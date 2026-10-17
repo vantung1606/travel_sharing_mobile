@@ -529,12 +529,12 @@ const styles = StyleSheet.create({
   },
   headerWrapper: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 2,
     paddingBottom: 6,
     backgroundColor: WF_COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: WF_COLORS.slate200,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   breadcrumbRow: {
     flexDirection: 'row',

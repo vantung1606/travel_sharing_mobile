@@ -2824,10 +2824,10 @@ const styles = StyleSheet.create({
 
   // Auth Card Styles
   authScroll: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100%',
   },
   authHero: {
     alignItems: 'center',

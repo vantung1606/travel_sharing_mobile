@@ -89,8 +89,8 @@ export default function TabLayout() {
               style={[
                 styles.customHeader,
                 {
-                  paddingTop: insets.top + 4,
-                  height: 48 + insets.top + 4,
+                  paddingTop: Math.max(insets.top, 6),
+                  paddingBottom: 4,
                 },
               ]}>
               {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 4,
     elevation: 3,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },

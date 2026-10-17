@@ -1052,7 +1052,7 @@ export default function ProfileScreen() {
 
                       <View style={styles.itinBody}>
                         <Text style={styles.itinTitle} numberOfLines={2}>
-                          {itin.title}
+                          {(itin.title || '').replace(/^\[Sao chép\]\s*/i, '')}
                         </Text>
                         <View style={styles.itinBudgetRow}>
                           <Text style={styles.itinBudgetLabel}>Chi phí dự kiến:</Text>

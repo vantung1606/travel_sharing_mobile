@@ -835,7 +835,7 @@ Ví dụ chuẩn:
         <View style={styles.cardBody}>
           <TouchableOpacity activeOpacity={0.85} onPress={() => handleOpenDetail(item)}>
             <Text style={styles.cardTitle} numberOfLines={2}>
-              {item.title}
+              {(item.title || '').replace(/^\[Sao chép\]\s*/i, '')}
             </Text>
           </TouchableOpacity>
 

@@ -92,9 +92,6 @@ export default function ProfileScreen() {
   const [authPassword, setAuthPassword] = useState<string>('');
   const [submittingAuth, setSubmittingAuth] = useState<boolean>(false);
 
-  // Cloning itinerary state
-  const [cloningId, setCloningId] = useState<number | null>(null);
-
   // Follow Modal state (Xem danh sách người theo dõi / đang theo dõi)
   const [followModalVisible, setFollowModalVisible] = useState<boolean>(false);
   const [followModalInitialTab, setFollowModalInitialTab] = useState<'followers' | 'following'>('followers');
@@ -350,18 +347,28 @@ export default function ProfileScreen() {
     }
   };
 
-  // ─── CLONE ITINERARY HANDLER ───────────────────────────────
-  const handleCloneItinerary = async (itin: ItineraryItem) => {
-    try {
-      setCloningId(itin.id);
-      await itineraryApi.cloneItinerary(itin.id);
-      Alert.alert('Thành công! 🎉', `Đã sao chép lịch trình "${itin.title}" vào kho của bạn!`);
-      loadProfile();
-    } catch (err: any) {
-      Alert.alert('Thông báo', 'Không thể sao chép: ' + (err.message || 'Lỗi kết nối'));
-    } finally {
-      setCloningId(null);
-    }
+  // ─── DELETE ITINERARY HANDLER ───────────────────────────────
+  const handleDeleteItinerary = (itin: ItineraryItem) => {
+    Alert.alert(
+      'Xóa lịch trình',
+      `Bạn có chắc chắn muốn xóa chuyến đi "${itin.title}" khỏi kho cá nhân của bạn không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await itineraryApi.deleteItinerary(itin.id);
+              Alert.alert('Thành công', 'Đã xóa lịch trình thành công.');
+              loadProfile();
+            } catch {
+              Alert.alert('Lỗi', 'Không thể xóa lịch trình này.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // ─── PRESTIGE TIER CALCULATION ─────────────────────────────
@@ -1061,24 +1068,16 @@ export default function ProfileScreen() {
                             style={styles.itinViewBtn}
                             activeOpacity={0.8}
                           >
-                            <FontAwesome name="eye" size={12} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
-                            <Text style={styles.itinViewBtnText}>Xem Chi Tiết</Text>
+                            <FontAwesome name="eye" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+                            <Text style={styles.itinViewBtnText}>Xem Chi Tiết Lộ Trình</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            onPress={() => handleCloneItinerary(itin)}
-                            disabled={cloningId === itin.id}
-                            style={styles.itinCloneBtn}
+                            onPress={() => handleDeleteItinerary(itin)}
+                            style={styles.itinDeleteBtn}
                             activeOpacity={0.8}
                           >
-                            {cloningId === itin.id ? (
-                              <ActivityIndicator size="small" color="#FFFFFF" />
-                            ) : (
-                              <>
-                                <FontAwesome name="copy" size={12} color="#FFFFFF" style={{ marginRight: 6 }} />
-                                <Text style={styles.itinCloneBtnText}>Sao Chép</Text>
-                              </>
-                            )}
+                            <FontAwesome name="trash-o" size={14} color="#EF4444" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -2291,19 +2290,30 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   itinViewBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#F0F9FF',
     borderWidth: 1,
     borderColor: '#BAE6FD',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
   },
   itinViewBtnText: {
     color: WF_COLORS.primary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  itinDeleteBtn: {
+    width: 36,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itinManualTag: {
     flexDirection: 'row',
@@ -2316,19 +2326,6 @@ const styles = StyleSheet.create({
   itinManualTagText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '700',
-  },
-  itinCloneBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WF_COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  itinCloneBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
     fontWeight: '700',
   },
 

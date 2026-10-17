@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   Modal,
   TouchableOpacity,
-  TextInput,
   FlatList,
   Image,
   ActivityIndicator,
@@ -16,6 +14,8 @@ import {
   Alert,
   Animated,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';

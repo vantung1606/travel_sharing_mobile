@@ -2,14 +2,12 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   FlatList,
   Image,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Modal,
-  TextInput,
   ScrollView,
   Alert,
   Share,
@@ -20,6 +18,7 @@ import {
   NativeScrollEvent,
   Linking,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';

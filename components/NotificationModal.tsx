@@ -2,17 +2,17 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Modal,
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
   Image,
   ActivityIndicator,
   RefreshControl,
-  TextInput,
   Alert,
   Dimensions,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

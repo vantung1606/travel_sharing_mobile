@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
-import { Image, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { Image, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_COLORS } from '@/constants/Colors';
 import { ChatModal } from '@/components/ChatModal';

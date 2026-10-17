@@ -2,7 +2,7 @@
  * Learn more about Light and Dark modes:
  * https://docs.expo.io/guides/color-schemes/
  */
-import { Text as DefaultText, View as DefaultView } from 'react-native';
+import { Text as DefaultText, TextInput as DefaultTextInput, View as DefaultView } from 'react-native';
 
 import { useColorScheme } from './useColorScheme';
 
@@ -33,9 +33,17 @@ export function useThemeColor(
 
 export function Text(props: TextProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const color = (lightColor || darkColor) ? useThemeColor({ light: lightColor, dark: darkColor }, 'text') : undefined;
 
-  return <DefaultText style={[{ color, fontFamily: SERIF_FONT }, style]} {...otherProps} />;
+  return <DefaultText style={[{ fontFamily: SERIF_FONT }, color ? { color } : null, style]} {...otherProps} />;
+}
+export type TextInputProps = ThemeProps & React.ComponentProps<typeof DefaultTextInput>;
+
+export function TextInput(props: TextInputProps) {
+  const { style, lightColor, darkColor, ...otherProps } = props;
+  const color = (lightColor || darkColor) ? useThemeColor({ light: lightColor, dark: darkColor }, 'text') : undefined;
+
+  return <DefaultTextInput style={[{ fontFamily: SERIF_FONT }, color ? { color } : null, style]} {...otherProps} />;
 }
 
 export function View(props: ViewProps) {
@@ -44,3 +52,4 @@ export function View(props: ViewProps) {
 
   return <DefaultView style={[{ backgroundColor }, style]} {...otherProps} />;
 }
+

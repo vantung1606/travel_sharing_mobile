@@ -2,17 +2,17 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   FlatList,
   Image,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   RefreshControl,
   Modal,
   ScrollView,
   Alert,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';

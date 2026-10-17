@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   Modal,
   TouchableOpacity,
   FlatList,
@@ -10,12 +9,12 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { Text } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
 import { userApi } from '@/src/services/api';
-
-const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
 
 export interface FollowModalProps {
   visible: boolean;

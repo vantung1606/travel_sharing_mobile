@@ -2,8 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   Image,
   ScrollView,
@@ -13,6 +11,8 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as WebBrowser from 'expo-web-browser';

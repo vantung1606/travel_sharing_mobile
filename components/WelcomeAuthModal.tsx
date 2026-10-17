@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   Modal,
   TouchableOpacity,
-  TextInput,
   Image,
   ActivityIndicator,
   Alert,
@@ -13,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as WebBrowser from 'expo-web-browser';

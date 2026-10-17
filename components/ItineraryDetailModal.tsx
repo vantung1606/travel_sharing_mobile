@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
@@ -12,14 +11,13 @@ import {
   Share,
   Platform,
   Linking,
-  TextInput,
 } from 'react-native';
+import { Text, TextInput } from '@/components/Themed';
+import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem } from '@/src/services/api';
-
-const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
 
 const PACKING_CHECKLIST = [
   { id: '1', label: 'Căn cước công dân / Hộ chiếu & Giấy tờ tùy thân' },

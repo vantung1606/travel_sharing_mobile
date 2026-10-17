@@ -111,7 +111,7 @@ export default function ItineraryScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'drafts' | 'all'>('upcoming');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeFilterTag, setActiveFilterTag] = useState<'all' | 'ai' | 'group' | 'family'>('all');
+  const [activeFilterTag, setActiveFilterTag] = useState<string>('all');
 
   // ─── MODAL DETAIL STATE ──────────────────────────────────
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
@@ -1022,22 +1022,26 @@ Ví dụ chuẩn:
               <View style={styles.heroDarkScrim} />
 
               <View style={styles.heroContent}>
-                {/* Hero Title */}
-                <Text style={styles.heroHeadline}>
-                  Lịch Trình Du Lịch
-                </Text>
+                {/* Hero Title & Count Pill */}
+                <View style={styles.heroTopRow}>
+                  <Text style={styles.heroHeadline}>Lịch Trình Du Lịch</Text>
+                  <View style={styles.heroCountBadge}>
+                    <Text style={styles.heroCountBadgeText}>{itineraries?.length || 0} chuyến</Text>
+                  </View>
+                </View>
 
                 {/* Subtitle ngắn gọn */}
                 <Text style={styles.heroSubtitle}>
-                  Tổ chức chuyến đi và kiến tạo lịch trình cùng AI.
+                  Tổ chức chuyến đi và kiến tạo lịch trình cùng AI
                 </Text>
 
-                {/* Hero Action CTA Buttons */}
+                {/* Hero Action CTA Buttons (Thiết kế thanh lịch) */}
                 <View style={styles.heroBtnRow}>
                   <TouchableOpacity
                     activeOpacity={0.88}
                     style={styles.aiCtaBtn}
                     onPress={() => setAiModalVisible(true)}>
+                    <FontAwesome name="magic" size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
                     <Text style={styles.aiCtaBtnText}>Lập tour AI</Text>
                   </TouchableOpacity>
 
@@ -1045,147 +1049,92 @@ Ví dụ chuẩn:
                     activeOpacity={0.88}
                     style={styles.manualCtaBtn}
                     onPress={() => setManualModalVisible(true)}>
+                    <FontAwesome name="plus" size={12} color="#0F172A" style={{ marginRight: 6 }} />
                     <Text style={styles.manualCtaBtnText}>Tạo thủ công</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
 
-            {/* ─── 2. 4 DASHBOARD KPI METRIC CARDS ─────────────── */}
-            <View style={styles.kpiContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.kpiScroll}>
-                {/* KPI 1: Tổng chuyến */}
-                <View style={styles.kpiCard}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#E0F2FE' }]}>
-                    <FontAwesome name="compass" size={18} color="#0284C7" />
-                  </View>
-                  <Text style={styles.kpiLabel}>TỔNG CHUYẾN ĐI</Text>
-                  <View style={styles.kpiValueRow}>
-                    <Text style={styles.kpiValue}>{statsKPI.totalTrips}</Text>
-                    <Text style={styles.kpiSubText}>chuyến</Text>
-                  </View>
-                </View>
-
-                {/* KPI 2: Điểm dừng chân */}
-                <View style={styles.kpiCard}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#DCFCE7' }]}>
-                    <FontAwesome name="map-marker" size={18} color="#16A34A" />
-                  </View>
-                  <Text style={styles.kpiLabel}>ĐIỂM DỪNG CHÂN</Text>
-                  <View style={styles.kpiValueRow}>
-                    <Text style={styles.kpiValue}>{statsKPI.totalStops}</Text>
-                    <Text style={styles.kpiSubText}>địa danh</Text>
-                  </View>
-                </View>
-
-                {/* KPI 3: Tổng ngân sách */}
-                <View style={styles.kpiCard}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#EEF2FF' }]}>
-                    <FontAwesome name="money" size={18} color="#4F46E5" />
-                  </View>
-                  <Text style={styles.kpiLabel}>DỰ TOÁN CHI PHÍ</Text>
-                  <View style={styles.kpiValueRow}>
-                    <Text style={styles.kpiValue}>{statsKPI.totalBudgetMil}M</Text>
-                    <Text style={styles.kpiSubText}>VNĐ</Text>
-                  </View>
-                </View>
-
-                {/* KPI 4: Kế hoạch sắp tới */}
-                <View style={[styles.kpiCard, styles.kpiCardWarm]}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#F59E0B' }]}>
-                    <FontAwesome name="clock-o" size={18} color="#FFFFFF" />
-                  </View>
-                  <Text style={[styles.kpiLabel, { color: '#B45309' }]}>KẾ HOẠCH SẮP TỚI</Text>
-                  <Text style={styles.kpiDestText} numberOfLines={1}>{statsKPI.nextDestination}</Text>
-                  <Text style={styles.kpiDurationText}>{statsKPI.nextDuration}</Text>
-                </View>
-              </ScrollView>
-            </View>
-
-            {/* ─── 3. SEARCH & FILTER TOOLBAR ──────────────────── */}
-            <View style={styles.toolbarBox}>
-              {/* Search Bar */}
-              <View style={styles.searchBar}>
-                <FontAwesome name="search" size={14} color={WF_COLORS.slate400} style={{ marginRight: 8 }} />
+            {/* ─── 2. THANH TÌM KIẾM & BỘ LỌC TỐI GIẢN 1 DÒNG (AIRBNB STYLE - THOÁNG ĐÃNG) ─── */}
+            <View style={styles.cleanFilterSection}>
+              {/* Search Bar Phẳng, Hiện Đại */}
+              <View style={styles.cleanSearchBar}>
+                <FontAwesome name="search" size={13} color="#64748B" style={{ marginRight: 8 }} />
                 <TextInput
-                  style={styles.searchInput}
+                  style={styles.cleanSearchInput}
                   placeholder="Tìm chuyến đi, điểm đến, địa danh..."
-                  placeholderTextColor={WF_COLORS.slate400}
+                  placeholderTextColor="#94A3B8"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
                 {searchQuery.trim().length > 0 && (
                   <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <FontAwesome name="times-circle" size={14} color={WF_COLORS.slate400} />
+                    <FontAwesome name="times-circle" size={14} color="#94A3B8" />
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Status Segmented Tabs */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+              {/* 1 Hàng Bộ Lọc Duy Nhất (Cuộn ngang êm ái) */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cleanFilterScroll}>
                 {[
-                  { id: 'upcoming', label: 'Chuyến sắp tới', count: tabCounts.upcoming },
-                  { id: 'completed', label: 'Đã hoàn thành', count: tabCounts.completed },
-                  { id: 'drafts', label: 'Bản nháp & AI', count: tabCounts.drafts },
                   { id: 'all', label: 'Tất cả', count: tabCounts.all },
-                ].map(tab => {
-                  const isActive = activeTab === tab.id;
+                  { id: 'upcoming', label: 'Sắp tới', count: tabCounts.upcoming },
+                  { id: 'ai', label: 'Tour AI', count: (itineraries || []).filter(i => i.isAiGenerated).length },
+                  { id: 'completed', label: 'Đã hoàn thành', count: tabCounts.completed },
+                  { id: 'group', label: 'Nhóm bạn' },
+                  { id: 'family', label: 'Gia đình' },
+                  { id: 'drafts', label: 'Bản nháp', count: tabCounts.drafts },
+                ].map(item => {
+                  const isActive =
+                    (item.id === 'all' && activeTab === 'all' && activeFilterTag === 'all') ||
+                    (item.id === 'upcoming' && activeTab === 'upcoming' && activeFilterTag === 'all') ||
+                    (item.id === 'completed' && activeTab === 'completed' && activeFilterTag === 'all') ||
+                    (item.id === 'drafts' && activeTab === 'drafts' && activeFilterTag === 'all') ||
+                    (item.id === 'ai' && activeFilterTag === 'ai') ||
+                    (item.id === 'group' && activeFilterTag === 'group') ||
+                    (item.id === 'family' && activeFilterTag === 'family');
+
                   return (
                     <TouchableOpacity
-                      key={tab.id}
+                      key={item.id}
                       activeOpacity={0.8}
-                      style={[styles.tabButton, isActive && styles.tabButtonActive]}
-                      onPress={() => setActiveTab(tab.id as any)}>
-                      <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
-                        {tab.label}
+                      style={[styles.cleanFilterChip, isActive && styles.cleanFilterChipActive]}
+                      onPress={() => {
+                        if (item.id === 'all') {
+                          setActiveTab('all');
+                          setActiveFilterTag('all');
+                        } else if (item.id === 'upcoming') {
+                          setActiveTab('upcoming');
+                          setActiveFilterTag('all');
+                        } else if (item.id === 'completed') {
+                          setActiveTab('completed');
+                          setActiveFilterTag('all');
+                        } else if (item.id === 'drafts') {
+                          setActiveTab('drafts');
+                          setActiveFilterTag('all');
+                        } else {
+                          setActiveTab('all');
+                          setActiveFilterTag(item.id);
+                        }
+                      }}>
+                      <Text style={[styles.cleanFilterChipText, isActive && styles.cleanFilterChipTextActive]}>
+                        {item.label}
                       </Text>
-                      <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                        <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                          {tab.count}
-                        </Text>
-                      </View>
+                      {typeof item.count === 'number' && item.count > 0 ? (
+                        <View style={[styles.cleanFilterBadge, isActive && styles.cleanFilterBadgeActive]}>
+                          <Text style={[styles.cleanFilterBadgeText, isActive && styles.cleanFilterBadgeTextActive]}>
+                            {item.count}
+                          </Text>
+                        </View>
+                      ) : null}
                     </TouchableOpacity>
                   );
                 })}
               </ScrollView>
-
-              {/* Filter Chips */}
-              <View style={styles.filterChipRow}>
-                <TouchableOpacity
-                  style={[styles.filterChip, activeFilterTag === 'all' && styles.filterChipActive]}
-                  onPress={() => setActiveFilterTag('all')}>
-                  <Text style={[styles.filterChipText, activeFilterTag === 'all' && styles.filterChipTextActive]}>
-                    Tất cả
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterChip, activeFilterTag === 'ai' && styles.filterChipActive]}
-                  onPress={() => setActiveFilterTag('ai')}>
-                  <Text style={[styles.filterChipText, activeFilterTag === 'ai' && styles.filterChipTextActive]}>
-                    Tour AI
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterChip, activeFilterTag === 'group' && styles.filterChipActive]}
-                  onPress={() => setActiveFilterTag('group')}>
-                  <Text style={[styles.filterChipText, activeFilterTag === 'group' && styles.filterChipTextActive]}>
-                    Nhóm bạn
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterChip, activeFilterTag === 'family' && styles.filterChipActive]}
-                  onPress={() => setActiveFilterTag('family')}>
-                  <Text style={[styles.filterChipText, activeFilterTag === 'family' && styles.filterChipTextActive]}>
-                    Gia đình
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         }
@@ -1949,18 +1898,37 @@ const styles = StyleSheet.create({
   heroContent: {
     zIndex: 10,
   },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   heroHeadline: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: SERIF_FONT,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+  },
+  heroCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  heroCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   heroSubtitle: {
-    fontSize: 13,
-    color: '#E2E8F0',
+    fontSize: 12,
+    color: '#CBD5E1',
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 16,
     fontFamily: SERIF_FONT,
     fontWeight: '400',
   },
@@ -1968,213 +1936,124 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 14,
+    marginTop: 12,
   },
   aiCtaBtn: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0284C7',
-    paddingVertical: 10,
-    borderRadius: 22,
+    paddingVertical: 9,
+    borderRadius: 20,
     shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   aiCtaBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
   },
   manualCtaBtn: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 9,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    paddingVertical: 10,
-    borderRadius: 22,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   manualCtaBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-
-  // 2. KPI Cards
-  kpiContainer: {
-    marginTop: -16,
-    zIndex: 20,
-    marginBottom: 10,
-  },
-  kpiScroll: {
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  kpiCard: {
-    width: 145,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  kpiCardWarm: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  kpiIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  kpiLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    fontFamily: SERIF_FONT,
-  },
-  kpiValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-    marginTop: 2,
-  },
-  kpiValue: {
-    fontSize: 18,
-    fontWeight: '900',
     color: '#0F172A',
-    fontFamily: SERIF_FONT,
-  },
-  kpiSubText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontFamily: SERIF_FONT,
-  },
-  kpiDestText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 2,
-    fontFamily: SERIF_FONT,
-  },
-  kpiDurationText: {
-    fontSize: 11,
-    color: '#D97706',
-    fontWeight: '600',
-    marginTop: 1,
-    fontFamily: SERIF_FONT,
-  },
-
-  // 3. Toolbar & Tabs
-  toolbarBox: {
-    marginHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-    gap: 10,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 40,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    color: '#0F172A',
-    fontFamily: SERIF_FONT,
-  },
-  tabsScroll: {
-    gap: 8,
-  },
-  tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
-    gap: 6,
-  },
-  tabButtonActive: {
-    backgroundColor: '#0284C7',
-  },
-  tabButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
     fontFamily: SERIF_FONT,
   },
-  tabButtonTextActive: {
-    color: '#FFFFFF',
+
+  // 2. Airbnb Style Flat Search & Unified Filter (Thoáng đãng & Tối giản)
+  cleanFilterSection: {
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  tabBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
-  },
-  tabBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  tabBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#475569',
-    fontFamily: SERIF_FONT,
-  },
-  tabBadgeTextActive: {
-    color: '#FFFFFF',
-  },
-  filterChipRow: {
+  cleanSearchBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cleanSearchInput: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0F172A',
+    fontFamily: SERIF_FONT,
+    paddingVertical: 0,
+  },
+  cleanFilterScroll: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
     gap: 8,
   },
-  filterChip: {
+  cleanFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  filterChipActive: {
+  cleanFilterChipActive: {
     backgroundColor: '#0284C7',
     borderColor: '#0284C7',
   },
-  filterChipText: {
+  cleanFilterChipText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
     fontFamily: SERIF_FONT,
   },
-  filterChipTextActive: {
+  cleanFilterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  cleanFilterBadge: {
+    marginLeft: 5,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+  },
+  cleanFilterBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  cleanFilterBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  cleanFilterBadgeTextActive: {
     color: '#FFFFFF',
   },
 

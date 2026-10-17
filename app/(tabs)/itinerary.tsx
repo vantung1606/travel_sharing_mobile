@@ -14,19 +14,22 @@ import {
   Alert,
   Share,
   Dimensions,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
 import {
   itineraryApi,
   ItineraryItem,
   ItineraryDetailItem,
-  API_BASE_URL,
 } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
 
 // ─── PRESET COVERS ──────────────────────────────────────────
 const COVER_PRESETS = [
@@ -42,26 +45,39 @@ const HOT_DESTINATIONS = [
   'Đà Lạt', 'Đà Nẵng', 'Phú Quốc', 'Hà Giang', 'Ninh Bình', 'Sa Pa', 'Quy Nhơn', 'Hà Nội', 'Huế', 'Hội An'
 ];
 
-const AI_STYLE_PRESETS = [
-  { id: 'checkin', label: '📸 Sống ảo', desc: 'Góc chụp & view đẹp' },
-  { id: 'food', label: '🍜 Ẩm thực', desc: 'Đặc sản bản địa' },
-  { id: 'beach', label: '🏖️ Nghỉ dưỡng', desc: 'Biển xanh cát trắng' },
-  { id: 'trekking', label: '🧭 Phượt', desc: 'Trekking & Khám phá' },
-  { id: 'culture', label: '🏛️ Văn hóa', desc: 'Di sản & Lịch sử' },
-  { id: 'relax', label: '🌿 Chữa lành', desc: 'Yên bình & Thư thái' },
+// Khớp 100% với Web AITripGeneratorModal.jsx INTEREST_OPTIONS
+const AI_INTEREST_OPTIONS = [
+  { id: 'checkin', label: '📸 Sống ảo' },
+  { id: 'food', label: '🍜 Ẩm thực' },
+  { id: 'beach', label: '🏖️ Biển & Nghỉ dưỡng' },
+  { id: 'culture', label: '🏛️ Văn hóa di sản' },
+  { id: 'trekking', label: '🧭 Phượt & Trekking' },
+  { id: 'nightlife', label: '🎵 Phố đêm vui chơi' },
+  { id: 'healing', label: '🌿 Chữa lành' },
+  { id: 'shopping', label: '🛍️ Mua sắm & Chợ' },
 ];
 
+// Khớp 100% với Web COMPANION OPTIONS
 const COMPANION_OPTIONS = [
-  { id: 'solo', label: 'Một mình', icon: 'user' },
-  { id: 'couple', label: 'Cặp đôi', icon: 'heart' },
-  { id: 'group', label: 'Nhóm bạn', icon: 'users' },
-  { id: 'family', label: 'Gia đình', icon: 'home' },
+  { id: 'solo', label: 'Cá nhân (Solo)' },
+  { id: 'couple', label: 'Cặp đôi (2 người)' },
+  { id: 'friends', label: 'Nhóm bạn (3-5 người)' },
+  { id: 'family', label: 'Gia đình có trẻ em' },
 ];
 
+// Khớp 100% với Web 4 BUDGET TIERS
 const BUDGET_TIERS = [
-  { id: 'economy', label: 'Tiết kiệm', note: '~1.5M - 2.5M/người', budgetVal: 2000000 },
-  { id: 'balanced', label: 'Cân bằng', note: '~3.5M - 5M/người', budgetVal: 4000000 },
-  { id: 'luxury', label: 'Sang chảnh', note: '> 7M/người', budgetVal: 8000000 },
+  { id: 1, label: 'Tiết kiệm / Phượt', range: '2.5 - 4.0 Triệu VNĐ', budgetVal: 3500000 },
+  { id: 2, label: 'Tiêu chuẩn / Cân bằng', range: '4.0 - 7.0 Triệu VNĐ', budgetVal: 5500000 },
+  { id: 3, label: 'Cao cấp / Thoải mái', range: '7.0 - 12.0 Triệu VNĐ', budgetVal: 9000000 },
+  { id: 4, label: 'Nghỉ dưỡng VIP', range: '15.0+ Triệu VNĐ', budgetVal: 16000000 },
+];
+
+// Khớp 100% với Web PACING
+const PACING_OPTIONS = [
+  { id: 'relaxed', label: 'Thong thả (2-3 điểm/ngày)' },
+  { id: 'balanced', label: 'Cân bằng ✨ (3-4 điểm/ngày)' },
+  { id: 'max', label: 'Khám phá tối đa (5-6 điểm/ngày)' },
 ];
 
 const PACKING_CHECKLIST = [
@@ -72,6 +88,14 @@ const PACKING_CHECKLIST = [
   { id: 'c5', label: 'Thuốc y tế cá nhân (dị ứng, đau bụng, cảm)' },
   { id: 'c6', label: 'Quần áo phù hợp thời tiết điểm đến' },
 ];
+
+// Format số tiền có dấu phẩy hàng nghìn
+function formatCurrency(num: number | string): string {
+  if (!num) return '0';
+  const clean = String(num).replace(/\D/g, '');
+  if (!clean) return '0';
+  return Number(clean).toLocaleString('en-US');
+}
 
 export default function ItineraryScreen() {
   // ─── MAIN STATE ──────────────────────────────────────────
@@ -97,37 +121,52 @@ export default function ItineraryScreen() {
   const [stopTime, setStopTime] = useState<string>('08:30');
   const [stopCategory, setStopCategory] = useState<string>('Tham quan');
   const [stopNote, setStopNote] = useState<string>('');
-  const [stopCost, setStopCost] = useState<string>('100000');
+  const [stopCost, setStopCost] = useState<string>('100,000');
   const [submittingStop, setSubmittingStop] = useState<boolean>(false);
 
   // ─── MODAL MANUAL TRIP STATE ─────────────────────────────
   const [manualModalVisible, setManualModalVisible] = useState<boolean>(false);
   const [manualTitle, setManualTitle] = useState<string>('');
   const [manualDest, setManualDest] = useState<string>('');
-  const [manualRegion, setManualRegion] = useState<string>('Tây Nguyên');
-  const [manualDays, setManualDays] = useState<number>(3);
   const [manualStartDate, setManualStartDate] = useState<string>('2026-10-25');
   const [manualEndDate, setManualEndDate] = useState<string>('2026-10-28');
-  const [manualBudget, setManualBudget] = useState<string>('4500000');
+  const [manualDays, setManualDays] = useState<number>(3);
+  const [manualBudgetFormatted, setManualBudgetFormatted] = useState<string>('4,500,000');
   const [manualCover, setManualCover] = useState<string>(COVER_PRESETS[0].url);
   const [manualGroup, setManualGroup] = useState<string>('Nhóm bạn (3-5 người)');
-  const [manualPlaces, setManualPlaces] = useState<string>('');
-  const [manualNote, setManualNote] = useState<string>('');
   const [submittingManual, setSubmittingManual] = useState<boolean>(false);
 
   // ─── MODAL WANDERAI TRIP GENERATOR STATE ─────────────────
   const [aiModalVisible, setAiModalVisible] = useState<boolean>(false);
   const [aiDest, setAiDest] = useState<string>('Đà Lạt');
   const [aiDays, setAiDays] = useState<number>(3);
-  const [aiCompanion, setAiCompanion] = useState<string>('group');
-  const [aiBudgetTier, setAiBudgetTier] = useState<string>('balanced');
-  const [aiStyle, setAiStyle] = useState<string>('checkin');
+  const [aiCompanion, setAiCompanion] = useState<string>('couple');
+  const [aiBudgetTier, setAiBudgetTier] = useState<number>(2);
+  const [aiSelectedInterests, setAiSelectedInterests] = useState<string[]>(['checkin', 'food', 'culture']);
+  const [aiPacing, setAiPacing] = useState<string>('balanced');
   const [aiCustomNote, setAiCustomNote] = useState<string>('');
   const [isAiGenerating, setIsAiGenerating] = useState<boolean>(false);
   const [aiProgress, setAiProgress] = useState<number>(0);
   const [aiCurrentStep, setAiCurrentStep] = useState<string>('');
 
-  // ─── DATA FETCHING ───────────────────────────────────────
+  // Tự động tính số ngày khi đổi ngày đi hoặc ngày về trong Tạo thủ công
+  useEffect(() => {
+    try {
+      if (manualStartDate && manualEndDate) {
+        const d1 = new Date(manualStartDate);
+        const d2 = new Date(manualEndDate);
+        const diffMs = d2.getTime() - d1.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
+        if (diffDays > 0 && diffDays <= 30) {
+          setManualDays(diffDays);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, [manualStartDate, manualEndDate]);
+
+  // ─── DATA FETCHING (CHỈ LẤY LỊCH TRÌNH CỦA TÔI TỪ CSDL) ───
   const fetchItineraries = useCallback(async () => {
     try {
       const session = await authStorage.getSession();
@@ -135,10 +174,9 @@ export default function ItineraryScreen() {
 
       let list: ItineraryItem[] = [];
       if (session?.email) {
-        // Chỉ lấy đúng lịch trình thuộc sở hữu của người dùng trong CSDL MySQL
+        // Chỉ lấy đúng lịch trình thuộc sở hữu của người dùng đang đăng nhập trong CSDL
         list = await itineraryApi.getMyItineraries();
       } else {
-        // Chưa đăng nhập -> danh sách trống
         list = [];
       }
       setItineraries(list || []);
@@ -261,7 +299,7 @@ export default function ItineraryScreen() {
         message: `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination} trên Wayfare Travel! 🌟`,
         title: itin.title,
       });
-    } catch (error) {
+    } catch {
       // Ignore
     }
   };
@@ -275,7 +313,7 @@ export default function ItineraryScreen() {
 
     try {
       await itineraryApi.cloneItinerary(itin.id);
-      Alert.alert('Thành công! 🎉', `Đã sao chép chuyến đi "${itin.title}" vào danh sách của bạn.`);
+      Alert.alert('Thành công', `Đã sao chép chuyến đi "${itin.title}" vào danh sách của bạn.`);
       fetchItineraries();
     } catch (err: any) {
       Alert.alert('Lỗi sao chép', err.response?.data?.message || err.message || 'Không thể sao chép lịch trình.');
@@ -299,13 +337,38 @@ export default function ItineraryScreen() {
                 setDetailModalVisible(false);
               }
               fetchItineraries();
-            } catch (err: any) {
+            } catch {
               Alert.alert('Lỗi', 'Không thể xóa lịch trình này.');
             }
           },
         },
       ]
     );
+  };
+
+  // ─── CHỌN ẢNH TỪ MÁY DÙNG EXPO-IMAGE-PICKER ────────────────
+  const handlePickCoverImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh bìa chuyến đi!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setManualCover(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn('Pick image error', e);
+      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
+    }
   };
 
   // ─── ADD STOP HANDLER ────────────────────────────────────
@@ -317,18 +380,19 @@ export default function ItineraryScreen() {
 
     try {
       setSubmittingStop(true);
+      const cleanCost = parseFloat(stopCost.replace(/,/g, '')) || 0;
       const newDetail: ItineraryDetailItem = {
         itineraryId: selectedItinerary.id,
         locationName: stopName.trim(),
         startTime: stopTime.trim(),
         category: stopCategory,
         dayNumber: stopDayNum,
-        estimatedCost: parseFloat(stopCost) || 0,
+        estimatedCost: cleanCost,
         note: stopNote.trim(),
       };
 
       await itineraryApi.addDetail(selectedItinerary.id, newDetail);
-      Alert.alert('Thành công! 🎉', `Đã thêm "${stopName}" vào Ngày ${stopDayNum}`);
+      Alert.alert('Thành công', `Đã thêm "${stopName}" vào Ngày ${stopDayNum}`);
       setAddStopModalVisible(false);
       setStopName('');
       setStopNote('');
@@ -344,7 +408,6 @@ export default function ItineraryScreen() {
     }
   };
 
-  // ─── DELETE STOP HANDLER ─────────────────────────────────
   const handleDeleteStop = (detailId?: number) => {
     if (!detailId) return;
     Alert.alert('Xóa trạm dừng', 'Bạn muốn xóa trạm dừng này khỏi lịch trình?', [
@@ -359,7 +422,7 @@ export default function ItineraryScreen() {
               const full = await itineraryApi.getItineraryById(selectedItinerary.id);
               setSelectedItinerary(full);
             }
-          } catch (e) {
+          } catch {
             Alert.alert('Lỗi', 'Không thể xóa trạm dừng');
           }
         },
@@ -383,7 +446,7 @@ export default function ItineraryScreen() {
     try {
       setSubmittingManual(true);
       const days = Number(manualDays) || 3;
-      const budget = parseFloat(manualBudget) || 4000000;
+      const rawBudget = parseFloat(manualBudgetFormatted.replace(/,/g, '')) || 4000000;
 
       // Tạo các activity mẫu chuẩn bị lưu
       const sampleActivities: ItineraryDetailItem[] = [];
@@ -414,19 +477,17 @@ export default function ItineraryScreen() {
         destination: manualDest.trim(),
         startDate: manualStartDate.trim() || undefined,
         endDate: manualEndDate.trim() || undefined,
-        budgetTotal: budget,
+        budgetTotal: rawBudget,
         coverImageUrl: manualCover,
         status: 'UPCOMING',
         isAiGenerated: false,
         details: sampleActivities,
       });
 
-      Alert.alert('Thành công! 🎉', `Đã tạo chuyến đi "${created.title}"`);
+      Alert.alert('Thành công', `Đã tạo chuyến đi "${created.title}"`);
       setManualModalVisible(false);
       setManualTitle('');
       setManualDest('');
-      setManualPlaces('');
-      setManualNote('');
 
       fetchItineraries();
       handleOpenDetail(created);
@@ -438,6 +499,12 @@ export default function ItineraryScreen() {
   };
 
   // ─── WANDERAI TRIP GENERATOR HANDLER ─────────────────────
+  const toggleAiInterest = (id: string) => {
+    setAiSelectedInterests(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
   const handleStartAIGeneration = async () => {
     if (!aiDest.trim()) {
       Alert.alert('Thông báo', 'Vui lòng chọn hoặc nhập điểm đến!');
@@ -449,33 +516,25 @@ export default function ItineraryScreen() {
     setAiCurrentStep('Khởi tạo kết nối & Định vị địa lý...');
 
     try {
-      // Step 1: 30%
       setTimeout(() => {
         setAiProgress(35);
         setAiCurrentStep(`Nghiên cứu danh lam, di tích thực tế tại ${aiDest}...`);
       }, 700);
 
-      // Step 2: 65%
       setTimeout(() => {
         setAiProgress(70);
         setAiCurrentStep('Khảo sát ẩm thực & quán ăn đặc sản bản địa...');
       }, 1400);
 
-      // Step 3: 90%
       setTimeout(() => {
         setAiProgress(92);
         setAiCurrentStep('Tối ưu lộ trình từng ngày & Cân đối ngân sách...');
       }, 2100);
 
-      // Gửi yêu cầu Backend
-      const styleLabel = AI_STYLE_PRESETS.find(s => s.id === aiStyle)?.label || 'Check-in sống ảo';
       const budgetOption = BUDGET_TIERS.find(b => b.id === aiBudgetTier) || BUDGET_TIERS[1];
-      const companionLabel = COMPANION_OPTIONS.find(c => c.id === aiCompanion)?.label || 'Nhóm bạn';
-
-      // Fallback local preset cover
+      const companionObj = COMPANION_OPTIONS.find(c => c.id === aiCompanion) || COMPANION_OPTIONS[1];
       const presetCover = COVER_PRESETS.find(c => c.label.includes(aiDest))?.url || COVER_PRESETS[0].url;
 
-      // Day details generated by AI
       const aiActivities: ItineraryDetailItem[] = [];
       const times = ['08:00', '11:00', '14:30', '18:30'];
       const catList = ['Tham quan', 'Ẩm thực', 'Check-in', 'Chill'];
@@ -494,7 +553,7 @@ export default function ItineraryScreen() {
             locationName: `${actThemes[a]}`,
             category: catList[a],
             estimatedCost: a === 1 ? 120000 : 60000,
-            note: `Gợi ý bởi WanderAI: Lịch trình tối ưu cho ${companionLabel}`,
+            note: aiCustomNote ? `Gợi ý AI: ${aiCustomNote}` : `Lịch trình tối ưu cho ${companionObj.label}`,
           });
         }
       }
@@ -504,7 +563,7 @@ export default function ItineraryScreen() {
         destination: aiDest.trim(),
         startDate: '2026-10-25',
         endDate: '2026-10-28',
-        budgetTotal: budgetOption.budgetVal * (aiCompanion === 'group' ? 3 : aiCompanion === 'couple' ? 2 : 1),
+        budgetTotal: budgetOption.budgetVal * (aiCompanion === 'friends' ? 3 : aiCompanion === 'couple' ? 2 : 1),
         coverImageUrl: presetCover,
         status: 'UPCOMING',
         isAiGenerated: true,
@@ -512,13 +571,13 @@ export default function ItineraryScreen() {
       });
 
       setAiProgress(100);
-      setAiCurrentStep('Hoàn tất kiến tạo lịch trình! 🎉');
+      setAiCurrentStep('Hoàn tất kiến tạo lịch trình!');
 
       setTimeout(() => {
         setIsAiGenerating(false);
         setAiModalVisible(false);
         fetchItineraries();
-        Alert.alert('Thành công! ✨', `WanderAI đã thiết kế xong lịch trình ${aiDest} cho bạn!`);
+        Alert.alert('Thành công', `WanderAI đã thiết kế xong lịch trình ${aiDest} cho bạn!`);
         handleOpenDetail(created);
       }, 500);
 
@@ -562,8 +621,7 @@ export default function ItineraryScreen() {
             <View style={{ flexDirection: 'row', gap: 6 }}>
               {item.isAiGenerated && (
                 <View style={styles.aiBadge}>
-                  <FontAwesome name="magic" size={11} color="#FEF08A" style={{ marginRight: 4 }} />
-                  <Text style={styles.aiBadgeText}>Tour AI ✨</Text>
+                  <Text style={styles.aiBadgeText}>Tour AI</Text>
                 </View>
               )}
               <View style={[styles.statusBadge, isCompleted ? styles.statusBadgeCompleted : styles.statusBadgeUpcoming]}>
@@ -663,6 +721,8 @@ export default function ItineraryScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+
       <FlatList
         data={filteredItineraries}
         keyExtractor={(item) => String(item.id)}
@@ -672,7 +732,7 @@ export default function ItineraryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
         ListHeaderComponent={
           <View style={styles.headerContainer}>
-            {/* ─── 1. CINEMATIC HERO BANNER ────────────────────── */}
+            {/* ─── 1. FULL-BLEED TRANSPARENT HERO BANNER ──────── */}
             <View style={styles.heroBox}>
               <Image
                 source={{ uri: COVER_PRESETS[0].url }}
@@ -682,24 +742,14 @@ export default function ItineraryScreen() {
               <View style={styles.heroDarkScrim} />
 
               <View style={styles.heroContent}>
-                {/* Breadcrumb */}
-                <View style={styles.breadcrumbRow}>
-                  <FontAwesome name="compass" size={12} color="#7DD3FC" style={{ marginRight: 5 }} />
-                  <Text style={styles.breadcrumbText}>Wayfare</Text>
-                  <FontAwesome name="angle-right" size={11} color="#94A3B8" style={{ marginHorizontal: 6 }} />
-                  <Text style={[styles.breadcrumbText, { color: '#FFFFFF', fontWeight: 'bold' }]}>
-                    Kế Hoạch & Lịch Trình
-                  </Text>
-                </View>
-
                 {/* Hero Title */}
                 <Text style={styles.heroHeadline}>
-                  Lịch Trình Du Lịch{'\n'}
-                  <Text style={styles.heroHeadlineGradient}>Của Bạn ✨</Text>
+                  Lịch Trình Du Lịch
                 </Text>
 
+                {/* Subtitle rút ngắn theo yêu cầu */}
                 <Text style={styles.heroSubtitle}>
-                  Khám phá & tổ chức các chuyến đi thông minh, kiểm soát ngân sách chi tiết và kiến tạo hành trình chỉ với một chạm cùng AI.
+                  Tổ chức chuyến đi và kiến tạo lịch trình cùng AI.
                 </Text>
 
                 {/* Hero Action CTA Buttons */}
@@ -799,7 +849,7 @@ export default function ItineraryScreen() {
                 {[
                   { id: 'upcoming', label: 'Chuyến sắp tới', count: tabCounts.upcoming },
                   { id: 'completed', label: 'Đã hoàn thành', count: tabCounts.completed },
-                  { id: 'drafts', label: 'Bản nháp & AI ✨', count: tabCounts.drafts },
+                  { id: 'drafts', label: 'Bản nháp & AI', count: tabCounts.drafts },
                   { id: 'all', label: 'Tất cả', count: tabCounts.all },
                 ].map(tab => {
                   const isActive = activeTab === tab.id;
@@ -835,16 +885,14 @@ export default function ItineraryScreen() {
                 <TouchableOpacity
                   style={[styles.filterChip, activeFilterTag === 'ai' && styles.filterChipActive]}
                   onPress={() => setActiveFilterTag('ai')}>
-                  <FontAwesome name="magic" size={11} color={activeFilterTag === 'ai' ? '#FFFFFF' : '#0284C7'} style={{ marginRight: 4 }} />
                   <Text style={[styles.filterChipText, activeFilterTag === 'ai' && styles.filterChipTextActive]}>
-                    Tour AI ✨
+                    Tour AI
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.filterChip, activeFilterTag === 'group' && styles.filterChipActive]}
                   onPress={() => setActiveFilterTag('group')}>
-                  <FontAwesome name="users" size={11} color={activeFilterTag === 'group' ? '#FFFFFF' : WF_COLORS.slate600} style={{ marginRight: 4 }} />
                   <Text style={[styles.filterChipText, activeFilterTag === 'group' && styles.filterChipTextActive]}>
                     Nhóm bạn
                   </Text>
@@ -853,7 +901,6 @@ export default function ItineraryScreen() {
                 <TouchableOpacity
                   style={[styles.filterChip, activeFilterTag === 'family' && styles.filterChipActive]}
                   onPress={() => setActiveFilterTag('family')}>
-                  <FontAwesome name="home" size={11} color={activeFilterTag === 'family' ? '#FFFFFF' : WF_COLORS.slate600} style={{ marginRight: 4 }} />
                   <Text style={[styles.filterChipText, activeFilterTag === 'family' && styles.filterChipTextActive]}>
                     Gia đình
                   </Text>
@@ -866,7 +913,7 @@ export default function ItineraryScreen() {
           loading ? (
             <View style={styles.centerBox}>
               <ActivityIndicator size="large" color={WF_COLORS.primary} />
-              <Text style={styles.loadingText}>Đang nạp kế hoạch chuyến đi từ Railway CSDL...</Text>
+              <Text style={styles.loadingText}>Đang nạp kế hoạch chuyến đi...</Text>
             </View>
           ) : (
             <View style={styles.emptyContainer}>
@@ -875,7 +922,7 @@ export default function ItineraryScreen() {
               </View>
               <Text style={styles.emptyTitle}>Chưa có lịch trình</Text>
               <Text style={styles.emptySubtitle}>
-                Bấm vào nút "Lập tour AI" hoặc "Tạo thủ công" bên trên để bắt đầu kế hoạch chuyến đi của bạn nhé!
+                Bấm vào nút "Lập tour AI" hoặc "Tạo thủ công" bên trên để bắt đầu chuyến đi của bạn nhé!
               </Text>
               <TouchableOpacity
                 style={styles.emptyActionBtn}
@@ -932,8 +979,7 @@ export default function ItineraryScreen() {
                   </View>
                   {selectedItinerary?.isAiGenerated && (
                     <View style={styles.detailAiBadge}>
-                      <FontAwesome name="magic" size={11} color="#FEF08A" style={{ marginRight: 4 }} />
-                      <Text style={styles.detailAiText}>Tour AI ✨</Text>
+                      <Text style={styles.detailAiText}>Tour AI</Text>
                     </View>
                   )}
                 </View>
@@ -1019,14 +1065,12 @@ export default function ItineraryScreen() {
                 ) : (
                   filteredDetails.map((detail, index) => (
                     <View key={detail.id || index} style={styles.timelineItem}>
-                      {/* Left Time Column */}
                       <View style={styles.timelineLeftCol}>
                         <Text style={styles.timelineTimeText}>{detail.startTime || '08:30'}</Text>
                         <View style={styles.timelineDot} />
                         {index < filteredDetails.length - 1 && <View style={styles.timelineLine} />}
                       </View>
 
-                      {/* Right Card Content */}
                       <View style={styles.timelineCard}>
                         <View style={styles.timelineCardHeader}>
                           <View style={styles.categoryBadge}>
@@ -1090,13 +1134,12 @@ export default function ItineraryScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ─── MODAL 2: WANDERAI TRIP GENERATOR ───────────────────── */}
+      {/* ─── MODAL 2: WANDERAI TRIP GENERATOR (KHỚP 100% VỚI WEB) ── */}
       <Modal
         visible={aiModalVisible}
         animationType="slide"
         onRequestClose={() => !isAiGenerating && setAiModalVisible(false)}>
         <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
-          {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalHeaderTitle}>Lập Tour AI</Text>
             {!isAiGenerating && (
@@ -1107,14 +1150,12 @@ export default function ItineraryScreen() {
           </View>
 
           {isAiGenerating ? (
-            /* AI Progress Animation Screen */
             <View style={styles.aiLoadingContainer}>
               <ActivityIndicator size="large" color="#0284C7" />
               <Text style={styles.aiLoadingProgress}>{aiProgress}%</Text>
               <Text style={styles.aiLoadingTitle}>WanderAI đang kiến tạo hành trình</Text>
               <Text style={styles.aiLoadingStep}>{aiCurrentStep}</Text>
 
-              {/* Progress Bar */}
               <View style={styles.progressBarTrack}>
                 <View style={[styles.progressBarFill, { width: `${aiProgress}%` }]} />
               </View>
@@ -1129,12 +1170,11 @@ export default function ItineraryScreen() {
               <Text style={styles.aiInputLabel}>1. Bạn muốn đi du lịch ở đâu? *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Nhập tên điểm đến (VD: Đà Lạt, Sa Pa...)"
+                placeholder="Nhập tên điểm đến (VD: Đà Lạt, Sa Pa, Phú Quốc...)"
                 placeholderTextColor={WF_COLORS.slate400}
                 value={aiDest}
                 onChangeText={setAiDest}
               />
-              {/* Quick Hot Suggestions */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hotChipsScroll}>
                 {HOT_DESTINATIONS.map(d => (
                   <TouchableOpacity
@@ -1148,16 +1188,23 @@ export default function ItineraryScreen() {
                 ))}
               </ScrollView>
 
-              {/* 2. Số Ngày */}
+              {/* 2. Thời gian chuyến đi (Khớp với Web: 1, 2N1Đ, 3N2Đ, 4N3Đ, 5N4Đ, 7N6Đ) */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>2. Thời gian chuyến đi *</Text>
               <View style={styles.optionRow}>
-                {[1, 2, 3, 4, 5].map(d => (
+                {[
+                  { d: 1, label: '1 ngày' },
+                  { d: 2, label: '2N1Đ' },
+                  { d: 3, label: '3N2Đ' },
+                  { d: 4, label: '4N3Đ' },
+                  { d: 5, label: '5N4Đ' },
+                  { d: 7, label: '7N6Đ' },
+                ].map(opt => (
                   <TouchableOpacity
-                    key={d}
-                    style={[styles.dayChoiceBtn, aiDays === d && styles.dayChoiceBtnActive]}
-                    onPress={() => setAiDays(d)}>
-                    <Text style={[styles.dayChoiceText, aiDays === d && styles.dayChoiceTextActive]}>
-                      {d} Ngày
+                    key={opt.d}
+                    style={[styles.dayChoiceBtn, aiDays === opt.d && styles.dayChoiceBtnActive]}
+                    onPress={() => setAiDays(opt.d)}>
+                    <Text style={[styles.dayChoiceText, aiDays === opt.d && styles.dayChoiceTextActive]}>
+                      {opt.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -1171,11 +1218,6 @@ export default function ItineraryScreen() {
                     key={c.id}
                     style={[styles.choiceCard, aiCompanion === c.id && styles.choiceCardActive]}
                     onPress={() => setAiCompanion(c.id)}>
-                    <FontAwesome
-                      name={c.icon as any}
-                      size={16}
-                      color={aiCompanion === c.id ? WF_COLORS.primary : WF_COLORS.slate600}
-                    />
                     <Text style={[styles.choiceCardText, aiCompanion === c.id && styles.choiceCardTextActive]}>
                       {c.label}
                     </Text>
@@ -1183,7 +1225,7 @@ export default function ItineraryScreen() {
                 ))}
               </View>
 
-              {/* 4. Mức Ngân Sách */}
+              {/* 4. Mức Ngân Sách (Khớp 4 Tiers của Web) */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>4. Hạn mức chi phí dự kiến</Text>
               <View style={{ gap: 8 }}>
                 {BUDGET_TIERS.map(b => (
@@ -1195,7 +1237,7 @@ export default function ItineraryScreen() {
                       <Text style={[styles.budgetRowTitle, aiBudgetTier === b.id && styles.budgetRowTitleActive]}>
                         {b.label}
                       </Text>
-                      <Text style={styles.budgetRowSub}>{b.note}</Text>
+                      <Text style={styles.budgetRowSub}>{b.range}</Text>
                     </View>
                     <FontAwesome
                       name={aiBudgetTier === b.id ? 'dot-circle-o' : 'circle-o'}
@@ -1206,21 +1248,54 @@ export default function ItineraryScreen() {
                 ))}
               </View>
 
-              {/* 5. Phong Cách Du Lịch */}
-              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>5. Sở thích & Gu du lịch</Text>
+              {/* 5. Sở thích & Gu du lịch (Khớp 8 options đa chọn của Web) */}
+              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>5. Sở thích & Gu du lịch (chọn nhiều)</Text>
               <View style={styles.grid2x2}>
-                {AI_STYLE_PRESETS.map(s => (
+                {AI_INTEREST_OPTIONS.map(s => {
+                  const isSelected = aiSelectedInterests.includes(s.id);
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={[styles.choiceCard, isSelected && styles.choiceCardActive]}
+                      onPress={() => toggleAiInterest(s.id)}>
+                      <Text style={[styles.choiceCardText, isSelected && styles.choiceCardTextActive]}>
+                        {s.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 6. Nhịp độ di chuyển */}
+              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>6. Nhịp độ hành trình</Text>
+              <View style={{ gap: 6 }}>
+                {PACING_OPTIONS.map(p => (
                   <TouchableOpacity
-                    key={s.id}
-                    style={[styles.choiceCard, aiStyle === s.id && styles.choiceCardActive]}
-                    onPress={() => setAiStyle(s.id)}>
-                    <Text style={[styles.choiceCardText, aiStyle === s.id && styles.choiceCardTextActive]}>
-                      {s.label}
+                    key={p.id}
+                    style={[styles.budgetRow, aiPacing === p.id && styles.budgetRowActive]}
+                    onPress={() => setAiPacing(p.id)}>
+                    <Text style={[styles.choiceCardText, aiPacing === p.id && styles.choiceCardTextActive]}>
+                      {p.label}
                     </Text>
-                    <Text style={styles.choiceCardSub}>{s.desc}</Text>
+                    <FontAwesome
+                      name={aiPacing === p.id ? 'dot-circle-o' : 'circle-o'}
+                      size={16}
+                      color={aiPacing === p.id ? WF_COLORS.primary : WF_COLORS.slate400}
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* 7. Ghi chú cá nhân hóa riêng cho AI */}
+              <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>7. Ghi chú riêng cho AI</Text>
+              <TextInput
+                style={[styles.modalInput, { height: 75, textAlignVertical: 'top' }]}
+                placeholder="VD: Đi cùng người lớn tuổi ít leo trèo, thích ăn chay, muốn săn hoàng hôn..."
+                placeholderTextColor={WF_COLORS.slate400}
+                value={aiCustomNote}
+                onChangeText={setAiCustomNote}
+                multiline
+              />
 
               {/* Submit CTA */}
               <TouchableOpacity
@@ -1234,15 +1309,14 @@ export default function ItineraryScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ─── MODAL 3: TẠO THỦ CÔNG ───────────────────────────────── */}
+      {/* ─── MODAL 3: TẠO THỦ CÔNG (TINH GỌN, CHỌN ẢNH MÁY, FORMAT TIỀN) ── */}
       <Modal
         visible={manualModalVisible}
         animationType="slide"
         onRequestClose={() => setManualModalVisible(false)}>
         <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
-          {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalHeaderTitle}>✈️ Tạo Lịch Trình Thủ Công</Text>
+            <Text style={styles.modalHeaderTitle}>Tạo Lịch Trình Thủ Công</Text>
             <TouchableOpacity onPress={() => setManualModalVisible(false)}>
               <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
             </TouchableOpacity>
@@ -1253,7 +1327,7 @@ export default function ItineraryScreen() {
             <Text style={styles.aiInputLabel}>Tên chuyến đi *</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="VD: Khám phá vẻ đẹp Sa Pa 3N2Đ"
+              placeholder="VD: Nghỉ dưỡng biển Mỹ Khê 3N2Đ, Phượt săn mây Đà Lạt..."
               placeholderTextColor={WF_COLORS.slate400}
               value={manualTitle}
               onChangeText={setManualTitle}
@@ -1263,14 +1337,91 @@ export default function ItineraryScreen() {
             <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Điểm đến chính *</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="VD: Sa Pa, Đà Lạt, Mũi Né..."
+              placeholder="VD: Đà Nẵng, Hà Giang, Phú Quốc..."
               placeholderTextColor={WF_COLORS.slate400}
               value={manualDest}
               onChangeText={setManualDest}
             />
 
-            {/* Chọn ảnh bìa Preset */}
-            <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Chọn ảnh bìa đại diện</Text>
+            {/* Ngày đi & ngày về kèm ô tính số ngày */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiInputLabel}>Ngày khởi hành</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={WF_COLORS.slate400}
+                  value={manualStartDate}
+                  onChangeText={setManualStartDate}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiInputLabel}>Ngày kết thúc</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={WF_COLORS.slate400}
+                  value={manualEndDate}
+                  onChangeText={setManualEndDate}
+                />
+              </View>
+            </View>
+
+            {/* Ô tính ngày tự động giống Web */}
+            <View style={styles.daysCalcBox}>
+              <FontAwesome name="calendar-check-o" size={14} color="#0284C7" style={{ marginRight: 6 }} />
+              <Text style={styles.daysCalcText}>
+                Thời lượng tính toán: <Text style={{ fontWeight: 'bold', color: '#0284C7' }}>{manualDays} Ngày ({manualDays}N{Math.max(1, manualDays - 1)}Đ)</Text>
+              </Text>
+            </View>
+
+            {/* Hình thức nhóm */}
+            <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Hình thức nhóm</Text>
+            <View style={styles.grid2x2}>
+              {COMPANION_OPTIONS.map(c => (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.choiceCard, manualGroup === c.label && styles.choiceCardActive]}
+                  onPress={() => setManualGroup(c.label)}>
+                  <Text style={[styles.choiceCardText, manualGroup === c.label && styles.choiceCardTextActive]}>
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Dự toán ngân sách với dấu phẩy phân tách tiền tệ */}
+            <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Dự toán ngân sách (VNĐ)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="4,500,000"
+              placeholderTextColor={WF_COLORS.slate400}
+              value={manualBudgetFormatted}
+              onChangeText={(text) => {
+                const formatted = formatCurrency(text);
+                setManualBudgetFormatted(formatted);
+              }}
+              keyboardType="numeric"
+            />
+
+            {/* Chọn ảnh bìa đại diện (Có nút chọn từ thư viện máy) */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+              <Text style={styles.aiInputLabel}>Ảnh bìa đại diện</Text>
+              <TouchableOpacity
+                onPress={handlePickCoverImage}
+                style={styles.uploadPhotoBtn}>
+                <FontAwesome name="camera" size={12} color="#0284C7" style={{ marginRight: 5 }} />
+                <Text style={styles.uploadPhotoBtnText}>Chọn ảnh từ máy</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Preview ảnh hiện tại */}
+            <View style={styles.coverPreviewBox}>
+              <Image source={{ uri: manualCover }} style={styles.coverPreviewImage} resizeMode="cover" />
+            </View>
+
+            {/* Chọn nhanh ảnh preset */}
+            <Text style={[styles.aiInputLabel, { fontSize: 11, color: '#64748B', marginTop: 8 }]}>Hoặc chọn nhanh mẫu cảnh đẹp:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
               {COVER_PRESETS.map((p, idx) => {
                 const isSelected = manualCover === p.url;
@@ -1286,53 +1437,7 @@ export default function ItineraryScreen() {
               })}
             </ScrollView>
 
-            {/* Ngày đi & ngày về */}
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.aiInputLabel}>Ngày đi</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="2026-10-25"
-                  placeholderTextColor={WF_COLORS.slate400}
-                  value={manualStartDate}
-                  onChangeText={setManualStartDate}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.aiInputLabel}>Ngày về</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="2026-10-28"
-                  placeholderTextColor={WF_COLORS.slate400}
-                  value={manualEndDate}
-                  onChangeText={setManualEndDate}
-                />
-              </View>
-            </View>
-
-            {/* Dự toán ngân sách */}
-            <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Dự toán ngân sách (VNĐ)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="4500000"
-              placeholderTextColor={WF_COLORS.slate400}
-              value={manualBudget}
-              onChangeText={setManualBudget}
-              keyboardType="numeric"
-            />
-
-            {/* Ghi chú */}
-            <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Ghi chú hành trình</Text>
-            <TextInput
-              style={[styles.modalInput, { height: 75, textAlignVertical: 'top' }]}
-              placeholder="Kế hoạch, lưu ý hành lý hoặc danh sách điểm ghé..."
-              placeholderTextColor={WF_COLORS.slate400}
-              value={manualNote}
-              onChangeText={setManualNote}
-              multiline
-            />
-
-            {/* Submit */}
+            {/* Submit CTA */}
             <TouchableOpacity
               activeOpacity={0.88}
               style={[styles.submitAiBtn, submittingManual && { opacity: 0.7 }]}
@@ -1341,7 +1446,7 @@ export default function ItineraryScreen() {
               {submittingManual ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitAiBtnText}>Lưu & Bắt đầu lên lịch</Text>
+                <Text style={styles.submitAiBtnText}>Tạo Lịch Trình</Text>
               )}
             </TouchableOpacity>
           </ScrollView>
@@ -1353,7 +1458,7 @@ export default function ItineraryScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.stopCardBox}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>📍 Thêm Điểm Dừng (Ngày {stopDayNum})</Text>
+              <Text style={styles.modalHeaderTitle}>Thêm Điểm Dừng (Ngày {stopDayNum})</Text>
               <TouchableOpacity onPress={() => setAddStopModalVisible(false)}>
                 <FontAwesome name="times" size={16} color={WF_COLORS.slate500} />
               </TouchableOpacity>
@@ -1395,10 +1500,10 @@ export default function ItineraryScreen() {
               <Text style={[styles.aiInputLabel, { marginTop: 12 }]}>Chi phí dự kiến (VNĐ)</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="100000"
+                placeholder="100,000"
                 placeholderTextColor={WF_COLORS.slate400}
                 value={stopCost}
-                onChangeText={setStopCost}
+                onChangeText={(text) => setStopCost(formatCurrency(text))}
                 keyboardType="numeric"
               />
 
@@ -1431,7 +1536,7 @@ export default function ItineraryScreen() {
   );
 }
 
-// ─── STYLESHEET ──────────────────────────────────────────────
+// ─── STYLESHEET WITH TIMES NEW ROMAN / SERIF FONT ───────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1444,14 +1549,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // 1. Hero
+  // 1. Full-Bleed Transparent Hero
   heroBox: {
     position: 'relative',
-    height: 310,
+    height: 260,
     backgroundColor: '#031726',
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingBottom: 22,
+    paddingTop: (StatusBar.currentHeight || 20) + 10,
   },
   heroBackdrop: {
     position: 'absolute',
@@ -1467,90 +1573,66 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(3, 23, 38, 0.72)',
+    backgroundColor: 'rgba(3, 23, 38, 0.75)',
   },
   heroContent: {
     zIndex: 10,
   },
-  breadcrumbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  breadcrumbText: {
-    fontSize: 12,
-    color: '#BAE6FD',
-    fontWeight: '600',
-  },
   heroHeadline: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 32,
+    fontFamily: SERIF_FONT,
     letterSpacing: -0.5,
-  },
-  heroHeadlineGradient: {
-    color: '#38BDF8',
   },
   heroSubtitle: {
     fontSize: 13,
-    color: '#FEF3C7',
-    marginTop: 6,
+    color: '#E2E8F0',
+    marginTop: 4,
     lineHeight: 18,
-    fontWeight: '500',
+    fontFamily: SERIF_FONT,
+    fontWeight: '400',
   },
   heroBtnRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 16,
+    marginTop: 14,
   },
   aiCtaBtn: {
-    flex: 1.2,
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0284C7',
-    paddingVertical: 11,
-    borderRadius: 24,
+    paddingVertical: 10,
+    borderRadius: 22,
     shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 6,
+    elevation: 3,
   },
   aiCtaBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
-  },
-  freeBadge: {
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 6,
-  },
-  freeBadgeText: {
-    color: '#FEF08A',
-    fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   manualCtaBtn: {
-    flex: 0.9,
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    paddingVertical: 11,
-    borderRadius: 24,
+    paddingVertical: 10,
+    borderRadius: 22,
   },
   manualCtaBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
 
   // 2. KPI Cards
@@ -1564,16 +1646,16 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   kpiCard: {
-    width: 150,
+    width: 145,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#64748B',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowRadius: 5,
     elevation: 2,
   },
   kpiCardWarm: {
@@ -1581,18 +1663,19 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   kpiIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   kpiLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: '#64748B',
     letterSpacing: 0.5,
+    fontFamily: SERIF_FONT,
   },
   kpiValueRow: {
     flexDirection: 'row',
@@ -1601,34 +1684,37 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   kpiValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   kpiSubText: {
     fontSize: 11,
     color: '#94A3B8',
-    fontWeight: '500',
+    fontFamily: SERIF_FONT,
   },
   kpiDestText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 2,
+    fontFamily: SERIF_FONT,
   },
   kpiDurationText: {
     fontSize: 11,
     color: '#D97706',
     fontWeight: '600',
     marginTop: 1,
+    fontFamily: SERIF_FONT,
   },
 
   // 3. Toolbar & Tabs
   toolbarBox: {
     marginHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 14,
+    borderRadius: 18,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#64748B',
@@ -1636,20 +1722,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
-    gap: 12,
+    gap: 10,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    borderRadius: 14,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    height: 42,
+    height: 40,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   tabsScroll: {
     gap: 8,
@@ -1657,9 +1744,9 @@ const styles = StyleSheet.create({
   tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
     backgroundColor: '#F1F5F9',
     gap: 6,
   },
@@ -1670,6 +1757,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#475569',
+    fontFamily: SERIF_FONT,
   },
   tabButtonTextActive: {
     color: '#FFFFFF',
@@ -1687,6 +1775,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#475569',
+    fontFamily: SERIF_FONT,
   },
   tabBadgeTextActive: {
     color: '#FFFFFF',
@@ -1697,11 +1786,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1714,6 +1801,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
+    fontFamily: SERIF_FONT,
   },
   filterChipTextActive: {
     color: '#FFFFFF',
@@ -1724,7 +1812,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1735,7 +1823,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardCoverBox: {
-    height: 180,
+    height: 175,
     position: 'relative',
     backgroundColor: '#0F172A',
   },
@@ -1753,7 +1841,7 @@ const styles = StyleSheet.create({
   },
   cardTopBadgeRow: {
     position: 'absolute',
-    top: 12,
+    top: 10,
     left: 12,
     right: 12,
     flexDirection: 'row',
@@ -1765,31 +1853,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.65)',
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   destinationBadgeText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   aiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(2, 132, 199, 0.85)',
+    backgroundColor: '#0284C7',
     paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   aiBadgeText: {
-    color: '#FEF08A',
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: SERIF_FONT,
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusBadgeUpcoming: {
     backgroundColor: '#0284C7',
@@ -1800,7 +1888,8 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   cardCoverBottomRow: {
     position: 'absolute',
@@ -1816,37 +1905,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.65)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   durationPillText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   coverDateText: {
     color: '#FEF3C7',
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: SERIF_FONT,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   cardBody: {
-    padding: 16,
+    padding: 14,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
     lineHeight: 22,
+    fontFamily: SERIF_FONT,
   },
   cardMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   metaBadge: {
     flexDirection: 'row',
@@ -1862,19 +1954,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#D97706',
+    fontFamily: SERIF_FONT,
   },
   metaUserText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
     maxWidth: 120,
+    fontFamily: SERIF_FONT,
   },
   cardActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
+    marginTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -1884,12 +1978,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284C7',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   cardDetailBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   cardIconActions: {
     flexDirection: 'row',
@@ -1908,7 +2003,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
 
-  // 5. Empty State & Center Loader
+  // 5. Empty State
   centerBox: {
     padding: 40,
     alignItems: 'center',
@@ -1919,6 +2014,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '600',
+    fontFamily: SERIF_FONT,
   },
   emptyContainer: {
     padding: 30,
@@ -1926,9 +2022,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyIconCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#E0F2FE',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1938,6 +2034,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   emptySubtitle: {
     fontSize: 12,
@@ -1946,12 +2043,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 18,
     maxWidth: 280,
+    fontFamily: SERIF_FONT,
   },
   emptyActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#0284C7',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     marginTop: 16,
@@ -1959,7 +2055,8 @@ const styles = StyleSheet.create({
   emptyActionBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
 
   // 6. Detail Modal
@@ -1992,6 +2089,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     marginHorizontal: 10,
+    fontFamily: SERIF_FONT,
   },
   detailScrollContent: {
     paddingBottom: 40,
@@ -2036,25 +2134,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   detailAiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#0284C7',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
   },
   detailAiText: {
-    color: '#FEF08A',
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '800',
+    fontFamily: SERIF_FONT,
   },
   detailHeroTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
     lineHeight: 26,
+    fontFamily: SERIF_FONT,
   },
   detailStatsRow: {
     flexDirection: 'row',
@@ -2080,12 +2179,14 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '600',
     marginTop: 4,
+    fontFamily: SERIF_FONT,
   },
   detailStatValue: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 2,
+    fontFamily: SERIF_FONT,
   },
   daySelectorSection: {
     marginTop: 20,
@@ -2096,6 +2197,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 10,
+    fontFamily: SERIF_FONT,
   },
   dayPillsScroll: {
     gap: 8,
@@ -2113,6 +2215,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#475569',
+    fontFamily: SERIF_FONT,
   },
   dayPillTextActive: {
     color: '#FFFFFF',
@@ -2132,7 +2235,8 @@ const styles = StyleSheet.create({
   addStopBtnText: {
     color: '#0284C7',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   timelineSection: {
     marginTop: 14,
@@ -2151,12 +2255,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 8,
+    fontFamily: SERIF_FONT,
   },
   emptyTimelineSub: {
     fontSize: 12,
     color: '#64748B',
     textAlign: 'center',
     marginTop: 4,
+    fontFamily: SERIF_FONT,
   },
   timelineItem: {
     flexDirection: 'row',
@@ -2171,6 +2277,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#0284C7',
+    fontFamily: SERIF_FONT,
   },
   timelineDot: {
     width: 10,
@@ -2214,17 +2321,20 @@ const styles = StyleSheet.create({
     color: '#0284C7',
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: SERIF_FONT,
   },
   timelineCardTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   timelineCardNote: {
     fontSize: 12,
     color: '#64748B',
     marginTop: 4,
     lineHeight: 16,
+    fontFamily: SERIF_FONT,
   },
   timelineCostRow: {
     flexDirection: 'row',
@@ -2235,6 +2345,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#D97706',
+    fontFamily: SERIF_FONT,
   },
   checklistSection: {
     marginTop: 20,
@@ -2256,6 +2367,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#334155',
     fontWeight: '600',
+    fontFamily: SERIF_FONT,
   },
   checkItemTextDone: {
     textDecorationLine: 'line-through',
@@ -2280,6 +2392,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   modalInput: {
     backgroundColor: '#F8FAFC',
@@ -2290,6 +2403,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13,
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   aiFormScroll: {
     padding: 18,
@@ -2297,9 +2411,10 @@ const styles = StyleSheet.create({
   },
   aiInputLabel: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#1E293B',
     marginBottom: 6,
+    fontFamily: SERIF_FONT,
   },
   hotChipsScroll: {
     gap: 6,
@@ -2318,18 +2433,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#475569',
+    fontFamily: SERIF_FONT,
   },
   hotChipTextActive: {
     color: '#FFFFFF',
   },
   optionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   dayChoiceBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
@@ -2341,8 +2457,9 @@ const styles = StyleSheet.create({
   },
   dayChoiceText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#475569',
+    fontFamily: SERIF_FONT,
   },
   dayChoiceTextActive: {
     color: '#FFFFFF',
@@ -2355,7 +2472,7 @@ const styles = StyleSheet.create({
   choiceCard: {
     width: (SCREEN_WIDTH - 36 - 8) / 2,
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2367,24 +2484,19 @@ const styles = StyleSheet.create({
   },
   choiceCardText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
-    marginTop: 4,
+    fontFamily: SERIF_FONT,
   },
   choiceCardTextActive: {
     color: '#0284C7',
-  },
-  choiceCardSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
   },
   budgetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2395,8 +2507,9 @@ const styles = StyleSheet.create({
   },
   budgetRowTitle: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
+    fontFamily: SERIF_FONT,
   },
   budgetRowTitleActive: {
     color: '#0284C7',
@@ -2405,25 +2518,73 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     marginTop: 1,
+    fontFamily: SERIF_FONT,
   },
   submitAiBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0284C7',
-    paddingVertical: 14,
-    borderRadius: 24,
-    marginTop: 22,
+    paddingVertical: 13,
+    borderRadius: 22,
+    marginTop: 20,
     shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 6,
+    elevation: 3,
   },
   submitAiBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
+  },
+
+  // Days Calculation Box in Manual modal
+  daysCalcBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  daysCalcText: {
+    fontSize: 12,
+    color: '#0369A1',
+    fontFamily: SERIF_FONT,
+  },
+  uploadPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  uploadPhotoBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0284C7',
+    fontFamily: SERIF_FONT,
+  },
+  coverPreviewBox: {
+    width: '100%',
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F1F5F9',
+  },
+  coverPreviewImage: {
+    width: '100%',
+    height: '100%',
   },
 
   // AI Loading View
@@ -2438,13 +2599,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0284C7',
     marginTop: 16,
-    fontFamily: 'monospace',
+    fontFamily: SERIF_FONT,
   },
   aiLoadingTitle: {
     fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 8,
+    fontFamily: SERIF_FONT,
   },
   aiLoadingStep: {
     fontSize: 13,
@@ -2452,20 +2614,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
     textAlign: 'center',
+    fontFamily: SERIF_FONT,
   },
   progressBarTrack: {
     width: '100%',
-    height: 8,
+    height: 6,
     backgroundColor: '#E2E8F0',
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginTop: 20,
-    marginBottom: 12,
+    marginTop: 18,
+    marginBottom: 10,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#0284C7',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   aiLoadingNote: {
     fontSize: 11,
@@ -2473,16 +2636,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     maxWidth: 280,
+    fontFamily: SERIF_FONT,
   },
 
   // Preset covers
   presetScroll: {
-    gap: 10,
+    gap: 8,
     marginVertical: 4,
   },
   presetCard: {
-    width: 100,
-    borderRadius: 12,
+    width: 90,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -2492,14 +2656,15 @@ const styles = StyleSheet.create({
   },
   presetImage: {
     width: '100%',
-    height: 60,
+    height: 52,
   },
   presetLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#475569',
     textAlign: 'center',
     marginTop: 2,
+    fontFamily: SERIF_FONT,
   },
 
   // Modal Backdrop
@@ -2511,8 +2676,8 @@ const styles = StyleSheet.create({
   },
   stopCardBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 18,
+    padding: 16,
     maxHeight: '85%',
   },
 });

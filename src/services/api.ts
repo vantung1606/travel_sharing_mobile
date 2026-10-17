@@ -393,15 +393,24 @@ export interface ItineraryItem {
   id: number;
   title: string;
   destination: string;
+  region?: string;
   startDate?: string;
   endDate?: string;
+  daysCount?: number;
   budgetTotal?: number;
+  budgetPerPerson?: number;
+  groupType?: string;
+  isAiGenerated?: boolean;
   status?: string;
   coverImageUrl?: string;
+  coverImage?: string;
   creatorName?: string;
   creatorAvatar?: string;
   creatorEmail?: string;
   details?: ItineraryDetailItem[];
+  placesCount?: number;
+  placesList?: string[];
+  days?: any[];
 }
 
 export interface CreateItineraryPayload {
@@ -412,6 +421,8 @@ export interface CreateItineraryPayload {
   budgetTotal?: number;
   coverImageUrl?: string;
   status?: string;
+  isAiGenerated?: boolean;
+  details?: ItineraryDetailItem[];
 }
 
 // ─── ITINERARIES API ───────────────────────────────────────
@@ -440,6 +451,10 @@ export const itineraryApi = {
   async createItinerary(payload: CreateItineraryPayload): Promise<ItineraryItem> {
     const res = await apiClient.post<ApiResponse<ItineraryItem>>('/itineraries', payload);
     return res.data.data;
+  },
+
+  async deleteItinerary(id: number): Promise<void> {
+    await apiClient.delete(`/itineraries/${id}`);
   },
 
   async addDetail(itineraryId: number, detail: ItineraryDetailItem): Promise<ItineraryDetailItem> {

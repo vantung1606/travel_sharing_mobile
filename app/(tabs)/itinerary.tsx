@@ -811,11 +811,8 @@ Ví dụ chuẩn:
     const isUpcoming = (item.status || '').toLowerCase() === 'upcoming' || (item.status || '').toLowerCase() === 'active';
     const isCompleted = (item.status || '').toLowerCase() === 'completed';
 
-    const isOwner = Boolean(
-      (currentUser?.id && item.creatorId === currentUser.id) ||
-      (currentUser?.email && item.creatorEmail === currentUser.email) ||
-      (currentUser?.fullName && item.creatorName === currentUser.fullName)
-    );
+    // Trong tab Lịch trình cá nhân (quản lý chuyến đi của tôi), tất cả lịch trình là của chính chủ nên ẩn nút sao chép
+    const isOwner = true;
 
     return (
       <View style={styles.cardContainer}>

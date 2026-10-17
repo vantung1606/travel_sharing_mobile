@@ -437,17 +437,17 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
+      <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={WF_COLORS.primary} />
         <Text style={styles.loadingText}>Đang đồng bộ dữ liệu hồ sơ cá nhân...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ─── UNAUTHENTICATED VIEW (LOGIN / REGISTER) ───────────────
   if (!user?.token) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.authScroll}>
           <View style={styles.authHero}>
             <View style={styles.authLogoCircle}>
@@ -547,7 +547,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -569,7 +569,7 @@ export default function ProfileScreen() {
     'Đam mê xê dịch, khám phá những vùng đất hoang sơ và chia sẻ kinh nghiệm hành trình cùng cộng đồng Wayfare.';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
@@ -1620,7 +1620,7 @@ export default function ProfileScreen() {
         onItineraryUpdated={loadProfile}
         canEdit={true}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1644,6 +1644,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingBottom: 40,
+    paddingTop: 0,
   },
 
   // Hero Card
@@ -1652,6 +1653,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
     borderWidth: 1,
+    borderTopWidth: 0,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
     shadowColor: '#0F172A',

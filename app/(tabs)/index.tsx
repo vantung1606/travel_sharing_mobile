@@ -21,12 +21,12 @@ import { placeApi, PlaceItem, API_BASE_URL, itineraryApi, ItineraryItem } from '
 import { authStorage } from '@/src/services/authStorage';
 
 const CATEGORIES = [
-  { id: 'all', label: 'Tất cả', icon: 'compass' },
-  { id: 'beach', label: 'Biển đảo', icon: 'sun-o' },
-  { id: 'mountain', label: 'Núi rừng', icon: 'tree' },
-  { id: 'culture', label: 'Văn hóa', icon: 'university' },
-  { id: 'food', label: 'Ẩm thực', icon: 'cutlery' },
-  { id: 'resort', label: 'Nghỉ dưỡng', icon: 'bed' },
+  { id: 'all', label: 'Tất cả', emoji: '🧭', color: '#0284C7' },
+  { id: 'beach', label: 'Biển đảo', emoji: '🏖️', color: '#0EA5E9' },
+  { id: 'mountain', label: 'Núi rừng', emoji: '⛰️', color: '#10B981' },
+  { id: 'culture', label: 'Văn hóa', emoji: '🏛️', color: '#F59E0B' },
+  { id: 'food', label: 'Ẩm thực', emoji: '🍜', color: '#F43F5E' },
+  { id: 'resort', label: 'Nghỉ dưỡng', emoji: '💎', color: '#8B5CF6' },
 ];
 
 export default function ExploreScreen() {
@@ -179,7 +179,7 @@ export default function ExploreScreen() {
       {/* Search Header Bar */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <FontAwesome name="search" size={16} color={theme.textMuted} style={styles.searchIcon} />
+          <FontAwesome name="search" size={16} color={theme.tint} style={styles.searchIcon} />
           <TextInput
             placeholder="Tìm địa điểm, thành phố du lịch..."
             placeholderTextColor={theme.textMuted}
@@ -197,7 +197,7 @@ export default function ExploreScreen() {
         </View>
       </View>
 
-      {/* Categories Horizontal Bar */}
+      {/* Categories Horizontal Bar with Vibrant Emojis */}
       <View style={styles.categoryContainer}>
         <FlatList
           horizontal
@@ -214,15 +214,10 @@ export default function ExploreScreen() {
                 style={[
                   styles.categoryPill,
                   isSelected
-                    ? { backgroundColor: theme.tint, borderColor: theme.tint }
+                    ? { backgroundColor: item.color, borderColor: item.color }
                     : { backgroundColor: theme.card, borderColor: theme.border },
                 ]}>
-                <FontAwesome
-                  name={item.icon as any}
-                  size={13}
-                  color={isSelected ? '#FFFFFF' : theme.textMuted}
-                  style={{ marginRight: 6 }}
-                />
+                <Text style={{ fontSize: 13, marginRight: 5 }}>{item.emoji}</Text>
                 <Text
                   style={[
                     styles.categoryText,
@@ -245,7 +240,7 @@ export default function ExploreScreen() {
       ) : hasConnectionError ? (
         <View style={styles.centerBox}>
           <View style={[styles.alertCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={styles.alertIconWrapper}>
+            <View style={[styles.alertIconWrapper, { backgroundColor: 'rgba(2, 132, 199, 0.15)' }]}>
               <FontAwesome name="wifi" size={28} color={theme.tint} />
             </View>
             <Text style={[styles.alertTitle, { color: theme.text }]}>Đang kết nối Cloud Railway</Text>
@@ -311,7 +306,7 @@ export default function ExploreScreen() {
 
                 <View style={styles.detailBody}>
                   <View style={styles.detailTagRow}>
-                    <View style={[styles.tagPill, { backgroundColor: theme.badge }]}>
+                    <View style={[styles.tagPill, { backgroundColor: theme.primaryLight }]}>
                       <Text style={[styles.tagText, { color: theme.tint }]}>{selectedPlace.category || 'Địa điểm'}</Text>
                     </View>
                     {selectedPlace.rating ? (
@@ -448,14 +443,14 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 14,
+    borderWidth: 1.5,
+    borderRadius: 16,
     paddingHorizontal: 14,
     height: 48,
-    shadowColor: '#000',
+    shadowColor: '#0284C7',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 2,
   },
   searchIcon: {
@@ -467,7 +462,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   categoryContainer: {
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   categoryContent: {
     paddingHorizontal: 16,
@@ -476,7 +471,7 @@ const styles = StyleSheet.create({
   categoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 24,
     borderWidth: 1,
@@ -484,7 +479,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   listContainer: {
     paddingHorizontal: 16,
@@ -497,15 +492,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 190,
+    height: 195,
   },
   cardImage: {
     width: '100%',
@@ -515,7 +510,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     left: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(2, 132, 199, 0.9)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -532,7 +527,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -602,7 +597,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(13, 148, 136, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -733,11 +727,11 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 14,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addToPlanMainBtnText: {
     color: '#FFFFFF',

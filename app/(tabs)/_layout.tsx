@@ -15,6 +15,10 @@ function TabBarIcon(props: {
   return <FontAwesome size={21} style={{ marginBottom: -2 }} {...props} />;
 }
 
+export const unstable_settings = {
+  initialRouteName: 'community',
+};
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -34,6 +38,7 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        initialRouteName="community"
         screenOptions={{
           tabBarActiveTintColor: WF_COLORS.primary,
           tabBarInactiveTintColor: WF_COLORS.slate400,
@@ -60,14 +65,14 @@ export default function TabLayout() {
               style={[
                 styles.customHeader,
                 {
-                  paddingTop: insets.top + 6,
-                  height: 56 + insets.top + 6,
+                  paddingTop: insets.top + 4,
+                  height: 48 + insets.top + 4,
                 },
               ]}>
-              {/* Brand Logo - 100% Căn chuẩn dưới thanh thông báo hệ thống */}
+              {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => router.push('/(tabs)')}
+                onPress={() => router.push('/(tabs)/community')}
                 style={styles.logoWrapper}>
                 <Image
                   source={require('@/assets/images/wayfare-logo.png')}
@@ -112,13 +117,24 @@ export default function TabLayout() {
             </View>
           ),
         }}>
+        {/* 1. Trang chủ (Ẩn khỏi thanh Tab bar theo yêu cầu người dùng) */}
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Trang chủ',
-            tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+            href: null,
           }}
         />
+
+        {/* 2. CỘNG ĐỒNG (Tab Đầu Tiên khi vào App giống Facebook) */}
+        <Tabs.Screen
+          name="community"
+          options={{
+            title: 'Cộng đồng',
+            tabBarIcon: ({ color }) => <TabBarIcon name="globe" color={color} />,
+          }}
+        />
+
+        {/* 3. KHÁM PHÁ */}
         <Tabs.Screen
           name="explore"
           options={{
@@ -126,6 +142,8 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
           }}
         />
+
+        {/* 4. LỊCH TRÌNH */}
         <Tabs.Screen
           name="itinerary"
           options={{
@@ -134,13 +152,8 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
           }}
         />
-        <Tabs.Screen
-          name="community"
-          options={{
-            title: 'Cộng đồng',
-            tabBarIcon: ({ color }) => <TabBarIcon name="globe" color={color} />,
-          }}
-        />
+
+        {/* 5. TÀI KHOẢN */}
         <Tabs.Screen
           name="profile"
           options={{
@@ -148,6 +161,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
           }}
         />
+
         <Tabs.Screen
           name="two"
           options={{

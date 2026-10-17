@@ -622,7 +622,12 @@ ${aiCustomNote ? `- Yêu cầu thêm: ${aiCustomNote}` : ''}
 QUY TẮC BẮT BUỘC:
 1. Nghiên cứu chính xác các địa điểm, quán ăn có thật 100% tại "${aiDest}". Tuyệt đối không dùng văn mẫu chung chung.
 2. Mỗi ngày có 3-4 hoạt động sắp xếp từ sáng đến tối.
-3. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:
+3. BẮT BUỘC VỀ ĐỊA CHỈ ("address"): Tra cứu và ghi ĐỊA CHỈ CỤ THỂ CHI TIẾT CÓ THẬT của từng quán ăn, địa danh (gồm Số nhà/Tên đường, Phường/Xã, Quận/Huyện/Thị xã tại "${aiDest}"). TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ ghi tên tỉnh thành chung chung như "${aiDest}" hay "Việt Nam".
+Ví dụ chuẩn:
+- Quán ăn: "Số 48 Ngô Đức Kế, P. Hồng Sơn, TP. Vinh, Nghệ An"
+- Danh lam/Di tích: "Làng Sen & Hoàng Trù, xã Kim Liên, huyện Nam Đàn, Nghệ An"
+- Trải nghiệm: "Đập Cầu Cau, xã Thanh An, huyện Thanh Chương, Nghệ An"
+4. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:
 {
   "title": "Tên chuyến đi hấp dẫn do AI sáng tạo (VD: Đà Lạt: Chuyến Đi Lãng Mạn Cho Cặp Đôi)",
   "summaryTip": "Mẹo du lịch bản địa ngắn gọn...",
@@ -636,7 +641,7 @@ QUY TẮC BẮT BUỘC:
           "time": "08:00",
           "category": "Ẩm thực",
           "location": "Tên địa danh hoặc quán ăn cụ thể",
-          "address": "Địa chỉ cụ thể tại ${aiDest} (BẮT BUỘC ghi rõ số nhà, tên đường hoặc phường/xã, quận/huyện)",
+          "address": "Số nhà, tên đường, phường/xã, quận/huyện cụ thể tại ${aiDest}",
           "note": "Kinh nghiệm ngắn gọn",
           "cost": 50000,
           "transit": "15 phút"
@@ -920,10 +925,10 @@ QUY TẮC BẮT BUỘC:
             elevation: isScrolled ? 4 : 0,
           },
         ]}>
-        {/* Brand Logo - Tự động đổi màu trắng/màu gốc theo vị trí cuộn */}
+        {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => router.push('/(tabs)/community')}
           style={styles.navLogoWrapper}>
           <Image
             source={
@@ -1005,8 +1010,8 @@ QUY TẮC BẮT BUỘC:
               style={[
                 styles.heroBox,
                 {
-                  height: 270 + insets.top,
-                  paddingTop: insets.top + 54,
+                  paddingTop: insets.top + 48,
+                  paddingBottom: 16,
                 },
               ]}>
               <Image
@@ -1923,9 +1928,7 @@ const styles = StyleSheet.create({
   heroBox: {
     position: 'relative',
     backgroundColor: '#031726',
-    justifyContent: 'flex-end',
     paddingHorizontal: 16,
-    paddingBottom: 22,
   },
   heroBackdrop: {
     position: 'absolute',

@@ -50,17 +50,6 @@ export function ItineraryDetailModal({
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
 
-  // Modal Add Stop
-  const [addStopVisible, setAddStopVisible] = useState<boolean>(false);
-  const [stopDayNum, setStopDayNum] = useState<number>(1);
-  const [stopName, setStopName] = useState<string>('');
-  const [stopAddress, setStopAddress] = useState<string>('');
-  const [stopTime, setStopTime] = useState<string>('08:30');
-  const [stopCategory, setStopCategory] = useState<string>('Tham quan');
-  const [stopCost, setStopCost] = useState<string>('100,000');
-  const [stopNote, setStopNote] = useState<string>('');
-  const [submittingStop, setSubmittingStop] = useState<boolean>(false);
-
   useEffect(() => {
     if (visible && itinerary?.id) {
       setFullItin(itinerary);
@@ -111,42 +100,6 @@ export function ItineraryDetailModal({
   const filteredDetails = selectedDay === 'all'
     ? detailsList
     : detailsList.filter(d => d.dayNumber === selectedDay);
-
-  const handleAddStop = async () => {
-    if (!stopName.trim() || !fullItin?.id) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên điểm dừng chân!');
-      return;
-    }
-
-    try {
-      setSubmittingStop(true);
-      const cleanCost = parseFloat(stopCost.replace(/,/g, '')) || 0;
-      const newDetail: ItineraryDetailItem = {
-        itineraryId: fullItin.id,
-        locationName: stopName.trim(),
-        locationAddress: stopAddress.trim() || undefined,
-        startTime: stopTime.trim(),
-        category: stopCategory,
-        dayNumber: stopDayNum,
-        estimatedCost: cleanCost,
-        note: stopNote.trim(),
-      };
-
-      await itineraryApi.addDetail(fullItin.id, newDetail);
-      Alert.alert('Thành công', `Đã thêm "${stopName}" vào Ngày ${stopDayNum}`);
-      setAddStopVisible(false);
-      setStopName('');
-      setStopAddress('');
-      setStopNote('');
-
-      fetchFullDetail(fullItin.id);
-      onItineraryUpdated?.();
-    } catch (err: any) {
-      Alert.alert('Lỗi', err.response?.data?.message || 'Không thể thêm điểm dừng');
-    } finally {
-      setSubmittingStop(false);
-    }
-  };
 
   const handleDeleteStop = (detailId?: number) => {
     if (!detailId || !fullItin?.id) return;
@@ -298,22 +251,6 @@ export function ItineraryDetailModal({
               </ScrollView>
             </View>
 
-            {/* Add Stop Action (Clean 1 Plus icon) */}
-            {canEdit && (
-              <TouchableOpacity
-                activeOpacity={0.88}
-                style={styles.addStopBtn}
-                onPress={() => {
-                  setStopDayNum(typeof selectedDay === 'number' ? selectedDay : 1);
-                  setAddStopVisible(true);
-                }}>
-                <FontAwesome name="plus-circle" size={14} color="#0284C7" style={{ marginRight: 6 }} />
-                <Text style={styles.addStopBtnText}>
-                  Thêm Điểm Dừng (Ngày {typeof selectedDay === 'number' ? selectedDay : 1})
-                </Text>
-              </TouchableOpacity>
-            )}
-
             {/* Timeline Stops */}
             <View style={styles.timelineSection}>
               {filteredDetails.length === 0 ? (
@@ -321,7 +258,7 @@ export function ItineraryDetailModal({
                   <FontAwesome name="calendar-o" size={26} color="#94A3B8" />
                   <Text style={styles.emptyBoxTitle}>Chưa có trạm dừng nào cho ngày này</Text>
                   <Text style={styles.emptyBoxSub}>
-                    Bấm "Thêm Điểm Dừng" bên trên để thêm quán ăn hoặc danh lam thắng cảnh nhé!
+                    Lịch trình ngày này hiện chưa có hoạt động nào.
                   </Text>
                 </View>
               ) : (
@@ -462,98 +399,6 @@ export function ItineraryDetailModal({
             </View>
           </ScrollView>
         )}
-
-        {/* Modal Add Stop Form */}
-        <Modal
-          visible={addStopVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => setAddStopVisible(false)}>
-          <View style={styles.modalBackdrop}>
-            <View style={styles.stopCardBox}>
-              <View style={styles.stopModalHeader}>
-                <Text style={styles.stopModalTitle}>Thêm Điểm Dừng (Ngày {stopDayNum})</Text>
-                <TouchableOpacity onPress={() => setAddStopVisible(false)} style={styles.closeModalBtn}>
-                  <FontAwesome name="times" size={15} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.inputLabel}>Tên địa điểm / Quán ăn *</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="VD: Cáp treo Fansipan, Quán Cà phê săn mây..."
-                  placeholderTextColor="#94A3B8"
-                  value={stopName}
-                  onChangeText={setStopName}
-                />
-
-                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Địa chỉ cụ thể</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="VD: Đường Kim Liên, Nam Đàn, Nghệ An..."
-                  placeholderTextColor="#94A3B8"
-                  value={stopAddress}
-                  onChangeText={setStopAddress}
-                />
-
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>Khung giờ</Text>
-                    <TextInput
-                      style={styles.inputField}
-                      placeholder="08:30"
-                      placeholderTextColor="#94A3B8"
-                      value={stopTime}
-                      onChangeText={setStopTime}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>Danh mục</Text>
-                    <TextInput
-                      style={styles.inputField}
-                      placeholder="Tham quan"
-                      placeholderTextColor="#94A3B8"
-                      value={stopCategory}
-                      onChangeText={setStopCategory}
-                    />
-                  </View>
-                </View>
-
-                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Chi phí dự kiến (VNĐ)</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="100,000"
-                  placeholderTextColor="#94A3B8"
-                  value={stopCost}
-                  onChangeText={setStopCost}
-                  keyboardType="numeric"
-                />
-
-                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Ghi chú trải nghiệm</Text>
-                <TextInput
-                  style={[styles.inputField, { height: 56, textAlignVertical: 'top' }]}
-                  placeholder="Lưu ý trang phục, vé vào cổng, góc check-in..."
-                  placeholderTextColor="#94A3B8"
-                  value={stopNote}
-                  onChangeText={setStopNote}
-                  multiline
-                />
-
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  style={[styles.submitBtn, submittingStop && { opacity: 0.7 }]}
-                  onPress={handleAddStop}>
-                  {submittingStop ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>Thêm Điểm Dừng</Text>
-                  )}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -748,24 +593,6 @@ const styles = StyleSheet.create({
   },
   dayPillTextActive: {
     color: '#FFFFFF',
-  },
-  addStopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 16,
-    marginTop: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: '#E0F2FE',
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  addStopBtnText: {
-    color: '#0284C7',
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
   },
   timelineSection: {
     marginTop: 14,
@@ -971,69 +798,5 @@ const styles = StyleSheet.create({
   checkTextDone: {
     textDecorationLine: 'line-through',
     color: '#94A3B8',
-  },
-
-  // Modal Add Stop
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  stopCardBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    maxHeight: '85%',
-  },
-  stopModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 8,
-  },
-  stopModalTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    fontFamily: SERIF_FONT,
-  },
-  closeModalBtn: {
-    padding: 4,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 4,
-    fontFamily: SERIF_FONT,
-  },
-  inputField: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 12,
-    color: '#0F172A',
-    fontFamily: SERIF_FONT,
-  },
-  submitBtn: {
-    backgroundColor: '#0284C7',
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
   },
 });

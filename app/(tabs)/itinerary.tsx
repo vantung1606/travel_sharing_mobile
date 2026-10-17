@@ -121,17 +121,6 @@ export default function ItineraryScreen() {
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
 
-  // ─── MODAL ADD STOP TO DAY STATE ─────────────────────────
-  const [addStopModalVisible, setAddStopModalVisible] = useState<boolean>(false);
-  const [stopDayNum, setStopDayNum] = useState<number>(1);
-  const [stopName, setStopName] = useState<string>('');
-  const [stopAddress, setStopAddress] = useState<string>('');
-  const [stopTime, setStopTime] = useState<string>('08:30');
-  const [stopCategory, setStopCategory] = useState<string>('Tham quan');
-  const [stopNote, setStopNote] = useState<string>('');
-  const [stopCost, setStopCost] = useState<string>('100,000');
-  const [submittingStop, setSubmittingStop] = useState<boolean>(false);
-
   // ─── MODAL MANUAL TRIP STATE ─────────────────────────────
   const [manualModalVisible, setManualModalVisible] = useState<boolean>(false);
   const [manualTitle, setManualTitle] = useState<string>('');
@@ -436,45 +425,6 @@ export default function ItineraryScreen() {
     } catch (e) {
       console.warn('Pick image error', e);
       Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
-    }
-  };
-
-  // ─── ADD STOP HANDLER ────────────────────────────────────
-  const handleAddStop = async () => {
-    if (!stopName.trim() || !selectedItinerary) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên điểm dừng chân!');
-      return;
-    }
-
-    try {
-      setSubmittingStop(true);
-      const cleanCost = parseFloat(stopCost.replace(/,/g, '')) || 0;
-      const newDetail: ItineraryDetailItem = {
-        itineraryId: selectedItinerary.id,
-        locationName: stopName.trim(),
-        locationAddress: stopAddress.trim() || undefined,
-        startTime: stopTime.trim(),
-        category: stopCategory,
-        dayNumber: stopDayNum,
-        estimatedCost: cleanCost,
-        note: stopNote.trim(),
-      };
-
-      await itineraryApi.addDetail(selectedItinerary.id, newDetail);
-      Alert.alert('Thành công', `Đã thêm "${stopName}" vào Ngày ${stopDayNum}`);
-      setAddStopModalVisible(false);
-      setStopName('');
-      setStopAddress('');
-      setStopNote('');
-
-      // Reload detail
-      const full = await itineraryApi.getItineraryById(selectedItinerary.id);
-      setSelectedItinerary(full);
-      fetchItineraries();
-    } catch (err: any) {
-      Alert.alert('Lỗi', err.response?.data?.message || 'Không thể thêm điểm dừng');
-    } finally {
-      setSubmittingStop(false);
     }
   };
 

@@ -1,9 +1,12 @@
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { BrandSplash } from '@/components/BrandSplash';
 import { useColorScheme } from '@/components/useColorScheme';
 import { LogBox } from 'react-native';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
@@ -30,6 +33,9 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [showLaunchSplash, setShowLaunchSplash] = useState(true);
+
+  const handleSplashFinish = useCallback(() => setShowLaunchSplash(false), []);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -46,8 +52,20 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <View style={styles.root}>
+      <StatusBar style={showLaunchSplash ? 'light' : 'dark'} />
+      <RootLayoutNav />
+      {showLaunchSplash ? <BrandSplash onFinish={handleSplashFinish} /> : null}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 function RootLayoutNav() {
   return (

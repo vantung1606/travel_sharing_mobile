@@ -16,8 +16,9 @@ import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
-import { postApi, PostItem, CommentItem, API_BASE_URL } from '@/src/services/api';
+import { postApi, PostItem, CommentItem } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
+import { CommunityFeedSkeleton } from '@/components/CommunityFeedSkeleton';
 import axios from 'axios';
 
 // Stories cộng đồng chuẩn 100% bản Web
@@ -453,16 +454,15 @@ export default function CommunityScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.centerBox}>
-              <ActivityIndicator size="large" color={WF_COLORS.primary} />
-              <Text style={styles.loadingText}>Đang nạp bảng tin cộng đồng từ Railway...</Text>
-            </View>
+            <CommunityFeedSkeleton />
           ) : hasError ? (
             <View style={styles.centerBox}>
               <View style={styles.alertCard}>
                 <FontAwesome name="globe" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
-                <Text style={styles.alertTitle}>Chưa có kết nối máy chủ</Text>
-                <Text style={styles.alertDesc}>Đang nạp từ: {API_BASE_URL}</Text>
+                <Text style={styles.alertTitle}>Không thể kết nối</Text>
+                <Text style={styles.alertDesc}>
+                  Kiểm tra kết nối mạng rồi thử lại nhé. Bảng tin cộng đồng sẽ hiện ngay khi có dữ liệu.
+                </Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={fetchPosts}>
                   <Text style={styles.retryBtnText}>Tải lại dữ liệu</Text>
                 </TouchableOpacity>
@@ -881,11 +881,6 @@ const styles = StyleSheet.create({
   centerBox: {
     padding: 30,
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: WF_COLORS.slate500,
   },
   alertCard: {
     backgroundColor: WF_COLORS.white,

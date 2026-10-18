@@ -1,27 +1,46 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  StyleSheet,
-  View,
+  ActivityIndicator,
+  Alert,
   FlatList,
   Image,
-  TouchableOpacity,
-  ActivityIndicator,
+  Platform,
   RefreshControl,
-  Modal,
   ScrollView,
-  Alert,
+  Share,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Text, TextInput } from '@/components/Themed';
-import { SERIF_FONT } from '@/constants/Typography';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { WF_COLORS } from '@/constants/Colors';
-import { postApi, PostItem, CommentItem } from '@/src/services/api';
-import { authStorage } from '@/src/services/authStorage';
-import { CommunityFeedSkeleton } from '@/components/CommunityFeedSkeleton';
-import axios from 'axios';
 
-// Stories cộng đồng chuẩn 100% bản Web
+import { Text, TextInput } from '@/components/Themed';
+import { CommunityFeedSkeleton } from '@/components/CommunityFeedSkeleton';
+import { ActionSheet, ActionSheetOption } from '@/components/community/ActionSheet';
+import { CreatePostModal } from '@/components/community/CreatePostModal';
+import { ImageLightbox } from '@/components/community/ImageLightbox';
+import { PostCard } from '@/components/community/PostCard';
+import { PostDetailModal } from '@/components/community/PostDetailModal';
+import { ReportPostSheet } from '@/components/community/ReportPostSheet';
+import {
+  FEED_SCOPES,
+  FeedScope,
+  PostSortKey,
+  SORT_OPTIONS,
+  TOPIC_FILTERS,
+  TRAVEL_HASHTAGS,
+  TopicKey,
+  filterAndSortPosts,
+} from '@/components/community/communityUtils';
+import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { WF_COLORS } from '@/constants/Colors';
+import { SERIF_FONT } from '@/constants/Typography';
+import { itineraryApi, ItineraryItem, postApi, PostItem, userApi } from '@/src/services/api';
+import { authStorage, UserSession } from '@/src/services/authStorage';
+
+const FALLBACK_AVATAR =
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+
 const COMMUNITY_STORIES = [
   { id: 'dalat', location: 'Đà Lạt', badge: '🌸', image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80' },
   { id: 'danang', location: 'Đà Nẵng', badge: '🌊', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
@@ -31,350 +50,580 @@ const COMMUNITY_STORIES = [
   { id: 'hoian', location: 'Hội An', badge: '🏮', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
 ];
 
-const TRAVEL_HASHTAGS = [
-  '#TấtCả',
-  '#KinhNghiệm',
-  '#ReviewẨmThực',
-  '#PhượtSolo',
-  '#ĐàNẵng',
-  '#ĐàLạt',
-  '#PhúQuốc',
-  '#CheckIn',
-  '#TiếtKiệm',
-];
+const PAGE_SIZE = 10;
+
+interface LightboxState {
+  images: string[];
+  index: number;
+  authorName?: string;
+}
 
 export default function CommunityScreen() {
-  const [posts, setPosts] = useState<PostItem[]>([]);
-  // Phân trang phía server cho bảng tin cộng đồng
-  const [postsTotal, setPostsTotal] = useState<number>(0);
-  const [hasMorePosts, setHasMorePosts] = useState<boolean>(false);
-  const [postsPage, setPostsPage] = useState<number>(0);
-  const [loadingMorePosts, setLoadingMorePosts] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [hasError, setHasError] = useState<boolean>(false);
-  const [selectedTag, setSelectedTag] = useState<string>('#TấtCả');
+  // ── Session ───────────────────────────────────────────────
+  const [session, setSession] = useState<UserSession | null>(null);
 
-  // Likes & Bookmarks state
+  // ── Nguồn dữ liệu ─────────────────────────────────────────
+  const [pagedPosts, setPagedPosts] = useState<PostItem[]>([]);
+  const [postsTotal, setPostsTotal] = useState(0);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [postsPage, setPostsPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const [fullPosts, setFullPosts] = useState<PostItem[] | null>(null);
+  const [loadingFull, setLoadingFull] = useState(false);
+  const [savedPosts, setSavedPosts] = useState<PostItem[] | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
+  const [followLoadingIds, setFollowLoadingIds] = useState<Set<number>>(new Set());
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  // ── Meta (like/bookmark) ──────────────────────────────────
   const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
   const [likesCount, setLikesCount] = useState<Record<number, number>>({});
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Record<number, boolean>>({});
+  const [commentOverrides, setCommentOverrides] = useState<Record<number, number>>({});
+  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
 
-  // Modal Bình Luận
-  const [commentModalVisible, setCommentModalVisible] = useState<boolean>(false);
-  const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
-  const [activePostTitle, setActivePostTitle] = useState<string>('');
-  const [commentsList, setCommentsList] = useState<CommentItem[]>([]);
-  const [loadingComments, setLoadingComments] = useState<boolean>(false);
-  const [newCommentText, setNewCommentText] = useState<string>('');
-  const [submittingComment, setSubmittingComment] = useState<boolean>(false);
+  // ── Bộ lọc ────────────────────────────────────────────────
+  const [scope, setScope] = useState<FeedScope>('all');
+  const [topic, setTopic] = useState<TopicKey>('all');
+  const [hashtag, setHashtag] = useState('all');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<PostSortKey>('newest');
+  const [sortSheetVisible, setSortSheetVisible] = useState(false);
 
-  // Modal Tạo Bài Viết Mới
-  const [createModalVisible, setCreateModalVisible] = useState<boolean>(false);
-  const [newTitle, setNewTitle] = useState<string>('');
-  const [newContent, setNewContent] = useState<string>('');
-  const [newLocation, setNewLocation] = useState<string>('');
-  const [newCategory, setNewCategory] = useState<string>('Kinh nghiệm');
-  const [newCover, setNewCover] = useState<string>('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80');
-  const [submittingPost, setSubmittingPost] = useState<boolean>(false);
+  // ── Overlay ───────────────────────────────────────────────
+  const [detailPost, setDetailPost] = useState<PostItem | null>(null);
+  const [composerVisible, setComposerVisible] = useState(false);
+  const [editingPost, setEditingPost] = useState<PostItem | null>(null);
+  const [menuPost, setMenuPost] = useState<PostItem | null>(null);
+  const [reportTarget, setReportTarget] = useState<PostItem | null>(null);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
+  const [itineraryDetail, setItineraryDetail] = useState<ItineraryItem | null>(null);
+  const [itineraryVisible, setItineraryVisible] = useState(false);
+  const [cloningPostId, setCloningPostId] = useState<number | null>(null);
 
-  const fetchPosts = useCallback(async () => {
+  const clientFiltering = scope !== 'all' || topic !== 'all' || hashtag !== 'all' || !!search.trim() || sort !== 'newest';
+
+  // ── Meta helpers ──────────────────────────────────────────
+  const initMeta = useCallback((list: PostItem[]) => {
+    if (!list?.length) return;
+    const liked: Record<number, boolean> = {};
+    const counts: Record<number, number> = {};
+    const saved: Record<number, boolean> = {};
+    list.forEach((p) => {
+      liked[p.id] = !!p.isLiked;
+      counts[p.id] = p.likeCount ?? p.likesCount ?? 0;
+      saved[p.id] = !!p.isBookmarked;
+    });
+    setLikedPosts((prev) => ({ ...prev, ...liked }));
+    setLikesCount((prev) => ({ ...prev, ...counts }));
+    setBookmarkedPosts((prev) => ({ ...prev, ...saved }));
+  }, []);
+
+  // ── Nạp dữ liệu ───────────────────────────────────────────
+  const loadInitial = useCallback(async () => {
     try {
       setHasError(false);
-      const result = await postApi.getCommunityPostsPaged({ page: 0, size: 10 });
+      const result = await postApi.getCommunityPostsPaged({ page: 0, size: PAGE_SIZE });
       let data: PostItem[];
       if (result && Array.isArray(result.items)) {
         data = result.items;
         setPostsTotal(result.totalElements || data.length);
         setHasMorePosts(Boolean(result.hasNext));
-        setPostsPage(0);
       } else {
-        // Fallback: API phân trang không khả dụng -> tải toàn bộ như trước
         data = await postApi.getCommunityPosts();
         setPostsTotal((data || []).length);
         setHasMorePosts(false);
-        setPostsPage(0);
       }
-      setPosts(data || []);
-
-      // Khởi tạo likes
-      const likesMap: Record<number, boolean> = {};
-      const countMap: Record<number, number> = {};
-      data.forEach(p => {
-        likesMap[p.id] = !!p.isLiked;
-        countMap[p.id] = p.likesCount || 0;
-      });
-      setLikedPosts(likesMap);
-      setLikesCount(countMap);
+      setPostsPage(0);
+      setPagedPosts(data || []);
+      initMeta(data || []);
     } catch (err: any) {
-      console.warn('Fetch posts error:', err.message || err);
+      console.warn('Lỗi tải bảng tin cộng đồng:', err?.message || err);
       setHasError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [initMeta]);
 
-  // Tải thêm bài viết khi cuộn gần cuối bảng tin
-  const loadMorePosts = useCallback(async () => {
-    if (loadingMorePosts || !hasMorePosts) return;
-    setLoadingMorePosts(true);
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMorePosts || scope !== 'all' || clientFiltering) return;
+    setLoadingMore(true);
     try {
       const nextPage = postsPage + 1;
-      const result = await postApi.getCommunityPostsPaged({ page: nextPage, size: 10 });
+      const result = await postApi.getCommunityPostsPaged({ page: nextPage, size: PAGE_SIZE });
       if (result && Array.isArray(result.items)) {
-        setPosts(prev => {
-          const seen = new Set(prev.map(p => p.id));
-          return [...prev, ...result.items.filter(p => !seen.has(p.id))];
+        setPagedPosts((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...result.items.filter((p) => !seen.has(p.id))];
         });
-
-        const likesMap: Record<number, boolean> = {};
-        const countMap: Record<number, number> = {};
-        result.items.forEach(p => {
-          likesMap[p.id] = !!p.isLiked;
-          countMap[p.id] = p.likesCount || 0;
-        });
-        setLikedPosts(prev => ({ ...prev, ...likesMap }));
-        setLikesCount(prev => ({ ...prev, ...countMap }));
-
+        initMeta(result.items);
         setPostsPage(nextPage);
         setPostsTotal(result.totalElements || 0);
         setHasMorePosts(Boolean(result.hasNext));
       }
     } catch (err: any) {
-      console.warn('Load more posts error:', err?.message || err);
+      console.warn('Lỗi tải thêm bài viết:', err?.message || err);
     } finally {
-      setLoadingMorePosts(false);
+      setLoadingMore(false);
     }
-  }, [loadingMorePosts, hasMorePosts, postsPage]);
+  }, [loadingMore, hasMorePosts, postsPage, scope, clientFiltering, initMeta]);
+
+  const loadFullPosts = useCallback(async (force = false) => {
+    if (fullPosts && !force) return;
+    setLoadingFull(true);
+    try {
+      const list = await postApi.getCommunityPosts();
+      setFullPosts(list || []);
+      initMeta(list || []);
+    } catch (err: any) {
+      console.warn('Lỗi tải toàn bộ bài viết:', err?.message || err);
+      setFullPosts([]);
+    } finally {
+      setLoadingFull(false);
+    }
+  }, [fullPosts, initMeta]);
+
+  const loadSavedPosts = useCallback(async (force = false) => {
+    if (savedPosts && !force) return;
+    setLoadingSaved(true);
+    try {
+      const list = await postApi.getBookmarkedPosts();
+      setSavedPosts(list || []);
+      initMeta(list || []);
+    } catch (err: any) {
+      console.warn('Lỗi tải bài viết đã lưu:', err?.message || err);
+      setSavedPosts([]);
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, [savedPosts, initMeta]);
+
+  // ── Bootstrap ─────────────────────────────────────────────
+  useEffect(() => {
+    loadInitial();
+  }, [loadInitial]);
 
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    let mounted = true;
+    authStorage.getSession().then((s) => mounted && setSession(s));
+    const unsubscribe = authStorage.subscribe((s) => setSession(s));
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchPosts();
+  const loadFollowingIds = useCallback(async () => {
+    if (!session) {
+      setFollowingIds(new Set());
+      return;
+    }
+    const ids = await userApi.getFollowingIds();
+    setFollowingIds(new Set(ids));
+  }, [session]);
+
+  useEffect(() => {
+    loadFollowingIds();
+  }, [loadFollowingIds]);
+
+  useEffect(() => {
+    if (scope === 'saved') {
+      if (session) loadSavedPosts();
+      else setSavedPosts([]);
+      return;
+    }
+    if (clientFiltering) loadFullPosts();
+  }, [scope, clientFiltering, session, loadSavedPosts, loadFullPosts]);
+
+  // ── Danh sách hiển thị ────────────────────────────────────
+  const displayPosts = useMemo(() => {
+    let base: PostItem[];
+    if (scope === 'saved') base = savedPosts || [];
+    else if (clientFiltering) base = fullPosts || [];
+    else base = pagedPosts;
+
+    const filtered = filterAndSortPosts(base, {
+      scope,
+      topic,
+      hashtag,
+      search,
+      sort,
+      followingIds,
+      currentUserId: session?.id ?? null,
+    });
+    return hiddenIds.size ? filtered.filter((p) => !hiddenIds.has(p.id)) : filtered;
+  }, [scope, clientFiltering, savedPosts, fullPosts, pagedPosts, topic, hashtag, search, sort, followingIds, session?.id, hiddenIds]);
+
+  const listBusy = loading || (scope === 'saved' && loadingSaved) || (clientFiltering && scope !== 'saved' && loadingFull);
+
+  // ── Hành động ─────────────────────────────────────────────
+  const requireLogin = (action: string) => {
+    Alert.alert('Yêu cầu đăng nhập', `Vui lòng đăng nhập ở tab "Tài khoản" để ${action}!`);
   };
 
   const toggleLike = async (postId: number) => {
-    const session = await authStorage.getSession();
-    if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để thích bài viết!');
-      return;
-    }
-
-    const isCurrentlyLiked = !!likedPosts[postId];
-    // Optimistic update
-    setLikedPosts(prev => ({ ...prev, [postId]: !isCurrentlyLiked }));
-    setLikesCount(prev => ({
-      ...prev,
-      [postId]: (prev[postId] || 0) + (isCurrentlyLiked ? -1 : 1),
-    }));
-
+    if (!session) return requireLogin('thích bài viết');
+    const isLiked = !!likedPosts[postId];
+    setLikedPosts((prev) => ({ ...prev, [postId]: !isLiked }));
+    setLikesCount((prev) => ({ ...prev, [postId]: Math.max(0, (prev[postId] || 0) + (isLiked ? -1 : 1)) }));
     try {
       const res = await postApi.toggleLike(postId);
       if (res) {
-        setLikedPosts(prev => ({ ...prev, [postId]: res.isLiked }));
-        setLikesCount(prev => ({ ...prev, [postId]: res.likeCount }));
+        setLikedPosts((prev) => ({ ...prev, [postId]: res.isLiked }));
+        setLikesCount((prev) => ({ ...prev, [postId]: res.likeCount }));
       }
-    } catch (err: any) {
-      // Rollback
-      setLikedPosts(prev => ({ ...prev, [postId]: isCurrentlyLiked }));
-      setLikesCount(prev => ({
-        ...prev,
-        [postId]: (prev[postId] || 0) + (isCurrentlyLiked ? 1 : -1),
-      }));
+    } catch {
+      setLikedPosts((prev) => ({ ...prev, [postId]: isLiked }));
+      setLikesCount((prev) => ({ ...prev, [postId]: Math.max(0, (prev[postId] || 0) + (isLiked ? 1 : -1)) }));
     }
   };
 
   const toggleBookmark = async (postId: number) => {
-    const session = await authStorage.getSession();
-    if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để lưu bài viết!');
-      return;
-    }
+    if (!session) return requireLogin('lưu bài viết');
+    const isSaved = !!bookmarkedPosts[postId];
+    setBookmarkedPosts((prev) => ({ ...prev, [postId]: !isSaved }));
     try {
       const res = await postApi.toggleBookmark(postId);
-      setBookmarkedPosts(prev => ({ ...prev, [postId]: res.isBookmarked }));
+      setBookmarkedPosts((prev) => ({ ...prev, [postId]: res.isBookmarked }));
+      setSavedPosts((prev) => {
+        if (!prev) return prev;
+        if (!res.isBookmarked) return prev.filter((p) => p.id !== postId);
+        const found = displayPosts.find((p) => p.id === postId);
+        return found && !prev.some((p) => p.id === postId) ? [found, ...prev] : prev;
+      });
       Alert.alert(
         'Bộ sưu tập',
-        res.isBookmarked ? 'Đã lưu bài viết vào bộ sưu tập cá nhân! 🔖' : 'Đã bỏ lưu bài viết khỏi bộ sưu tập.'
+        res.isBookmarked ? 'Đã lưu bài viết vào bộ sưu tập! 🔖' : 'Đã bỏ lưu bài viết khỏi bộ sưu tập.'
       );
     } catch (err: any) {
-      Alert.alert('Lỗi', err.response?.data?.message || 'Không thể lưu bài viết lúc này');
+      setBookmarkedPosts((prev) => ({ ...prev, [postId]: isSaved }));
+      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể lưu bài viết lúc này');
     }
   };
 
-  const handleOpenComments = async (post: PostItem) => {
-    setActiveCommentPostId(post.id);
-    setActivePostTitle(post.title || 'Bài viết cộng đồng');
-    setCommentModalVisible(true);
-    setLoadingComments(true);
+  const toggleFollowAuthor = async (authorId?: number) => {
+    if (!session) return requireLogin('theo dõi tác giả');
+    if (authorId == null) return;
+    const isFollowing = followingIds.has(Number(authorId));
+    setFollowLoadingIds((prev) => new Set(prev).add(Number(authorId)));
+    setFollowingIds((prev) => {
+      const next = new Set(prev);
+      if (isFollowing) next.delete(Number(authorId));
+      else next.add(Number(authorId));
+      return next;
+    });
     try {
-      const list = await postApi.getComments(post.id);
-      setCommentsList(list || []);
-    } catch (e) {
-      console.warn('Lỗi lấy bình luận:', e);
-      setCommentsList([]);
-    } finally {
-      setLoadingComments(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!activeCommentPostId || !newCommentText.trim()) return;
-    const session = await authStorage.getSession();
-    if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập để gửi bình luận!');
-      return;
-    }
-
-    try {
-      setSubmittingComment(true);
-      const created = await postApi.addComment(activeCommentPostId, newCommentText.trim());
-      const enrichedComment: CommentItem = {
-        ...created,
-        authorName: created?.authorName || session.fullName || session.name || 'Tôi',
-        authorAvatar: created?.authorAvatar || session.avatar || session.avatarUrl,
-        authorHandle: created?.authorHandle || session.handle,
-        timeAgo: 'Vừa xong',
-      };
-      setCommentsList(prev => [...prev, enrichedComment]);
-      setNewCommentText('');
-      setPosts(prev =>
-        prev.map(p =>
-          p.id === activeCommentPostId ? { ...p, commentsCount: (p.commentsCount || p.commentCount || 0) + 1 } : p
-        )
-      );
-    } catch (err: any) {
-      Alert.alert('Lỗi gửi bình luận', err.response?.data?.message || err.message || 'Không thể gửi bình luận');
-    } finally {
-      setSubmittingComment(false);
-    }
-  };
-
-  const handleOpenCreateModal = async () => {
-    const session = await authStorage.getSession();
-    if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để chia sẻ bài viết lên cộng đồng!');
-      return;
-    }
-    setCreateModalVisible(true);
-  };
-
-  const handleCreatePost = async () => {
-    if (!newContent.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập nội dung bài viết');
-      return;
-    }
-
-    try {
-      setSubmittingPost(true);
-      await postApi.createPost({
-        title: newTitle.trim() || undefined,
-        content: newContent.trim(),
-        category: newCategory,
-        locationName: newLocation.trim() || undefined,
-        coverImage: newCover.trim() || undefined,
-        images: newCover.trim() ? [newCover.trim()] : [],
+      const res = await userApi.toggleFollow(Number(authorId));
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        if (res?.isFollowing) next.add(Number(authorId));
+        else next.delete(Number(authorId));
+        return next;
       });
-
-      Alert.alert('Thành công! 🎉', 'Bài viết của bạn đã được đăng lên Bảng tin cộng đồng.');
-      setCreateModalVisible(false);
-      setNewTitle('');
-      setNewContent('');
-      setNewLocation('');
-      fetchPosts();
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Không thể đăng bài viết';
-      Alert.alert('Lỗi đăng bài', msg);
+    } catch {
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        if (isFollowing) next.add(Number(authorId));
+        else next.delete(Number(authorId));
+        return next;
+      });
     } finally {
-      setSubmittingPost(false);
+      setFollowLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(Number(authorId));
+        return next;
+      });
     }
   };
+
+  const handleShare = async (post: PostItem) => {
+    try {
+      await Share.share({
+        message: `${post.title ? `${post.title}\n` : ''}${(post.content || '').slice(0, 180)}\n\n— Chia sẻ từ Cộng đồng Wayfare\nwayfare://community?postId=${post.id}`,
+      });
+    } catch {
+      // Người dùng huỷ chia sẻ
+    }
+  };
+
+  const openCreate = () => {
+    if (!session) return requireLogin('chia sẻ bài viết');
+    setEditingPost(null);
+    setComposerVisible(true);
+  };
+
+  const openEdit = (post: PostItem) => {
+    setEditingPost(post);
+    setComposerVisible(true);
+  };
+
+  const changeVisibility = async (post: PostItem) => {
+    const next = (post.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE';
+    try {
+      const updated = await postApi.updatePostVisibility(post.id, next);
+      patchPost(post.id, { visibility: updated?.visibility || next });
+      Alert.alert('Đã cập nhật', next === 'PUBLIC' ? 'Bài viết đã chuyển sang công khai.' : 'Bài viết đã chuyển sang chỉ mình tôi.');
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể đổi chế độ hiển thị');
+    }
+  };
+
+  const patchPost = (postId: number, patch: Partial<PostItem>) => {
+    setPagedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)));
+    setFullPosts((prev) => (prev ? prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)) : prev));
+    setSavedPosts((prev) => (prev ? prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)) : prev));
+    setDetailPost((prev) => (prev && prev.id === postId ? { ...prev, ...patch } : prev));
+  };
+
+  const confirmDelete = (post: PostItem) => {
+    Alert.alert('Xóa bài viết', 'Bạn chắc chắn muốn xóa bài viết này? Hành động không thể hoàn tác.', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await postApi.deletePost(post.id);
+            setPagedPosts((prev) => prev.filter((p) => p.id !== post.id));
+            setFullPosts((prev) => (prev ? prev.filter((p) => p.id !== post.id) : prev));
+            setSavedPosts((prev) => (prev ? prev.filter((p) => p.id !== post.id) : prev));
+            setDetailPost((prev) => (prev && prev.id === post.id ? null : prev));
+            Alert.alert('Đã xóa', 'Bài viết đã được xóa khỏi cộng đồng.');
+          } catch (err: any) {
+            Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể xóa bài viết');
+          }
+        },
+      },
+    ]);
+  };
+
+  const submitReport = async (post: PostItem, reason: string, details: string) => {
+    try {
+      await postApi.reportPost(post.id, {
+        reason,
+        category: reason,
+        details: details || undefined,
+      });
+      Alert.alert('Đã gửi báo cáo', 'Cảm ơn bạn! Ban quản trị sẽ xem xét bài viết này trong thời gian sớm nhất.');
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể gửi báo cáo lúc này');
+      throw err;
+    }
+  };
+
+  const openItineraryFor = async (post: PostItem) => {
+    const itineraryId = post.itineraryId ?? post.sharedPost?.itineraryId;
+    if (!itineraryId) return;
+    try {
+      const it = await itineraryApi.getItineraryById(itineraryId);
+      setItineraryDetail(it);
+      setItineraryVisible(true);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể mở lịch trình này');
+    }
+  };
+
+  const cloneItinerary = async (post: PostItem) => {
+    if (!session) return requireLogin('sao chép lịch trình');
+    try {
+      setCloningPostId(post.id);
+      const cloned = await postApi.cloneItineraryFromPost(post.id);
+      Alert.alert('Đã sao chép 🎉', 'Lịch trình đã được lưu vào mục Lịch trình của bạn.');
+      if (cloned) {
+        setItineraryDetail(cloned);
+        setItineraryVisible(true);
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể sao chép lịch trình');
+    } finally {
+      setCloningPostId(null);
+    }
+  };
+
+  const openLightbox = (post: PostItem, index: number) => {
+    const images = post.images?.length ? post.images.filter(Boolean) : post.imageUrl ? [post.imageUrl] : [];
+    if (!images.length) return;
+    setLightbox({ images, index, authorName: post.authorName });
+  };
+
+  const buildMenuOptions = (post: PostItem): ActionSheetOption[] => {
+    const owner = post.isOwner ?? (session?.id != null && post.authorId === session.id);
+    const isPrivate = (post.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE';
+    const options: ActionSheetOption[] = [];
+
+    if (owner) {
+      options.push({ key: 'edit', label: 'Chỉnh sửa bài viết', icon: 'pencil', onPress: () => openEdit(post) });
+      options.push({
+        key: 'visibility',
+        label: isPrivate ? 'Chuyển sang Công khai' : 'Chuyển sang Chỉ mình tôi',
+        icon: isPrivate ? 'globe' : 'lock',
+        onPress: () => changeVisibility(post),
+      });
+    } else if (session && post.authorId != null) {
+      const isFollowing = followingIds.has(Number(post.authorId));
+      options.push({
+        key: 'follow',
+        label: isFollowing ? 'Bỏ theo dõi tác giả' : 'Theo dõi tác giả',
+        icon: 'user-plus',
+        onPress: () => toggleFollowAuthor(post.authorId),
+      });
+      options.push({
+        key: 'hide',
+        label: 'Ẩn bài viết này',
+        icon: 'eye-slash',
+        onPress: () => setHiddenIds((prev) => new Set(prev).add(post.id)),
+      });
+    }
+
+    options.push({ key: 'share', label: 'Chia sẻ bài viết', icon: 'share-alt', onPress: () => handleShare(post) });
+
+    if (!owner) {
+      options.push({
+        key: 'report',
+        label: 'Báo cáo vi phạm',
+        icon: 'flag',
+        destructive: true,
+        onPress: () => setReportTarget(post),
+      });
+    } else {
+      options.push({
+        key: 'delete',
+        label: 'Xóa bài viết',
+        icon: 'trash',
+        destructive: true,
+        onPress: () => confirmDelete(post),
+      });
+    }
+
+    return options;
+  };
+
+  const handleCommentCountChange = (postId: number, count: number) => {
+    setCommentOverrides((prev) => ({ ...prev, [postId]: count }));
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setFullPosts(null);
+    setSavedPosts(null);
+    loadFollowingIds();
+    if (scope === 'saved') loadSavedPosts(true).finally(() => setRefreshing(false));
+    else if (clientFiltering) loadFullPosts(true).finally(() => setRefreshing(false));
+    else loadInitial();
+  };
+
+  const resetFilters = () => {
+    setTopic('all');
+    setHashtag('all');
+    setSearch('');
+    setSort('newest');
+  };
+
+  const scrollRef = useRef<FlatList<PostItem>>(null);
 
   const renderPost = ({ item }: { item: PostItem }) => {
-    const avatarUrl = item.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-    const postImage = item.coverImage || item.imageUrl || (item.images && item.images.length > 0 ? item.images[0] : null);
-    const isLiked = !!likedPosts[item.id];
-    const likes = likesCount[item.id] ?? (item.likesCount ?? item.likeCount ?? 0);
+    const liked = !!likedPosts[item.id];
+    const likes = likesCount[item.id] ?? item.likeCount ?? item.likesCount ?? 0;
+    const commentCount = commentOverrides[item.id] ?? item.commentCount ?? item.commentsCount ?? 0;
+    const postWithCount: PostItem = { ...item, commentCount, likeCount: likes, isLiked: liked };
+    const canFollow = session && !(item.isOwner ?? (session.id != null && item.authorId === session.id)) && item.authorId != null;
 
     return (
-      <View style={styles.postCard}>
-        {/* Author Header */}
-        <View style={styles.authorRow}>
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-          <View style={styles.authorInfo}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.authorName}>{item.authorName || (item.authorHandle ? '@' + item.authorHandle : 'Thành viên Wayfare')}</Text>
-              <View style={styles.tierPill}>
-                <Text style={styles.tierPillText}>{item.authorTier || 'Thành viên'}</Text>
-              </View>
-            </View>
-            {item.locationName ? (
-              <View style={styles.locationBadge}>
-                <FontAwesome name="map-marker" size={10} color={WF_COLORS.primary} />
-                <Text style={styles.locationText} numberOfLines={1}>
-                  {item.locationName}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+      <PostCard
+        post={postWithCount}
+        liked={liked}
+        likeCount={likes}
+        bookmarked={!!bookmarkedPosts[item.id]}
+        isFollowingAuthor={item.authorId != null ? followingIds.has(Number(item.authorId)) : false}
+        followLoading={item.authorId != null ? followLoadingIds.has(Number(item.authorId)) : false}
+        cloningItinerary={cloningPostId === item.id}
+        currentUserId={session?.id ?? null}
+        onToggleFollow={canFollow ? () => toggleFollowAuthor(item.authorId) : undefined}
+        onToggleLike={() => toggleLike(item.id)}
+        onToggleBookmark={() => toggleBookmark(item.id)}
+        onOpenComments={() => setDetailPost(postWithCount)}
+        onShare={() => handleShare(item)}
+        onOpenDetail={() => setDetailPost(postWithCount)}
+        onOpenMenu={() => setMenuPost(item)}
+        onPressImage={(index) => openLightbox(item, index)}
+        onPressVideo={() => handleShare(item)}
+        onViewItinerary={() => openItineraryFor(item)}
+        onCloneItinerary={() => cloneItinerary(item)}
+      />
+    );
+  };
 
-          {item.category ? (
-            <View style={styles.categoryPill}>
-              <Text style={styles.categoryPillText}>{item.category}</Text>
-            </View>
-          ) : null}
-        </View>
+  const activeFilterCount =
+    (topic !== 'all' ? 1 : 0) + (hashtag !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (sort !== 'newest' ? 1 : 0);
+  const hasFilter = activeFilterCount > 0;
 
-        {/* Post Content */}
-        {item.title ? (
-          <Text style={styles.postTitle}>{item.title}</Text>
-        ) : null}
-
-        <Text style={styles.postBody} numberOfLines={5}>
-          {item.content}
-        </Text>
-
-        {/* Post Image */}
-        {postImage ? (
-          <Image source={{ uri: postImage }} style={styles.postImage} resizeMode="cover" />
-        ) : null}
-
-        {/* Footer Actions */}
-        <View style={styles.footerRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(item.id)} activeOpacity={0.7}>
-            <FontAwesome
-              name={isLiked ? 'heart' : 'heart-o'}
-              size={16}
-              color={isLiked ? '#EF4444' : WF_COLORS.slate500}
-            />
-            <Text style={[styles.actionCount, isLiked && { color: '#EF4444', fontWeight: '700' }]}>
-              {likes}
+  const emptyState = () => {
+    if (listBusy) return <CommunityFeedSkeleton />;
+    if (hasError && !clientFiltering) {
+      return (
+        <View style={styles.centerBox}>
+          <View style={styles.alertCard}>
+            <FontAwesome name="globe" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
+            <Text style={styles.alertTitle}>Không thể kết nối</Text>
+            <Text style={styles.alertDesc}>
+              Kiểm tra kết nối mạng rồi thử lại nhé. Bảng tin cộng đồng sẽ hiện ngay khi có dữ liệu.
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            activeOpacity={0.7}
-            onPress={() => handleOpenComments(item)}>
-            <FontAwesome name="comment-o" size={16} color={WF_COLORS.slate500} />
-            <Text style={styles.actionCount}>{item.commentsCount || 0}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            activeOpacity={0.7}
-            onPress={() => toggleBookmark(item.id)}>
-            <FontAwesome
-              name={bookmarkedPosts[item.id] ? 'bookmark' : 'bookmark-o'}
-              size={16}
-              color={bookmarkedPosts[item.id] ? WF_COLORS.primary : WF_COLORS.slate500}
-            />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.retryBtn} onPress={loadInitial}>
+              <Text style={styles.retryBtnText}>Tải lại dữ liệu</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      );
+    }
+
+    const messages: Record<string, { icon: any; title: string; sub: string }> = {
+      all: {
+        icon: hasFilter ? 'filter' : 'comments-o',
+        title: hasFilter ? 'Không tìm thấy bài viết phù hợp' : 'Chưa có bài viết nào',
+        sub: hasFilter
+          ? 'Thử đổi chủ đề, hashtag hoặc từ khoá tìm kiếm khác nhé.'
+          : 'Hãy là người đầu tiên chia sẻ khoảnh khắc du lịch tuyệt vời!',
+      },
+      following: {
+        icon: 'user-plus',
+        title: session ? 'Chưa có bài viết từ người bạn theo dõi' : 'Đăng nhập để theo dõi',
+        sub: session
+          ? 'Theo dõi thêm nhà sáng tạo để bảng tin phong phú hơn.'
+          : 'Đăng nhập ở tab "Tài khoản" để xem bài viết từ những người bạn theo dõi.',
+      },
+      saved: {
+        icon: 'bookmark-o',
+        title: session ? 'Bộ sưu tập đang trống' : 'Đăng nhập để xem bộ sưu tập',
+        sub: session
+          ? 'Nhấn biểu tượng 🔖 trên bài viết để lưu lại xem sau.'
+          : 'Đăng nhập ở tab "Tài khoản" để lưu và xem lại những bài viết yêu thích.',
+      },
+    };
+    const msg = messages[scope] || messages.all;
+
+    return (
+      <View style={styles.centerBox}>
+        <FontAwesome name={msg.icon} size={42} color={WF_COLORS.slate400} style={{ opacity: 0.55 }} />
+        <Text style={styles.emptyTitle}>{msg.title}</Text>
+        <Text style={styles.emptySub}>{msg.sub}</Text>
+        {hasFilter ? (
+          <TouchableOpacity style={[styles.retryBtn, { marginTop: 12 }]} onPress={resetFilters}>
+            <Text style={styles.retryBtnText}>Xoá bộ lọc</Text>
+          </TouchableOpacity>
+        ) : null}
+        {scope === 'saved' && session && savedPosts && savedPosts.length === 0 ? (
+          <TouchableOpacity style={[styles.retryBtn, { marginTop: 12 }]} onPress={() => loadSavedPosts(true)}>
+            <Text style={styles.retryBtnText}>Tải lại</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     );
   };
@@ -382,237 +631,294 @@ export default function CommunityScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={posts}
+        ref={scrollRef}
+        data={displayPosts}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderPost}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
-        onEndReached={loadMorePosts}
+        onEndReached={loadMore}
         onEndReachedThreshold={0.4}
-        ListFooterComponent={
-          <View style={styles.listFooter}>
-            {loadingMorePosts ? (
-              <ActivityIndicator size="small" color={WF_COLORS.primary} />
-            ) : hasMorePosts ? (
-              <Text style={styles.listFooterText}>Cuộn để tải thêm · {posts.length}/{postsTotal} bài viết</Text>
-            ) : posts.length > 0 ? (
-              <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {postsTotal} bài viết</Text>
-            ) : null}
-          </View>
-        }
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
-
-            {/* 3. Community Stories Row (Chuẩn Web) */}
+            {/* Stories */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
+              <TouchableOpacity
+                style={styles.storyItem}
+                activeOpacity={0.85}
+                onPress={() => {
+                  resetFilters();
+                  setScope('all');
+                }}>
+                <View style={[styles.storyRing, styles.storyRingAll]}>
+                  <View style={styles.storyAllInner}>
+                    <FontAwesome name="globe" size={20} color={WF_COLORS.primary} />
+                  </View>
+                </View>
+                <Text style={styles.storyLabel} numberOfLines={1}>
+                  Tất cả
+                </Text>
+              </TouchableOpacity>
               {COMMUNITY_STORIES.map((story) => (
-                <View key={story.id} style={styles.storyItem}>
+                <TouchableOpacity
+                  key={story.id}
+                  style={styles.storyItem}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setScope('all');
+                    setTopic('all');
+                    setHashtag('all');
+                    setSearch(story.location);
+                    scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                  }}>
                   <View style={styles.storyRing}>
                     <Image source={{ uri: story.image }} style={styles.storyImage} />
                     <View style={styles.storyBadge}>
                       <Text style={{ fontSize: 10 }}>{story.badge}</Text>
                     </View>
                   </View>
-                  <Text style={styles.storyLabel} numberOfLines={1}>{story.location}</Text>
-                </View>
+                  <Text style={styles.storyLabel} numberOfLines={1}>
+                    {story.location}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </ScrollView>
 
-            {/* 4. Quick Post Creator Prompt */}
-            <TouchableOpacity style={styles.createPromptBox} onPress={handleOpenCreateModal} activeOpacity={0.88}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80' }}
-                style={styles.promptAvatar}
-              />
-              <Text style={styles.promptPlaceholder}>
-                Chia sẻ khoảnh khắc chuyến đi của bạn...
+            {/* Composer */}
+            <TouchableOpacity style={styles.createPromptBox} onPress={openCreate} activeOpacity={0.88}>
+              <Image source={{ uri: session?.avatarUrl || session?.avatar || FALLBACK_AVATAR }} style={styles.promptAvatar} />
+              <Text style={styles.promptPlaceholder} numberOfLines={1}>
+                {session ? 'Chia sẻ khoảnh khắc chuyến đi của bạn...' : 'Đăng nhập để chia sẻ chuyến đi...'}
               </Text>
               <View style={styles.promptPostBtn}>
-                <FontAwesome name="pencil" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <FontAwesome name="pencil" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
                 <Text style={styles.promptPostBtnText}>Đăng bài</Text>
               </View>
             </TouchableOpacity>
 
-            {/* 5. Travel Hashtags Scroll */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagsScroll}>
-              {TRAVEL_HASHTAGS.map((tag) => {
-                const isSelected = selectedTag === tag;
+            {/* Scope tabs */}
+            <View style={styles.scopeRow}>
+              {FEED_SCOPES.map((item) => {
+                const active = scope === item.key;
                 return (
                   <TouchableOpacity
-                    key={tag}
-                    onPress={() => setSelectedTag(tag)}
-                    style={[styles.hashtagChip, isSelected && styles.hashtagChipActive]}>
-                    <Text style={[styles.hashtagText, isSelected && styles.hashtagTextActive]}>
-                      {tag}
-                    </Text>
+                    key={item.key}
+                    style={[styles.scopeTab, active && styles.scopeTabActive]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setScope(item.key);
+                      scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                    }}>
+                    <Text style={[styles.scopeTabText, active && styles.scopeTabTextActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Search + sort */}
+            <View style={styles.searchRow}>
+              <View style={styles.searchBox}>
+                <FontAwesome name="search" size={13} color={WF_COLORS.slate400} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm bài viết, địa điểm, tác giả..."
+                  placeholderTextColor={WF_COLORS.slate400}
+                  value={search}
+                  onChangeText={setSearch}
+                  returnKeyType="search"
+                />
+                {search ? (
+                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <FontAwesome name="times-circle" size={14} color={WF_COLORS.slate400} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                style={styles.sortBtn}
+                activeOpacity={0.85}
+                accessibilityLabel="Sắp xếp bảng tin"
+                onPress={() => setSortSheetVisible(true)}>
+                <FontAwesome name="sort" size={14} color={WF_COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Topic chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+              {TOPIC_FILTERS.map((item) => {
+                const active = topic === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[styles.topicChip, active && styles.topicChipActive]}
+                    activeOpacity={0.85}
+                    onPress={() => setTopic(item.key)}>
+                    {item.badge ? (
+                      <View style={[styles.topicBadge, active && styles.topicBadgeActive]}>
+                        <Text style={[styles.topicBadgeText, active && { color: WF_COLORS.primary }]}>{item.badge}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.topicChipText, active && styles.topicChipTextActive]}>{item.label}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-          </View>
-        }
-        ListEmptyComponent={
-          loading ? (
-            <CommunityFeedSkeleton />
-          ) : hasError ? (
-            <View style={styles.centerBox}>
-              <View style={styles.alertCard}>
-                <FontAwesome name="globe" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
-                <Text style={styles.alertTitle}>Không thể kết nối</Text>
-                <Text style={styles.alertDesc}>
-                  Kiểm tra kết nối mạng rồi thử lại nhé. Bảng tin cộng đồng sẽ hiện ngay khi có dữ liệu.
+
+            {/* Hashtag chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagRow}>
+              {TRAVEL_HASHTAGS.map((tag) => {
+                const active = hashtag === tag.key;
+                return (
+                  <TouchableOpacity
+                    key={tag.key}
+                    style={[styles.hashtagChip, active && styles.hashtagChipActive]}
+                    activeOpacity={0.85}
+                    onPress={() => setHashtag(tag.key)}>
+                    <Text style={[styles.hashtagText, active && styles.hashtagTextActive]}>{tag.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {activeFilterCount > 0 ? (
+              <View style={styles.filterSummary}>
+                <Text style={styles.filterSummaryText}>
+                  {displayPosts.length} bài viết · {SORT_OPTIONS.find((s) => s.key === sort)?.label}
                 </Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={fetchPosts}>
-                  <Text style={styles.retryBtnText}>Tải lại dữ liệu</Text>
+                <TouchableOpacity onPress={resetFilters}>
+                  <Text style={styles.filterClear}>Xoá bộ lọc</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          ) : (
-            <View style={styles.centerBox}>
-              <FontAwesome name="comments-o" size={44} color={WF_COLORS.slate400} style={{ opacity: 0.5 }} />
-              <Text style={styles.emptyTitle}>Chưa có bài viết nào</Text>
-              <Text style={styles.emptySub}>Hãy là người đầu tiên chia sẻ khoảnh khắc du lịch tuyệt vời!</Text>
-            </View>
-          )
+            ) : null}
+          </View>
         }
+        ListFooterComponent={
+          <View style={styles.listFooter}>
+            {loadingMore ? (
+              <ActivityIndicator size="small" color={WF_COLORS.primary} />
+            ) : !clientFiltering && scope === 'all' && hasMorePosts ? (
+              <Text style={styles.listFooterText}>
+                Cuộn để tải thêm · {displayPosts.length}/{postsTotal} bài viết
+              </Text>
+            ) : !clientFiltering && scope === 'all' && displayPosts.length > 0 ? (
+              <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {postsTotal} bài viết</Text>
+            ) : null}
+          </View>
+        }
+        ListEmptyComponent={emptyState()}
       />
 
-      {/* ─── MODAL TẠO BÀI VIẾT MỚI ────────────────────────────── */}
-      <Modal visible={createModalVisible} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCardBox}>
-            <View style={styles.modalCardHeader}>
-              <Text style={styles.modalCardTitle}>✍️ Tạo Bài Viết Mới</Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
-              </TouchableOpacity>
-            </View>
+      {/* ─── Overlay: chi tiết bài viết ─────────────────────── */}
+      <PostDetailModal
+        visible={!!detailPost}
+        post={detailPost}
+        liked={detailPost ? !!likedPosts[detailPost.id] : false}
+        likeCount={detailPost ? likesCount[detailPost.id] ?? detailPost.likeCount ?? detailPost.likesCount ?? 0 : 0}
+        bookmarked={detailPost ? !!bookmarkedPosts[detailPost.id] : false}
+        isFollowingAuthor={
+          detailPost?.authorId != null ? followingIds.has(Number(detailPost.authorId)) : false
+        }
+        followLoading={detailPost?.authorId != null ? followLoadingIds.has(Number(detailPost.authorId)) : false}
+        cloningItinerary={!!detailPost && cloningPostId === detailPost.id}
+        currentUserId={session?.id ?? null}
+        menuOptions={detailPost ? buildMenuOptions(detailPost) : []}
+        onClose={() => setDetailPost(null)}
+        onToggleLike={() => detailPost && toggleLike(detailPost.id)}
+        onToggleBookmark={() => detailPost && toggleBookmark(detailPost.id)}
+        onToggleFollow={
+          detailPost && session && detailPost.authorId != null && !(detailPost.isOwner ?? detailPost.authorId === session.id)
+            ? () => toggleFollowAuthor(detailPost.authorId)
+            : undefined
+        }
+        onShare={() => detailPost && handleShare(detailPost)}
+        onViewItinerary={() => detailPost && openItineraryFor(detailPost)}
+        onCloneItinerary={() => detailPost && cloneItinerary(detailPost)}
+        onSubmitReport={submitReport}
+        onCommentCountChange={handleCommentCountChange}
+      />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Tiêu đề bài viết</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="VD: Trải nghiệm trượt cát tại Mũi Né"
-                  placeholderTextColor={WF_COLORS.slate400}
-                  value={newTitle}
-                  onChangeText={setNewTitle}
-                />
-              </View>
+      {/* ─── Overlay: soạn bài ──────────────────────────────── */}
+      <CreatePostModal
+        visible={composerVisible}
+        editingPost={editingPost}
+        onClose={() => {
+          setComposerVisible(false);
+          setEditingPost(null);
+        }}
+        onSubmitted={(post) => {
+          setComposerVisible(false);
+          if (editingPost && post) {
+            patchPost(editingPost.id, post);
+            setEditingPost(null);
+            Alert.alert('Đã cập nhật', 'Bài viết của bạn đã được lưu.');
+          } else {
+            setEditingPost(null);
+            setFullPosts(null);
+            setSavedPosts(null);
+            setScope('all');
+            resetFilters();
+            Alert.alert('Thành công! 🎉', 'Bài viết của bạn đã được đăng lên Bảng tin cộng đồng.');
+            loadInitial();
+          }
+        }}
+      />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Địa điểm check-in</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="VD: Mũi Né, Phan Thiết, Bình Thuận"
-                  placeholderTextColor={WF_COLORS.slate400}
-                  value={newLocation}
-                  onChangeText={setNewLocation}
-                />
-              </View>
+      {/* ─── Overlay: sắp xếp ───────────────────────────────── */}
+      <ActionSheet
+        visible={sortSheetVisible}
+        title="Sắp xếp bảng tin"
+        options={SORT_OPTIONS.map((option) => ({
+          key: option.key,
+          label: option.label,
+          icon: option.key === 'newest' ? 'clock-o' : option.key === 'popular' ? 'fire' : 'map-o',
+          active: sort === option.key,
+          onPress: () => setSort(option.key),
+        }))}
+        onClose={() => setSortSheetVisible(false)}
+      />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Nội dung chia sẻ *</Text>
-                <TextInput
-                  style={[styles.modalInput, { height: 90, textAlignVertical: 'top', paddingTop: 8 }]}
-                  placeholder="Cảm nghĩ, mẹo du lịch, lưu ý trang phục, quán ăn ngon..."
-                  placeholderTextColor={WF_COLORS.slate400}
-                  value={newContent}
-                  onChangeText={setNewContent}
-                  multiline
-                />
-              </View>
+      {/* ─── Overlay: menu bài viết (từ thẻ feed) ───────────── */}
+      <ActionSheet
+        visible={!!menuPost}
+        title="Tùy chọn bài viết"
+        options={menuPost ? buildMenuOptions(menuPost) : []}
+        onClose={() => setMenuPost(null)}
+      />
 
-              <TouchableOpacity
-                activeOpacity={0.88}
-                style={[styles.submitPostBtn, submittingPost && { opacity: 0.7 }]}
-                onPress={handleCreatePost}
-                disabled={submittingPost}>
-                {submittingPost ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitPostBtnText}>Đăng lên Cộng đồng</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* ─── Overlay: báo cáo vi phạm (từ thẻ feed) ─────────── */}
+      <ReportPostSheet
+        visible={!!reportTarget}
+        postTitle={reportTarget?.title || reportTarget?.content?.slice(0, 60)}
+        submitting={reportSubmitting}
+        onClose={() => setReportTarget(null)}
+        onSubmit={async (reason, details) => {
+          if (!reportTarget) return;
+          setReportSubmitting(true);
+          try {
+            await submitReport(reportTarget, reason, details);
+            setReportTarget(null);
+          } finally {
+            setReportSubmitting(false);
+          }
+        }}
+      />
 
-      {/* ─── MODAL BÌNH LUẬN ─────────────────────────────────────── */}
-      <Modal visible={commentModalVisible} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCardBox, { maxHeight: '82%' }]}>
-            <View style={styles.modalCardHeader}>
-              <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={styles.modalCardTitle}>💬 Bình Luận</Text>
-                <Text style={styles.commentModalSub} numberOfLines={1}>{activePostTitle}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setCommentModalVisible(false)} style={{ padding: 4 }}>
-                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
-              </TouchableOpacity>
-            </View>
+      {/* ─── Overlay: xem ảnh ───────────────────────────────── */}
+      <ImageLightbox
+        visible={!!lightbox}
+        images={lightbox?.images || []}
+        initialIndex={lightbox?.index || 0}
+        authorName={lightbox?.authorName}
+        onClose={() => setLightbox(null)}
+      />
 
-            {loadingComments ? (
-              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                <ActivityIndicator color={WF_COLORS.primary} />
-                <Text style={{ marginTop: 8, fontSize: 12, color: WF_COLORS.slate500 }}>Đang tải bình luận...</Text>
-              </View>
-            ) : commentsList.length === 0 ? (
-              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                <FontAwesome name="comments-o" size={36} color={WF_COLORS.slate400} />
-                <Text style={{ marginTop: 8, fontSize: 13, color: WF_COLORS.slate500 }}>Chưa có bình luận nào</Text>
-                <Text style={{ fontSize: 11, color: WF_COLORS.slate400, marginTop: 2 }}>Hãy là người đầu tiên chia sẻ cảm nghĩ!</Text>
-              </View>
-            ) : (
-              <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-                {commentsList.map((cmt) => {
-                  const authorName = cmt.authorName || cmt.userName || (cmt.authorHandle ? '@' + cmt.authorHandle : 'Thành viên Wayfare');
-                  const avatar = cmt.authorAvatar || cmt.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80';
-                  const time = cmt.timeAgo || (cmt.createdAt ? new Date(cmt.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong');
-                  return (
-                    <View key={cmt.id} style={styles.commentRow}>
-                      <Image
-                        source={{ uri: avatar }}
-                        style={styles.commentAvatar}
-                      />
-                      <View style={styles.commentContentBox}>
-                        <View style={styles.commentHeaderLine}>
-                          <Text style={styles.commentAuthor}>{authorName}</Text>
-                          <Text style={styles.commentTime}>{time}</Text>
-                        </View>
-                        <Text style={styles.commentBodyText}>{cmt.content}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            )}
-
-            {/* Input row */}
-            <View style={styles.commentInputRow}>
-              <TextInput
-                style={styles.commentTextInput}
-                placeholder="Viết bình luận của bạn..."
-                placeholderTextColor={WF_COLORS.slate400}
-                value={newCommentText}
-                onChangeText={setNewCommentText}
-              />
-              <TouchableOpacity
-                style={[styles.sendCommentBtn, (!newCommentText.trim() || submittingComment) && { opacity: 0.5 }]}
-                onPress={handleAddComment}
-                disabled={!newCommentText.trim() || submittingComment}>
-                {submittingComment ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <FontAwesome name="send" size={13} color="#FFFFFF" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* ─── Overlay: chi tiết lịch trình ───────────────────── */}
+      <ItineraryDetailModal
+        visible={itineraryVisible}
+        itinerary={itineraryDetail}
+        onClose={() => setItineraryVisible(false)}
+        canEdit={false}
+      />
     </View>
   );
 }
@@ -623,7 +929,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.slate50,
   },
   list: {
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   listFooter: {
     paddingVertical: 18,
@@ -632,71 +938,45 @@ const styles = StyleSheet.create({
   },
   listFooterText: {
     fontSize: 12,
-    color: '#64748b',
+    color: WF_COLORS.slate500,
     fontWeight: '600',
   },
   headerWrapper: {
-    paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 10,
     backgroundColor: WF_COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: WF_COLORS.slate200,
-    marginBottom: 8,
-  },
-  breadcrumbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  breadcrumbLink: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WF_COLORS.slate500,
-  },
-  breadcrumbDivider: {
-    fontSize: 12,
-    color: WF_COLORS.slate400,
-  },
-  breadcrumbCurrent: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-  },
-  titleSection: {
-    marginBottom: 10,
-  },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: WF_COLORS.slate900,
-    letterSpacing: -0.4,
-  },
-  pageSubtitle: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
-    marginTop: 2,
+    marginBottom: 12,
   },
   storiesScroll: {
     gap: 14,
-    paddingTop: 2,
-    paddingBottom: 6,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   storyItem: {
     alignItems: 'center',
-    width: 60,
+    width: 62,
   },
   storyRing: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 2,
     borderColor: WF_COLORS.primary,
     padding: 2,
     position: 'relative',
-    marginBottom: 4,
+    marginBottom: 5,
+  },
+  storyRingAll: {
+    borderColor: WF_COLORS.primaryLight,
+  },
+  storyAllInner: {
+    flex: 1,
+    borderRadius: 24,
+    backgroundColor: WF_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   storyImage: {
     width: '100%',
@@ -708,7 +988,7 @@ const styles = StyleSheet.create({
     bottom: -2,
     right: -2,
     backgroundColor: WF_COLORS.white,
-    borderRadius: 8,
+    borderRadius: 9,
     paddingHorizontal: 2,
   },
   storyLabel: {
@@ -720,21 +1000,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: WF_COLORS.slate100,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 8,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
   promptAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginRight: 10,
+    backgroundColor: WF_COLORS.slate200,
   },
   promptPlaceholder: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 12.5,
     color: WF_COLORS.slate500,
   },
   promptPostBtn: {
@@ -742,23 +1024,136 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: WF_COLORS.primary,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: 11,
   },
   promptPostBtnText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 11.5,
+    fontWeight: '800',
   },
-  hashtagsScroll: {
+  scopeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: WF_COLORS.slate100,
+    borderRadius: 14,
+    padding: 4,
+  },
+  scopeTab: {
+    flex: 1,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scopeTabActive: {
+    backgroundColor: WF_COLORS.white,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  scopeTabText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: WF_COLORS.slate500,
+  },
+  scopeTabTextActive: {
+    color: WF_COLORS.primary,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    paddingBottom: 2,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.slate50,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: WF_COLORS.slate900,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
+  },
+  sortBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+    backgroundColor: WF_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipRow: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  topicChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 38,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.white,
+  },
+  topicChipActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  topicBadge: {
+    backgroundColor: WF_COLORS.primaryLight,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  topicBadgeActive: {
+    backgroundColor: WF_COLORS.white,
+  },
+  topicBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: WF_COLORS.primary,
+  },
+  topicChipText: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: WF_COLORS.slate600,
+  },
+  topicChipTextActive: {
+    color: '#FFFFFF',
+  },
+  hashtagRow: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
   hashtagChip: {
+    minHeight: 32,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    justifyContent: 'center',
     backgroundColor: WF_COLORS.slate100,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
   },
@@ -767,116 +1162,35 @@ const styles = StyleSheet.create({
     borderColor: WF_COLORS.primary,
   },
   hashtagText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
-    color: WF_COLORS.slate700,
+    color: WF_COLORS.slate600,
   },
   hashtagTextActive: {
     color: WF_COLORS.primary,
-    fontWeight: '700',
-  },
-  postCard: {
-    backgroundColor: WF_COLORS.white,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    marginRight: 10,
-    backgroundColor: WF_COLORS.slate200,
-  },
-  authorInfo: {
-    flex: 1,
-  },
-  authorName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-  },
-  tierPill: {
-    backgroundColor: WF_COLORS.amberLight,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  tierPillText: {
-    fontSize: 9,
     fontWeight: '800',
-    color: '#B45309',
   },
-  locationBadge: {
+  filterSummary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: WF_COLORS.primarySoft,
   },
-  locationText: {
-    fontSize: 11,
-    color: WF_COLORS.slate500,
-  },
-  categoryPill: {
-    backgroundColor: WF_COLORS.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  categoryPillText: {
-    fontSize: 10,
+  filterSummaryText: {
+    fontSize: 11.5,
     fontWeight: '700',
+    color: WF_COLORS.primaryHover,
+  },
+  filterClear: {
+    fontSize: 11.5,
+    fontWeight: '800',
     color: WF_COLORS.primary,
-  },
-  postTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    paddingHorizontal: 14,
-    marginBottom: 4,
-  },
-  postBody: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: WF_COLORS.slate700,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-  },
-  postImage: {
-    width: '100%',
-    height: 220,
-    backgroundColor: WF_COLORS.slate100,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: WF_COLORS.slate100,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  actionCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WF_COLORS.slate600,
+    textDecorationLine: 'underline',
   },
   centerBox: {
     padding: 30,
@@ -901,161 +1215,34 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate500,
     marginVertical: 6,
     textAlign: 'center',
+    lineHeight: 18,
   },
   retryBtn: {
     backgroundColor: WF_COLORS.primary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 9,
+    borderRadius: 10,
     marginTop: 6,
   },
   retryBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 12,
   },
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: WF_COLORS.slate900,
-    marginTop: 10,
+    marginTop: 12,
+    fontFamily: SERIF_FONT,
+    textAlign: 'center',
   },
   emptySub: {
     fontSize: 12,
     color: WF_COLORS.slate500,
-    marginTop: 4,
+    marginTop: 5,
     textAlign: 'center',
-  },
-  // Modal Styles
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalCardBox: {
-    width: '100%',
-    backgroundColor: WF_COLORS.white,
-    borderRadius: 20,
-    padding: 20,
-    maxHeight: '85%',
-  },
-  modalCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  modalCardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WF_COLORS.slate700,
-    marginBottom: 5,
-  },
-  modalInput: {
-    backgroundColor: WF_COLORS.slate100,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 42,
-    fontSize: 13,
-    color: WF_COLORS.slate900,
-  },
-  submitPostBtn: {
-    backgroundColor: WF_COLORS.primary,
-    height: 46,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  submitPostBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-
-  commentModalSub: {
-    fontSize: 11,
-    color: WF_COLORS.slate500,
-    marginTop: 2,
-  },
-  commentRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 10,
-    marginTop: 2,
-  },
-  commentContentBox: {
-    flex: 1,
-    backgroundColor: WF_COLORS.slate100,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  commentHeaderLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 3,
-  },
-  commentAuthor: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-  },
-  commentTime: {
-    fontSize: 10,
-    color: WF_COLORS.slate400,
-  },
-  commentBodyText: {
-    fontSize: 12,
-    color: WF_COLORS.slate700,
-    lineHeight: 17,
-  },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: WF_COLORS.slate200,
-    gap: 8,
-  },
-  commentTextInput: {
-    flex: 1,
-    backgroundColor: WF_COLORS.slate100,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    height: 40,
-    fontSize: 13,
-    color: WF_COLORS.slate900,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-  },
-  sendCommentBtn: {
-    backgroundColor: WF_COLORS.primary,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
 });

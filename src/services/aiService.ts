@@ -1,3 +1,5 @@
+import apiClient from './api';
+
 /**
  * WanderAI Core Service for React Native (Expo) - Google Gemini Integration
  */
@@ -16,9 +18,6 @@ export interface GenerateTextParams {
 
 export const aiService = {
   getApiKey(): string {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Chưa cấu hình EXPO_PUBLIC_GEMINI_API_KEY. Vui lòng thiết lập biến môi trường này để sử dụng tính năng AI.');
-    }
     return GEMINI_API_KEY;
   },
 
@@ -27,7 +26,7 @@ export const aiService = {
   },
 
   /**
-   * Gọi trực tiếp Google Gemini API (Mặc định gemini-3.8-flash)
+   * Gọi AI thông qua Backend Proxy (Bảo mật tuyệt đối, không lộ API key ra app bundle)
    */
   async generateText({
     prompt,
@@ -37,14 +36,39 @@ export const aiService = {
     maxTokens = 8192,
     responseMimeType = 'application/json',
   }: GenerateTextParams): Promise<string> {
-    const key = this.getApiKey();
-    const endpoint = this.getApiEndpoint();
-
     let targetModel = model || DEFAULT_MODEL;
     if (!targetModel.startsWith('gemini-') || targetModel === 'gemini-1.5-flash' || targetModel.includes('1.5-flash')) {
       targetModel = DEFAULT_MODEL;
     }
 
+    // 1. ƯU TIÊN GỌI QUA BACKEND AI PROXY (Bảo mật an toàn cao nhất)
+    try {
+      const res = await apiClient.post('/ai/generate', {
+        prompt,
+        systemPrompt,
+        model: targetModel,
+        temperature: Number(temperature) || 0.3,
+        maxTokens: Number(maxTokens) || 8192,
+        responseMimeType,
+      });
+
+      if (res.data?.success && res.data.data?.text) {
+        return res.data.data.text;
+      }
+    } catch (e: any) {
+      if (e?.response?.status === 429) {
+        throw new Error('Hệ thống AI đang bận hoặc vượt quá giới hạn gọi (20 req/phút). Vui lòng thử lại sau giây lát!');
+      }
+      console.warn('[WanderAI Mobile] Backend AI proxy request failed, checking client key fallback:', e?.message);
+    }
+
+    // 2. Client fallback nếu có cấu hình EXPO_PUBLIC_GEMINI_API_KEY
+    const key = this.getApiKey();
+    if (!key) {
+      throw new Error('Tính năng AI hiện chưa thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng hoặc thử lại sau!');
+    }
+
+    const endpoint = this.getApiEndpoint();
     const payload: any = {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {

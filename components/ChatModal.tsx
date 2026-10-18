@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
 import { chatApi, ChatRoom, ChatMessage, ItineraryItem } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
+import { aiService } from '@/src/services/aiService';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -132,68 +133,48 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     try {
       await chatApi.sendMessage(activeRoom.id, cleanText);
 
-      // Nếu là AI Bot, phản hồi tự động thông minh
+      // Nếu là AI Bot, phản hồi tự động thông minh bằng AI thật
       if (activeRoom.type === 'AI') {
         setIsAiTyping(true);
-        setTimeout(() => {
-          setIsAiTyping(false);
-          let aiReply = 'WanderAI đã ghi nhận yêu cầu của bạn! Bạn có thể xem thêm chi tiết các điểm đến nổi bật ở tab Khám phá nhé!';
-          let attachedItin: any = null;
-          const lower = cleanText.toLowerCase();
+        (async () => {
+          try {
+            const aiReply = await aiService.generateText({
+              prompt: cleanText,
+              systemPrompt: 'Bạn là WanderAI, trợ lý du lịch thông minh, thân thiện của Wayfare. Hãy tư vấn điểm đến, ẩm thực, chi phí và lịch trình một cách súc tích, hấp dẫn và thiết thực bằng tiếng Việt.',
+              temperature: 0.7,
+              responseMimeType: 'text/plain',
+            });
 
-          if (lower.includes('đà lạt')) {
-            aiReply = 'Đà Lạt mùa này săn mây Suối Tía từ 5h15 sáng rất đẹp, tối bạn nên thử lẩu gà lá é Tao Ngộ và ghé Chợ Đêm nhé! Tôi đã lên sẵn tour 3N2Đ tối ưu cho bạn ở bên dưới:';
-            attachedItin = {
-              id: 991,
-              title: 'Đà Lạt 3N2Đ: Săn Mây Suối Tía & Rừng Thông Mơ',
-              destination: 'Đà Lạt',
-              coverImageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-              budgetTotal: 3200000,
-              daysCount: 3,
-              isAiGenerated: true,
-            };
-          } else if (lower.includes('phú quốc')) {
-            aiReply = 'Phú Quốc biển đang trong xanh nhất năm! Gợi ý: đi cano 4 đảo Hòn Mây Rút, lặn ngắm san hô tự nhiên và ngắm hoàng hôn Sunset Sanato. Dưới đây là tour chi tiết gợi ý:';
-            attachedItin = {
-              id: 992,
-              title: 'Phú Quốc 4N3Đ: Thiên Đường Đảo Ngọc & Lặn San Hô',
-              destination: 'Phú Quốc',
-              coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
-              budgetTotal: 5800000,
-              daysCount: 4,
-              isAiGenerated: true,
-            };
-          } else if (lower.includes('sa pa') || lower.includes('sapa')) {
-            aiReply = 'Sa Pa thời tiết se lạnh tuyệt đẹp! Nên chinh phục đỉnh Fansipan buổi sáng ít sương mù, chiều đi bản Cát Cát và ăn thắng cố, lẩu cá hồi nóng hổi.';
-            attachedItin = {
-              id: 993,
-              title: 'Sa Pa 3N2Đ: Chinh Phục Nóc Nhà Đông Dương & Bản Mèo',
-              destination: 'Sa Pa',
-              coverImageUrl: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=800&q=80',
-              budgetTotal: 3800000,
-              daysCount: 3,
-              isAiGenerated: true,
-            };
-          } else if (lower.includes('hà giang')) {
-            aiReply = 'Hà Giang mùa này chạy đèo Mã Pí Lèng ngắm sông Nho Quế màu ngọc bích cực kỳ hùng vĩ! Nhớ chuẩn bị đồ ấm và đi xe máy có phanh tốt nhé.';
-          } else if (lower.includes('ăn') || lower.includes('quán') || lower.includes('ẩm thực')) {
-            aiReply = 'Top địa chỉ ẩm thực được đánh giá 4.9⭐ trên Wayfare:\n1. Bánh căn Lệ (Đà Lạt)\n2. Bún chả Hương Liên (Hà Nội)\n3. Bánh mì Phượng (Hội An)\n4. Hải sản Hàm Ninh (Phú Quốc)';
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now() + 1,
+                roomId: activeRoom.id,
+                senderName: 'Trợ lý AI Wayfare',
+                senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                content: aiReply || 'Chào bạn! Tôi có thể giúp gì cho chuyến du lịch sắp tới của bạn?',
+                createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isMe: false,
+              },
+            ]);
+          } catch (aiErr: any) {
+            console.warn('AI chatbot error:', aiErr);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now() + 1,
+                roomId: activeRoom.id,
+                senderName: 'Trợ lý AI Wayfare',
+                senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                content: 'WanderAI hiện đang bận xử lý hoặc kết nối gián đoạn. Bạn vui lòng thử lại sau giây lát nhé!',
+                createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isMe: false,
+              },
+            ]);
+          } finally {
+            setIsAiTyping(false);
           }
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: Date.now() + 1,
-              roomId: activeRoom.id,
-              senderName: 'Trợ lý AI Wayfare',
-              senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-              content: aiReply,
-              createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              isMe: false,
-              itineraryData: attachedItin,
-            },
-          ]);
-        }, 900);
+        })();
       }
     } catch (e) {
       console.warn('Error sending message', e);

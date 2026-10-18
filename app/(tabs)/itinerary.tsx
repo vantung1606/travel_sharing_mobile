@@ -9,7 +9,6 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
-  Alert,
   Share,
   Dimensions,
   Platform,
@@ -27,6 +26,8 @@ import { WF_COLORS } from '@/constants/Colors';
 import { ChatModal } from '@/components/ChatModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { BrandedLoading } from '@/components/BrandedLoading';
+import { showToast } from '@/components/Toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import {
   itineraryApi,
   ItineraryItem,
@@ -342,7 +343,12 @@ export default function ItineraryScreen() {
   const handleCloneTrip = async (itin: ItineraryItem) => {
     const session = await authStorage.getSession();
     if (!session) {
-      Alert.alert('Đăng nhập', 'Vui lòng đăng nhập để sao chép lịch trình này vào tài khoản của bạn!');
+      showToast({
+        kind: 'info',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để sao chép lịch trình này.',
+        icon: 'lock',
+      });
       return;
     }
 
@@ -352,55 +358,67 @@ export default function ItineraryScreen() {
       (itin.creatorName && session.fullName && itin.creatorName === session.fullName);
 
     if (isOwner) {
-      Alert.alert('Thông báo', 'Bạn là tác giả của lịch trình này nên không thể tự sao chép!');
+      showToast({
+        kind: 'info',
+        title: 'Không thể sao chép',
+        message: 'Bạn là tác giả của lịch trình này nên không thể tự sao chép.',
+      });
       return;
     }
 
-    Alert.alert(
-      'Xác nhận sao chép',
-      `Bạn có chắc chắn muốn sao chép chuyến đi "${itin.title}" vào kho của bạn không?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Sao chép',
-          onPress: async () => {
-            try {
-              await itineraryApi.cloneItinerary(itin.id);
-              Alert.alert('Thành công 🎉', `Đã sao chép chuyến đi "${itin.title}" vào kho của bạn.`);
-              fetchItineraries();
-            } catch (err: any) {
-              Alert.alert('Lỗi sao chép', err.response?.data?.message || err.message || 'Không thể sao chép lịch trình.');
-            }
-          },
-        },
-      ]
-    );
+    const confirmed = await confirmDialog({
+      title: 'Sao chép lịch trình?',
+      message: `Chuyến đi "${itin.title}" sẽ được sao chép vào kho cá nhân của bạn.`,
+      confirmText: 'Sao chép',
+      icon: 'copy',
+      accent: 'primary',
+    });
+    if (!confirmed) return;
+
+    try {
+      await itineraryApi.cloneItinerary(itin.id);
+      showToast({
+        kind: 'success',
+        title: 'Đã sao chép lịch trình',
+        message: `Chuyến đi "${itin.title}" đã nằm trong kho của bạn.`,
+      });
+      fetchItineraries();
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Sao chép thất bại',
+        message: err.response?.data?.message || err.message || 'Không thể sao chép lịch trình.',
+      });
+    }
   };
 
-  const handleDeleteTrip = (itin: ItineraryItem) => {
-    Alert.alert(
-      'Xóa lịch trình',
-      `Bạn có chắc chắn muốn xóa chuyến đi "${itin.title}"?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await itineraryApi.deleteItinerary(itin.id);
-              Alert.alert('Đã xóa', `Đã xóa chuyến đi "${itin.title}" thành công.`);
-              if (selectedItinerary?.id === itin.id) {
-                setDetailModalVisible(false);
-              }
-              fetchItineraries();
-            } catch {
-              Alert.alert('Lỗi', 'Không thể xóa lịch trình này.');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteTrip = async (itin: ItineraryItem) => {
+    const confirmed = await confirmDialog({
+      title: 'Xóa lịch trình?',
+      message: `Chuyến đi "${itin.title}" sẽ bị xóa vĩnh viễn. Hành động không thể hoàn tác.`,
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await itineraryApi.deleteItinerary(itin.id);
+      showToast({
+        kind: 'success',
+        title: 'Đã xóa lịch trình',
+        message: `Chuyến đi "${itin.title}" đã được xóa.`,
+      });
+      if (selectedItinerary?.id === itin.id) {
+        setDetailModalVisible(false);
+      }
+      fetchItineraries();
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Xóa thất bại',
+        message: 'Không thể xóa lịch trình này.',
+      });
+    }
   };
 
   // ─── CHỌN ẢNH TỪ MÁY DÙNG EXPO-IMAGE-PICKER ────────────────
@@ -408,7 +426,11 @@ export default function ItineraryScreen() {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh bìa chuyến đi!');
+        showToast({
+          kind: 'info',
+          title: 'Cần quyền truy cập ảnh',
+          message: 'Vui lòng cấp quyền thư viện ảnh để chọn ảnh bìa chuyến đi.',
+        });
         return;
       }
 
@@ -424,42 +446,59 @@ export default function ItineraryScreen() {
       }
     } catch (e) {
       console.warn('Pick image error', e);
-      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
+      showToast({
+        kind: 'error',
+        title: 'Không mở được thư viện ảnh',
+        message: 'Vui lòng thử lại sau ít phút.',
+      });
     }
   };
 
-  const handleDeleteStop = (detailId?: number) => {
+  const handleDeleteStop = async (detailId?: number) => {
     if (!detailId) return;
-    Alert.alert('Xóa trạm dừng', 'Bạn muốn xóa trạm dừng này khỏi lịch trình?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await itineraryApi.deleteDetail(detailId);
-            if (selectedItinerary) {
-              const full = await itineraryApi.getItineraryById(selectedItinerary.id);
-              setSelectedItinerary(full);
-            }
-          } catch {
-            Alert.alert('Lỗi', 'Không thể xóa trạm dừng');
-          }
-        },
-      },
-    ]);
+
+    const confirmed = await confirmDialog({
+      title: 'Xóa trạm dừng?',
+      message: 'Trạm dừng này sẽ được xóa khỏi lịch trình của bạn.',
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await itineraryApi.deleteDetail(detailId);
+      if (selectedItinerary) {
+        const full = await itineraryApi.getItineraryById(selectedItinerary.id);
+        setSelectedItinerary(full);
+      }
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Xóa thất bại',
+        message: 'Không thể xóa trạm dừng này.',
+      });
+    }
   };
 
   // ─── MANUAL TRIP CREATION ────────────────────────────────
   const handleCreateManualTrip = async () => {
     if (!manualTitle.trim() || !manualDest.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Tên chuyến đi và Điểm đến chính!');
+      showToast({
+        kind: 'error',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập tên chuyến đi và điểm đến chính.',
+      });
       return;
     }
 
     const session = await authStorage.getSession();
     if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để lưu chuyến đi vào CSDL!');
+      showToast({
+        kind: 'info',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để lưu chuyến đi vào CSDL.',
+        icon: 'lock',
+      });
       return;
     }
 
@@ -504,7 +543,11 @@ export default function ItineraryScreen() {
         details: sampleActivities,
       });
 
-      Alert.alert('Thành công', `Đã tạo chuyến đi "${created.title}"`);
+      showToast({
+        kind: 'success',
+        title: 'Đã tạo chuyến đi',
+        message: `"${created.title}" đã được lưu vào kho lịch trình của bạn.`,
+      });
       setManualModalVisible(false);
       setManualTitle('');
       setManualDest('');
@@ -512,7 +555,11 @@ export default function ItineraryScreen() {
       fetchItineraries();
       handleOpenDetail(created);
     } catch (err: any) {
-      Alert.alert('Lỗi tạo lịch trình', err.response?.data?.message || err.message || 'Không thể tạo chuyến đi.');
+      showToast({
+        kind: 'error',
+        title: 'Tạo chuyến đi thất bại',
+        message: err.response?.data?.message || err.message || 'Không thể tạo chuyến đi.',
+      });
     } finally {
       setSubmittingManual(false);
     }
@@ -527,7 +574,11 @@ export default function ItineraryScreen() {
 
   const handleStartAIGeneration = async () => {
     if (!aiDest.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng chọn hoặc nhập điểm đến!');
+      showToast({
+        kind: 'error',
+        title: 'Thiếu điểm đến',
+        message: 'Vui lòng chọn hoặc nhập điểm đến cho chuyến đi.',
+      });
       return;
     }
 
@@ -536,7 +587,11 @@ export default function ItineraryScreen() {
       const d1 = new Date(aiStartDate);
       const d2 = new Date(aiEndDate);
       if (d2.getTime() < d1.getTime()) {
-        Alert.alert('Lỗi thời gian', 'Ngày kết thúc phải diễn ra sau hoặc trùng với ngày bắt đầu chuyến đi!');
+        showToast({
+          kind: 'error',
+          title: 'Ngày không hợp lệ',
+          message: 'Ngày kết thúc phải diễn ra sau hoặc trùng với ngày bắt đầu chuyến đi.',
+        });
         return;
       }
     }
@@ -544,7 +599,12 @@ export default function ItineraryScreen() {
     // Kiểm tra người dùng đã đăng nhập chưa để lưu vào CSDL
     const session = await authStorage.getSession();
     if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để WanderAI lưu lịch trình vào CSDL!');
+      showToast({
+        kind: 'info',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để WanderAI lưu lịch trình vào CSDL.',
+        icon: 'lock',
+      });
       return;
     }
 
@@ -733,14 +793,24 @@ Ví dụ chuẩn:
         setIsAiGenerating(false);
         setAiModalVisible(false);
         fetchItineraries();
-        Alert.alert('Thành công', `WanderAI đã hoàn tất thiết kế lịch trình ${aiDest} cho bạn! 🎉`);
+        showToast({
+          kind: 'success',
+          title: 'WanderAI đã thiết kế xong',
+          message: `Lịch trình ${aiDest} đã sẵn sàng trong kho của bạn.`,
+          duration: 4200,
+        });
         handleOpenDetail(created);
       }, 500);
 
     } catch (err: any) {
       if (progressTimer) clearInterval(progressTimer);
       setIsAiGenerating(false);
-      Alert.alert('Lỗi tạo tour AI', err.response?.data?.message || err.message || 'Không thể tạo tour bằng AI lúc này.');
+      showToast({
+        kind: 'error',
+        title: 'Tạo tour AI thất bại',
+        message: err.response?.data?.message || err.message || 'Không thể tạo tour bằng AI lúc này.',
+        duration: 4200,
+      });
     }
   };
 

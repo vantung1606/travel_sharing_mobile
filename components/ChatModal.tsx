@@ -7,7 +7,6 @@ import React, {
 } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -42,6 +41,8 @@ import { aiService } from '@/src/services/aiService';
 import { chatSocket } from '@/src/services/chatSocket';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 import { NewChatSheet } from './chat/NewChatSheet';
+import { ConfirmHost, confirmDialog } from './ConfirmDialog';
+import { ToastHost, showToast } from './Toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -942,10 +943,12 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Cần quyền truy cập ảnh',
-          'Vui lòng cho phép ứng dụng truy cập thư viện ảnh để gửi hình ảnh trong cuộc trò chuyện.'
-        );
+        showToast({
+          kind: 'info',
+          title: 'Cần quyền truy cập ảnh',
+          message: 'Vui lòng cho phép ứng dụng truy cập thư viện ảnh để gửi hình ảnh trong cuộc trò chuyện.',
+          duration: 4200,
+        });
         return;
       }
 
@@ -960,7 +963,11 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         await sendMessageInternal('Hình ảnh', 'IMAGE', asset.uri);
       }
     } catch {
-      Alert.alert('Không chọn được ảnh', 'Vui lòng thử lại sau ít phút.');
+      showToast({
+        kind: 'error',
+        title: 'Không chọn được ảnh',
+        message: 'Vui lòng thử lại sau ít phút.',
+      });
     }
   };
 
@@ -977,19 +984,21 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     );
   };
 
-  const handleClearChat = () => {
-    Alert.alert(
-      'Xoá lịch sử trò chuyện?',
-      'Tin nhắn chỉ bị xoá khỏi thiết bị này. Những người khác trong cuộc trò chuyện vẫn giữ nguyên.',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xoá',
-          style: 'destructive',
-          onPress: () => setMessages([]),
-        },
-      ]
-    );
+  const handleClearChat = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Xoá lịch sử trò chuyện?',
+      message: 'Tin nhắn chỉ bị xoá khỏi thiết bị này. Những người khác trong cuộc trò chuyện vẫn giữ nguyên.',
+      confirmText: 'Xoá',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setMessages([]);
+    showToast({
+      kind: 'success',
+      title: 'Đã xoá lịch sử',
+      message: 'Lịch sử trò chuyện trên thiết bị này đã được xoá.',
+    });
   };
 
   // ── Derived data ──────────────────────────────────────────
@@ -1068,7 +1077,11 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert('Không mở được liên kết', 'Vui lòng thử lại trên trình duyệt.');
+      showToast({
+        kind: 'error',
+        title: 'Không mở được liên kết',
+        message: 'Vui lòng thử mở lại liên kết này.',
+      });
     }
   };
 
@@ -1927,6 +1940,10 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
             canEdit={false}
           />
         )}
+
+        {/* Thông báo & hộp xác nhận nằm trong chính modal để không bị lớp phủ che */}
+        <ConfirmHost enabled={visible} />
+        <ToastHost enabled={visible} />
       </View>
     </Modal>
   );

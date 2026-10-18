@@ -7,6 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { BrandSplash } from '@/components/BrandSplash';
+import { ToastHost } from '@/components/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import { LogBox } from 'react-native';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
@@ -56,6 +57,7 @@ export default function RootLayout() {
     <View style={styles.root}>
       <StatusBar style={showLaunchSplash ? 'light' : 'dark'} />
       <RootLayoutNav />
+      <ToastHost />
       {showLaunchSplash ? <BrandSplash onFinish={handleSplashFinish} /> : null}
     </View>
   );

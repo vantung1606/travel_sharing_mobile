@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_COLORS } from '@/constants/Colors';
 import { ChatModal } from '@/components/ChatModal';
 import { NotificationModal } from '@/components/NotificationModal';
+import { showToast } from '@/components/Toast';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { notificationApi } from '@/src/services/api';
@@ -55,6 +56,12 @@ export default function TabLayout() {
       setCurrentUser(session);
       if (session) {
         refreshUnreadCount();
+      } else {
+        // Đăng xuất: đóng mọi lớp phủ đang mở (Chat / Thông báo) để người dùng
+        // quay thẳng về form đăng nhập ban đầu, không phải bấm đóng thủ công.
+        setIsChatOpen(false);
+        setIsNotificationOpen(false);
+        setUnreadNotifCount(0);
       }
     });
 
@@ -255,10 +262,27 @@ export default function TabLayout() {
       {/* Màn hình Xác thực Chào mừng / Đăng nhập VIP (Google & Email) */}
       <WelcomeAuthModal
         visible={isAuthOpen}
-        onLoginSuccess={(sess) => {
+        onLoginSuccess={(sess, mode) => {
           setCurrentUser(sess);
           setIsAuthOpen(false);
           refreshUnreadCount();
+
+          const name = sess.fullName || sess.email || 'bạn';
+          const isNewAccount = mode === 'register';
+
+          // Chờ modal đăng nhập trượt xuống hết rồi mới bật thông báo,
+          // tránh bị lớp phủ của modal che mất trên thiết bị thật.
+          setTimeout(() => {
+            showToast({
+              kind: 'success',
+              title: isNewAccount ? 'Tạo tài khoản thành công' : 'Đăng nhập thành công',
+              message: isNewAccount
+                ? `Chào mừng ${name} đến với cộng đồng Wayfare!`
+                : mode === 'google'
+                  ? `Xin chào ${name}, hồ sơ Google đã được kết nối.`
+                  : `Chào mừng ${name} trở lại Wayfare!`,
+            });
+          }, 280);
         }}
         onContinueAsGuest={() => setIsAuthOpen(false)}
       />

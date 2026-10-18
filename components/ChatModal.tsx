@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -21,6 +21,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
 import { chatApi, ChatRoom, ChatMessage, ItineraryItem } from '@/src/services/api';
+import { chatSocket } from '@/src/services/chatSocket';
 import { authStorage } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
@@ -42,6 +43,25 @@ const QUICK_AI_PROMPTS = [
   '☕ Quán cafe view đẹp nhất',
 ];
 
+/**
+ * Backend broadcast DTO (ChatMessageDto) dùng `time` cho giờ hiển thị và
+ * `isMe = null` (vì gửi cho cả phòng). Mobile tự suy ra isMe từ senderId.
+ */
+const normalizeIncomingMessage = (raw: any, myId: number | null): ChatMessage => ({
+  id: raw?.id,
+  roomId: raw?.roomId,
+  senderId: raw?.senderId,
+  senderName: raw?.senderName,
+  senderAvatar: raw?.senderAvatar,
+  content: raw?.content ?? '',
+  messageType: raw?.messageType,
+  createdAt: raw?.time || raw?.createdAt || '',
+  isMe:
+    typeof raw?.isMe === 'boolean'
+      ? raw.isMe
+      : myId != null && raw?.senderId != null && Number(raw.senderId) === myId,
+});
+
 export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   const insets = useSafeAreaInsets();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -61,6 +81,35 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
 
   const flatListRef = useRef<FlatList>(null);
 
+  // Realtime chat (STOMP) + polling fallback
+  const currentUserIdRef = useRef<number | null>(null);
+  const unsubscribeRoomRef = useRef<(() => void) | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    authStorage
+      .getSession()
+      .then((session) => {
+        const rawId = (session as any)?.id ?? (session as any)?.userId;
+        currentUserIdRef.current = rawId != null ? Number(rawId) : null;
+      })
+      .catch(() => {});
+  }, []);
+
+  const stopRoomRealtime = useCallback(() => {
+    if (unsubscribeRoomRef.current) {
+      unsubscribeRoomRef.current();
+      unsubscribeRoomRef.current = null;
+    }
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  // Dọn dẹp khi unmount
+  useEffect(() => stopRoomRealtime, [stopRoomRealtime]);
+
   // Pulse animation for AI status
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -78,7 +127,9 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     } else {
       setActiveRoom(null);
       setSearchQuery('');
+      stopRoomRealtime();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const loadRooms = async () => {
@@ -101,16 +152,89 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   };
 
   const handleSelectRoom = async (room: ChatRoom) => {
+    stopRoomRealtime();
     setActiveRoom(room);
     setLoadingMessages(true);
     try {
       const msgs = await chatApi.getRoomMessages(room.id);
-      setMessages(msgs || []);
+      setMessages((msgs || []).map((m) => normalizeIncomingMessage(m, currentUserIdRef.current)));
     } catch (e) {
       console.warn('Error loading messages', e);
     } finally {
       setLoadingMessages(false);
     }
+
+    // Nhận tin nhắn realtime qua STOMP /topic/room.{roomId}
+    unsubscribeRoomRef.current = chatSocket.subscribeToRoom(room.id, (incoming) => {
+      const normalized = normalizeIncomingMessage(incoming, currentUserIdRef.current);
+      if (normalized.id == null) return;
+
+      setMessages((prev) => {
+        // Đã có tin nhắn này (trùng ID thật) thì bỏ qua
+        if (prev.some((m) => m.id != null && String(m.id) === String(normalized.id))) {
+          return prev;
+        }
+
+        // Tin của chính mình: thay thế tin nhắn optimistic (temp) cùng nội dung
+        if (normalized.isMe) {
+          const tempIndex = prev.findIndex(
+            (m) => m.isMe && m.senderId == null && m.content === normalized.content
+          );
+          if (tempIndex !== -1) {
+            const next = [...prev];
+            next[tempIndex] = normalized;
+            return next;
+          }
+        }
+
+        return [...prev, normalized];
+      });
+
+      // Cập nhật preview trong danh sách phòng
+      setRooms((prev) =>
+        prev.map((r) =>
+          String(r.id) === String(room.id)
+            ? {
+                ...r,
+                lastMessage:
+                  normalized.messageType === 'IMAGE' ? 'Đã chia sẻ 1 bức ảnh 📸' : normalized.content,
+                lastMessageTime: normalized.createdAt || 'Vừa xong',
+              }
+            : r
+        )
+      );
+    });
+
+    // Polling dự phòng 5s (nếu WebSocket bị mạng/firewall chặn)
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const fresh = await chatApi.getRoomMessages(room.id);
+        if (!Array.isArray(fresh)) return;
+        const normalizedFresh = fresh.map((m) =>
+          normalizeIncomingMessage(m, currentUserIdRef.current)
+        );
+
+        setMessages((prev) => {
+          const prevLastId = prev.length ? String(prev[prev.length - 1]?.id) : null;
+          const freshLastId = normalizedFresh.length
+            ? String(normalizedFresh[normalizedFresh.length - 1]?.id)
+            : null;
+
+          // Không có gì mới -> giữ nguyên mảng để tránh re-render/scroll nhảy
+          if (prev.length === normalizedFresh.length && prevLastId === freshLastId) {
+            return prev;
+          }
+
+          // Giữ lại tin optimistic chưa được server trả về
+          const optimistic = prev.filter(
+            (m) => m.isMe && m.senderId == null && !normalizedFresh.some((f) => f.content === m.content)
+          );
+          return [...normalizedFresh, ...optimistic];
+        });
+      } catch {
+        // Bỏ qua lỗi polling, lần sau thử lại
+      }
+    }, 5000);
   };
 
   // Gửi tin nhắn văn bản
@@ -282,6 +406,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
             activeOpacity={0.8}
             onPress={() => {
               if (activeRoom) {
+                stopRoomRealtime();
                 setActiveRoom(null);
               } else {
                 onClose();

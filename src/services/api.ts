@@ -579,18 +579,51 @@ export const homeApi = {
 };
 
 // ─── CHAT API ──────────────────────────────────────────────
+export type ChatMessageType =
+  | 'TEXT'
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'AUDIO'
+  | 'VOICE'
+  | 'FILE'
+  | 'ITINERARY'
+  | 'LOCATION'
+  | 'SYSTEM';
+
 export interface ChatMessage {
   id?: number | string;
   roomId: number | string;
   senderId?: number;
+  senderEmail?: string;
   senderName?: string;
+  senderHandle?: string;
   senderAvatar?: string;
   content: string;
-  messageType?: 'TEXT' | 'IMAGE' | 'VOICE' | 'ITINERARY';
+  messageType?: ChatMessageType;
+  /** ISO datetime gốc từ backend, dùng để chia nhóm tin nhắn theo ngày. */
   createdAt?: string;
+  /** Giờ hiển thị dạng "HH:mm" (backend trả sẵn trong trường `time`). */
+  time?: string;
   isMe?: boolean;
-  imageUrl?: string;
+  /** Tin nhắn đang chờ server xác nhận (optimistic). */
+  isPending?: boolean;
+  /** Gửi thất bại, cho phép bấm "Gửi lại". */
+  isFailed?: boolean;
+  /** Câu trả lời do trợ lý tạo trên máy, chưa được lưu ở backend. */
+  isLocal?: boolean;
   itineraryData?: any;
+}
+
+export interface ChatMember {
+  userId: number;
+  fullName: string;
+  handle?: string;
+  email?: string;
+  avatarUrl?: string;
+  role?: string;
+  isOnline?: boolean;
+  statusText?: string;
+  lastActiveAt?: string;
 }
 
 export interface ChatRoom {
@@ -598,46 +631,112 @@ export interface ChatRoom {
   name: string;
   type?: 'DIRECT' | 'GROUP' | 'ITINERARY' | 'AI';
   avatarUrl?: string;
+  itineraryId?: number;
+  itineraryTitle?: string;
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;
   membersCount?: number;
+  members?: ChatMember[];
+  isOnline?: boolean;
+  statusText?: string;
+  updatedAt?: string;
+  lastActiveAt?: string;
 }
+
+const mapChatMember = (raw: any): ChatMember => ({
+  userId: Number(raw?.userId),
+  fullName: raw?.fullName || raw?.email || 'Người dùng Wayfare',
+  handle: raw?.handle,
+  email: raw?.email,
+  avatarUrl: raw?.avatarUrl,
+  role: raw?.role,
+  isOnline: raw?.isOnline,
+  statusText: raw?.statusText,
+  lastActiveAt: raw?.lastActiveAt,
+});
+
+const mapChatRoom = (raw: any): ChatRoom => {
+  let lastMessage = raw?.lastMsg ?? raw?.lastMessage;
+  // Backend chưa rút gọn preview của tin ITINERARY (JSON thô) -> hiển thị thân thiện hơn.
+  if (typeof lastMessage === 'string' && lastMessage.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lastMessage);
+      if (parsed?.title) lastMessage = 'Đã chia sẻ một lịch trình';
+    } catch {
+      // Giữ nguyên nội dung nếu không phải JSON hợp lệ
+    }
+  }
+
+  return {
+    id: raw?.id,
+    name: raw?.name || 'Cuộc trò chuyện',
+    type: raw?.type,
+    avatarUrl: raw?.avatar || raw?.avatarUrl,
+    itineraryId: raw?.itineraryId ?? undefined,
+    itineraryTitle: raw?.itineraryTitle ?? undefined,
+    lastMessage,
+    lastMessageTime: raw?.time ?? raw?.lastMessageTime,
+    unreadCount: raw?.unread ?? raw?.unreadCount ?? 0,
+    membersCount: raw?.membersCount,
+    members: Array.isArray(raw?.members) ? raw.members.map(mapChatMember) : undefined,
+    isOnline: raw?.isOnline,
+    statusText: raw?.statusText,
+    updatedAt: raw?.updatedAt,
+    lastActiveAt: raw?.lastActiveAt,
+  };
+};
+
+const mapChatMessage = (raw: any): ChatMessage => ({
+  id: raw?.id,
+  roomId: raw?.roomId,
+  senderId: raw?.senderId ?? undefined,
+  senderEmail: raw?.senderEmail,
+  senderName: raw?.senderName,
+  senderHandle: raw?.senderHandle,
+  senderAvatar: raw?.senderAvatar,
+  content: raw?.content ?? '',
+  messageType: raw?.messageType,
+  createdAt: raw?.createdAt,
+  time: raw?.time,
+  isMe: typeof raw?.isMe === 'boolean' ? raw.isMe : undefined,
+});
 
 export const chatApi = {
   async getRooms(): Promise<ChatRoom[]> {
-    try {
-      const res = await apiClient.get<ApiResponse<ChatRoom[]>>('/chat/rooms');
-      return res.data.data || [];
-    } catch (e) {
-      console.warn('chatApi.getRooms failed:', e);
-      return [];
-    }
+    const res = await apiClient.get<ApiResponse<any[]>>('/chat/rooms');
+    return (res.data.data || []).map(mapChatRoom);
   },
 
   async getRoomMessages(roomId: number | string): Promise<ChatMessage[]> {
-    try {
-      const res = await apiClient.get<ApiResponse<ChatMessage[]>>(`/chat/rooms/${roomId}/messages`);
-      return res.data.data || [];
-    } catch (e) {
-      console.warn(`chatApi.getRoomMessages(${roomId}) failed:`, e);
-      return [];
-    }
+    const res = await apiClient.get<ApiResponse<any[]>>(`/chat/rooms/${roomId}/messages`);
+    return (res.data.data || []).map(mapChatMessage);
   },
 
-  async sendMessage(roomId: number | string, content: string): Promise<ChatMessage> {
-    const res = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/rooms/${roomId}/messages`, {
+  async sendMessage(
+    roomId: number | string,
+    content: string,
+    messageType: ChatMessageType = 'TEXT'
+  ): Promise<ChatMessage> {
+    const res = await apiClient.post<ApiResponse<any>>(`/chat/rooms/${roomId}/messages`, {
       content,
-      messageType: 'TEXT',
+      messageType,
     });
-    return res.data.data;
+    return mapChatMessage(res.data.data);
   },
 
   async createDirectRoom(targetUserId: number): Promise<ChatRoom> {
-    const res = await apiClient.post<ApiResponse<ChatRoom>>('/chat/direct', null, {
+    const res = await apiClient.post<ApiResponse<any>>('/chat/direct', null, {
       params: { targetUserId },
     });
-    return res.data.data;
+    return mapChatRoom(res.data.data);
+  },
+
+  async getAvailableUsers(keyword?: string): Promise<ChatMember[]> {
+    const res = await apiClient.get<ApiResponse<any[]>>('/chat/available-users', {
+      params: keyword?.trim() ? { keyword: keyword.trim() } : undefined,
+    });
+    return (res.data.data || []).map(mapChatMember);
   },
 };
 

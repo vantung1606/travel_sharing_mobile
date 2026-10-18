@@ -15,6 +15,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { SERIF_FONT } from '@/constants/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AntDesign from '@expo/vector-icons/AntDesign';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { WF_COLORS } from '@/constants/Colors';
@@ -40,6 +41,7 @@ export function WelcomeAuthModal({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+  const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | null>(null);
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -113,6 +115,7 @@ export function WelcomeAuthModal({
         <ScrollView
           style={styles.container}
           contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           
           {/* Brand Header */}
@@ -148,49 +151,91 @@ export function WelcomeAuthModal({
             {/* Inputs */}
             {mode === 'register' && (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Họ và tên *</Text>
-                <View style={styles.inputWrapper}>
-                  <FontAwesome name="user-o" size={15} color={WF_COLORS.slate400} style={styles.inputIcon} />
+                <Text style={styles.inputLabel}>
+                  Họ và tên <Text style={styles.requiredMark}>*</Text>
+                </Text>
+                <View style={[styles.inputWrapper, focusedField === 'fullName' && styles.inputWrapperFocused]}>
+                  <FontAwesome
+                    name="user-o"
+                    size={15}
+                    color={focusedField === 'fullName' ? WF_COLORS.primary : WF_COLORS.slate400}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     placeholder="Nguyễn Văn A"
                     placeholderTextColor={WF_COLORS.slate400}
                     style={styles.input}
                     value={fullName}
                     onChangeText={setFullName}
+                    onFocus={() => setFocusedField('fullName')}
+                    onBlur={() => setFocusedField(null)}
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    textContentType="name"
+                    returnKeyType="next"
                   />
                 </View>
               </View>
             )}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email tài khoản *</Text>
-              <View style={styles.inputWrapper}>
-                <FontAwesome name="envelope-o" size={14} color={WF_COLORS.slate400} style={styles.inputIcon} />
+              <Text style={styles.inputLabel}>
+                Email tài khoản <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <View style={[styles.inputWrapper, focusedField === 'email' && styles.inputWrapperFocused]}>
+                <FontAwesome
+                  name="envelope-o"
+                  size={14}
+                  color={focusedField === 'email' ? WF_COLORS.primary : WF_COLORS.slate400}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   placeholder="name@example.com"
                   placeholderTextColor={WF_COLORS.slate400}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mật khẩu bảo mật *</Text>
-              <View style={styles.inputWrapper}>
-                <FontAwesome name="lock" size={16} color={WF_COLORS.slate400} style={styles.inputIcon} />
+              <Text style={styles.inputLabel}>
+                Mật khẩu bảo mật <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <View style={[styles.inputWrapper, focusedField === 'password' && styles.inputWrapperFocused]}>
+                <FontAwesome
+                  name="lock"
+                  size={16}
+                  color={focusedField === 'password' ? WF_COLORS.primary : WF_COLORS.slate400}
+                  style={styles.inputIcon}
+                />
                 <TextInput
-                  placeholder="••••••••"
+                  placeholder={mode === 'register' ? 'Tối thiểu 6 ký tự' : 'Nhập mật khẩu của bạn'}
                   placeholderTextColor={WF_COLORS.slate400}
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete={mode === 'register' ? 'new-password' : 'password'}
+                  textContentType={mode === 'register' ? 'newPassword' : 'password'}
+                  returnKeyType="go"
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                  accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
                   <FontAwesome name={showPassword ? 'eye-slash' : 'eye'} size={15} color={WF_COLORS.slate400} />
                 </TouchableOpacity>
               </View>
@@ -198,7 +243,7 @@ export function WelcomeAuthModal({
 
             {/* Primary Submit Button */}
             <TouchableOpacity
-              style={styles.submitBtn}
+              style={[styles.submitBtn, (loading || googleLoading) && styles.submitBtnDisabled]}
               activeOpacity={0.88}
               onPress={handleSubmit}
               disabled={loading || googleLoading}>
@@ -228,10 +273,7 @@ export function WelcomeAuthModal({
                 <ActivityIndicator color={WF_COLORS.primary} />
               ) : (
                 <View style={styles.googleBtnContent}>
-                  {/* Google 4-Color Icon Representation */}
-                  <View style={styles.googleIconBadge}>
-                    <Text style={styles.googleLetterG}>G</Text>
-                  </View>
+                  <AntDesign name="google" size={18} color="#4285F4" style={styles.googleIcon} />
                   <Text style={styles.googleBtnText}>Tiếp tục với Google</Text>
                 </View>
               )}
@@ -333,6 +375,9 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 6,
   },
+  requiredMark: {
+    color: '#E11D48',
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -343,6 +388,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+  inputWrapperFocused: {
+    borderColor: '#0284C7',
+    backgroundColor: '#FFFFFF',
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -350,6 +399,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#0F172A',
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
   eyeBtn: {
     padding: 6,
@@ -367,6 +418,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
+  },
+  submitBtnDisabled: {
+    opacity: 0.75,
   },
   submitBtnText: {
     fontSize: 14,
@@ -412,19 +466,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  googleIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EA4335',
-    alignItems: 'center',
-    justifyContent: 'center',
+  googleIcon: {
     marginRight: 10,
-  },
-  googleLetterG: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 13,
   },
   googleBtnText: {
     fontSize: 14,

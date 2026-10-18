@@ -1,38 +1,54 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
-  StyleSheet,
-  View,
-  Modal,
-  TouchableOpacity,
-  FlatList,
-  Image,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-  ScrollView,
   Alert,
   Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Text, TextInput } from '@/components/Themed';
-import { SERIF_FONT } from '@/constants/Typography';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
+import { Text, TextInput } from '@/components/Themed';
 import { WF_COLORS } from '@/constants/Colors';
-import { chatApi, ChatRoom, ChatMessage, ItineraryItem } from '@/src/services/api';
-import { chatSocket } from '@/src/services/chatSocket';
+import {
+  chatApi,
+  ChatMessage,
+  ChatMessageType,
+  ChatRoom,
+  ItineraryItem,
+  uploadApi,
+} from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
+import { chatSocket } from '@/src/services/chatSocket';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
+import { NewChatSheet } from './chat/NewChatSheet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface ChatModalProps {
-  visible: boolean;
-  onClose: () => void;
-  initialRoomId?: string | number;
-}
+const FALLBACK_AVATAR =
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+const AI_FALLBACK_AVATAR =
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
 
 const QUICK_AI_PROMPTS = [
   '🌤️ Thời tiết & săn mây Đà Lạt',
@@ -43,49 +59,448 @@ const QUICK_AI_PROMPTS = [
   '☕ Quán cafe view đẹp nhất',
 ];
 
-/**
- * Backend broadcast DTO (ChatMessageDto) dùng `time` cho giờ hiển thị và
- * `isMe = null` (vì gửi cho cả phòng). Mobile tự suy ra isMe từ senderId.
- */
-const normalizeIncomingMessage = (raw: any, myId: number | null): ChatMessage => ({
-  id: raw?.id,
-  roomId: raw?.roomId,
-  senderId: raw?.senderId,
-  senderName: raw?.senderName,
-  senderAvatar: raw?.senderAvatar,
-  content: raw?.content ?? '',
-  messageType: raw?.messageType,
-  createdAt: raw?.time || raw?.createdAt || '',
-  isMe:
-    typeof raw?.isMe === 'boolean'
-      ? raw.isMe
-      : myId != null && raw?.senderId != null && Number(raw.senderId) === myId,
-});
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+const WEB_NO_OUTLINE =
+  Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : undefined;
+
+interface ChatModalProps {
+  visible: boolean;
+  onClose: () => void;
+  initialRoomId?: string | number;
+}
+
+type ChatListItem =
+  | { kind: 'date'; key: string; label: string }
+  | {
+      kind: 'message';
+      key: string;
+      message: ChatMessage;
+      isFirstInGroup: boolean;
+      isLastInGroup: boolean;
+      showAvatar: boolean;
+      showSenderName: boolean;
+    };
+
+type RoomListItem =
+  | { kind: 'section'; key: string; label: string; count: number }
+  | { kind: 'room'; key: string; room: ChatRoom };
+
+// ─── Helpers ────────────────────────────────────────────────
+
+/** Bỏ dấu tiếng Việt để tìm kiếm gần đúng (gõ "da lat" vẫn ra "Đà Lạt"). */
+function normalizeVi(value?: string): string {
+  if (!value) return '';
+  const lower = value.toLowerCase().trim();
+  try {
+    return lower
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd');
+  } catch {
+    return lower;
+  }
+}
+
+/** Backend trả LocalDateTime có thể có 4-6 chữ số thập phân -> cắt an toàn cho JS Date. */
+function parseDateSafe(value?: string): Date | null {
+  if (!value) return null;
+  const normalized = value
+    .trim()
+    .replace(' ', 'T')
+    .replace(/(\.\d{3})\d+/, '$1');
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatClock(date: Date): string {
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function formatDayLabel(date: Date): string {
+  const today = new Date();
+  if (isSameDay(date, today)) return 'Hôm nay';
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (isSameDay(date, yesterday)) return 'Hôm qua';
+
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return date.getFullYear() === today.getFullYear()
+    ? `${dd}/${mm}`
+    : `${dd}/${mm}/${date.getFullYear()}`;
+}
+
+function roomDateGroup(room: ChatRoom): string {
+  const date = parseDateSafe(room.updatedAt || room.lastActiveAt);
+  if (!date) return 'Gần đây';
+
+  const today = new Date();
+  if (isSameDay(date, today)) return 'Hôm nay';
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (isSameDay(date, yesterday)) return 'Hôm qua';
+
+  const diffDays = (today.getTime() - date.getTime()) / 86_400_000;
+  return diffDays < 7 ? '7 ngày qua' : 'Trước đó';
+}
+
+function sortRooms(rooms: ChatRoom[]): ChatRoom[] {
+  return [...rooms].sort((a, b) => {
+    const ta = parseDateSafe(a.updatedAt || a.lastActiveAt)?.getTime() ?? 0;
+    const tb = parseDateSafe(b.updatedAt || b.lastActiveAt)?.getTime() ?? 0;
+    return tb - ta;
+  });
+}
+
+function senderKey(message: ChatMessage): string {
+  if (message.isMe) return 'me';
+  return String(message.senderId ?? message.senderName ?? 'other');
+}
+
+function messagePreview(message: ChatMessage): string {
+  switch (message.messageType) {
+    case 'IMAGE':
+      return 'Đã gửi một ảnh';
+    case 'VIDEO':
+      return 'Đã gửi một video';
+    case 'AUDIO':
+    case 'VOICE':
+      return 'Đã gửi tin nhắn thoại';
+    case 'FILE':
+      return 'Đã gửi một tệp đính kèm';
+    case 'ITINERARY':
+      return 'Đã chia sẻ một lịch trình';
+    case 'LOCATION':
+      return 'Đã chia sẻ vị trí';
+    default:
+      return message.content;
+  }
+}
+
+function normalizeIncomingMessage(raw: any, myId: number | null): ChatMessage {
+  const createdAt = raw?.createdAt || '';
+  const parsed = parseDateSafe(createdAt);
+  return {
+    id: raw?.id,
+    roomId: raw?.roomId,
+    senderId: raw?.senderId ?? undefined,
+    senderEmail: raw?.senderEmail,
+    senderName: raw?.senderName,
+    senderHandle: raw?.senderHandle,
+    senderAvatar: raw?.senderAvatar,
+    content: raw?.content ?? '',
+    messageType: raw?.messageType || 'TEXT',
+    createdAt: createdAt || undefined,
+    time: raw?.time || (parsed ? formatClock(parsed) : formatClock(new Date())),
+    isMe:
+      typeof raw?.isMe === 'boolean'
+        ? raw.isMe
+        : myId != null && raw?.senderId != null && Number(raw.senderId) === myId,
+  };
+}
+
+function mergeIncomingMessage(prev: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+  if (
+    incoming.id != null &&
+    prev.some((m) => m.id != null && String(m.id) === String(incoming.id))
+  ) {
+    return prev;
+  }
+
+  if (incoming.isMe) {
+    const tempIndex = prev.findIndex(
+      (m) =>
+        m.isMe &&
+        m.isPending &&
+        m.content === incoming.content &&
+        (m.messageType || 'TEXT') === (incoming.messageType || 'TEXT')
+    );
+    if (tempIndex !== -1) {
+      const next = [...prev];
+      next[tempIndex] = { ...incoming, isPending: false, isFailed: false };
+      return next;
+    }
+  }
+
+  return [...prev, incoming];
+}
+
+function mergeFetchedMessages(prev: ChatMessage[], fresh: ChatMessage[]): ChatMessage[] {
+  const freshKeys = fresh.map((m) => (m.id != null ? String(m.id) : '')).filter(Boolean);
+
+  const keepPending = prev.filter((m) => {
+    if (!m.isPending && !m.isFailed) return false;
+    if (m.id != null && freshKeys.includes(String(m.id))) return false;
+    // Tin đã được server lưu nhưng phản hồi REST chưa kịp về
+    return !fresh.some(
+      (f) =>
+        f.content === m.content &&
+        (f.messageType || 'TEXT') === (m.messageType || 'TEXT')
+    );
+  });
+
+  const keepLocal = prev.filter(
+    (m) =>
+      m.isLocal &&
+      !freshKeys.includes(String(m.id ?? '')) &&
+      !keepPending.some((p) => p.id === m.id)
+  );
+
+  const merged = [...fresh, ...keepPending, ...keepLocal];
+  merged.sort((a, b) => {
+    const ta = parseDateSafe(a.createdAt)?.getTime();
+    const tb = parseDateSafe(b.createdAt)?.getTime();
+    if (ta == null && tb == null) return 0;
+    if (ta == null) return 1;
+    if (tb == null) return -1;
+    return ta - tb;
+  });
+  return merged;
+}
+
+function buildChatItems(
+  messages: ChatMessage[],
+  showSenderNames: boolean
+): ChatListItem[] {
+  const items: ChatListItem[] = [];
+  let currentDayKey = '';
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index];
+    const date = parseDateSafe(message.createdAt);
+    const key = date ? dayKey(date) : 'unknown';
+
+    if (key !== currentDayKey) {
+      items.push({
+        kind: 'date',
+        key: `date-${key}-${index}`,
+        label: date ? formatDayLabel(date) : 'Trước đó',
+      });
+      currentDayKey = key;
+    }
+
+    if (message.messageType === 'SYSTEM') {
+      items.push({
+        kind: 'message',
+        key: `message-${message.id ?? index}`,
+        message,
+        isFirstInGroup: true,
+        isLastInGroup: true,
+        showAvatar: false,
+        showSenderName: false,
+      });
+      continue;
+    }
+
+    const keyOfSender = senderKey(message);
+    const previous = messages[index - 1];
+    const next = messages[index + 1];
+
+    const continuity = (a?: ChatMessage, b?: ChatMessage): boolean => {
+      if (!a || !b || a.messageType === 'SYSTEM' || b.messageType === 'SYSTEM') {
+        return false;
+      }
+      if (senderKey(a) !== senderKey(b)) return false;
+      const da = parseDateSafe(a.createdAt);
+      const db = parseDateSafe(b.createdAt);
+      if (!da || !db) return false;
+      return isSameDay(da, db) && Math.abs(db.getTime() - da.getTime()) <= GROUP_WINDOW_MS;
+    };
+
+    const sameAsPrevious = continuity(previous, message);
+    const sameAsNext = continuity(message, next);
+
+    items.push({
+      kind: 'message',
+      key: `message-${message.id ?? index}`,
+      message,
+      isFirstInGroup: !sameAsPrevious,
+      isLastInGroup: !sameAsNext,
+      showAvatar: !message.isMe && !sameAsNext,
+      showSenderName: !message.isMe && !sameAsPrevious && showSenderNames,
+    });
+  }
+
+  return items;
+}
+
+function parseItineraryPayload(content: string): any | null {
+  if (!content || !content.trim().startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(content);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Small presentational pieces ────────────────────────────
+
+function TypingDots() {
+  const values = useRef([
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+  ]).current;
+
+  useEffect(() => {
+    const loops = values.map((value, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 140),
+          Animated.timing(value, {
+            toValue: 1,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+          Animated.timing(value, {
+            toValue: 0.3,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+          Animated.delay(280),
+        ])
+      )
+    );
+    loops.forEach((loop) => loop.start());
+    return () => {
+      loops.forEach((loop) => loop.stop());
+      values.forEach((value) => value.setValue(0.3));
+    };
+  }, [values]);
+
+  return (
+    <View style={styles.typingDots}>
+      {values.map((value, index) => (
+        <Animated.View key={index} style={[styles.typingDot, { opacity: value }]} />
+      ))}
+    </View>
+  );
+}
+
+function SkeletonPulse({ children }: { children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.95,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.45,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return <Animated.View style={{ opacity }}>{children}</Animated.View>;
+}
+
+function RoomsSkeleton() {
+  return (
+    <SkeletonPulse>
+      <View style={styles.roomsSkeleton}>
+        {[0, 1, 2, 3, 4].map((row) => (
+          <View key={row} style={styles.skeletonRoomRow}>
+            <View style={styles.skeletonAvatar} />
+            <View style={{ flex: 1 }}>
+              <View style={styles.skeletonLineWide} />
+              <View style={styles.skeletonLineShort} />
+            </View>
+            <View style={styles.skeletonTime} />
+          </View>
+        ))}
+      </View>
+    </SkeletonPulse>
+  );
+}
+
+function MessagesSkeleton() {
+  return (
+    <SkeletonPulse>
+      <View style={styles.messagesSkeleton}>
+        <View style={[styles.skeletonBubble, styles.skeletonBubbleOther]} />
+        <View style={[styles.skeletonBubble, styles.skeletonBubbleMe]} />
+        <View style={[styles.skeletonBubble, styles.skeletonBubbleOther, { width: '48%' }]} />
+        <View style={[styles.skeletonBubble, styles.skeletonBubbleMe, { width: '38%' }]} />
+        <View style={[styles.skeletonBubble, styles.skeletonBubbleOther, { width: '62%' }]} />
+      </View>
+    </SkeletonPulse>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────
 
 export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   const insets = useSafeAreaInsets();
+
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [refreshingRooms, setRefreshingRooms] = useState(false);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loadingRooms, setLoadingRooms] = useState<boolean>(true);
-  const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
-  const [inputText, setInputText] = useState<string>('');
-  const [sending, setSending] = useState<boolean>(false);
-  const [isAiTyping, setIsAiTyping] = useState<boolean>(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'ai' | 'group' | 'direct'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  
-  // Itinerary detail modal inside chat
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+
+  const [inputText, setInputText] = useState('');
+  const [inputHeight, setInputHeight] = useState(40);
+  const [sending, setSending] = useState(false);
+  const [isAiTyping, setIsAiTyping] = useState(false);
+
+  const [activeFilter, setActiveFilter] = useState<
+    'all' | 'unread' | 'ai' | 'group' | 'direct'
+  >('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedItinForModal, setSelectedItinForModal] = useState<ItineraryItem | null>(null);
-  const [itinModalVisible, setItinModalVisible] = useState<boolean>(false);
+  const [itinModalVisible, setItinModalVisible] = useState(false);
 
-  const flatListRef = useRef<FlatList>(null);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
 
-  // Realtime chat (STOMP) + polling fallback
+  const listRef = useRef<FlatList<ChatListItem>>(null);
+  const nearBottomRef = useRef(true);
+  const sendingRef = useRef(false);
   const currentUserIdRef = useRef<number | null>(null);
+  const activeRoomIdRef = useRef<string | null>(null);
+  const hasLoadedRoomsRef = useRef(false);
+  const initialRoomHandledRef = useRef(false);
+  const lastMeasuredTextRef = useRef('');
+
   const unsubscribeRoomRef = useRef<(() => void) | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const filterPulse = useRef(new Animated.Value(1)).current;
+
+  // ── Session ───────────────────────────────────────────────
   useEffect(() => {
     authStorage
       .getSession()
@@ -96,6 +511,11 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    activeRoomIdRef.current = activeRoom ? String(activeRoom.id) : null;
+  }, [activeRoom]);
+
+  // ── Realtime cleanup ──────────────────────────────────────
   const stopRoomRealtime = useCallback(() => {
     if (unsubscribeRoomRef.current) {
       unsubscribeRoomRef.current();
@@ -107,730 +527,1395 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     }
   }, []);
 
-  // Dọn dẹp khi unmount
   useEffect(() => stopRoomRealtime, [stopRoomRealtime]);
 
-  // Pulse animation for AI status
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.25, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulseAnim]);
+  // ── Scrolling ─────────────────────────────────────────────
+  const scrollToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+    nearBottomRef.current = true;
+    setShowJumpToBottom(false);
+    setNewMessageCount(0);
+  }, []);
 
-  useEffect(() => {
-    if (visible) {
-      loadRooms();
-    } else {
-      setActiveRoom(null);
-      setSearchQuery('');
-      stopRoomRealtime();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
-  const loadRooms = async () => {
-    setLoadingRooms(true);
-    try {
-      const data = await chatApi.getRooms();
-      setRooms(data || []);
-
-      if (initialRoomId && data) {
-        const found = data.find((r) => String(r.id) === String(initialRoomId));
-        if (found) {
-          handleSelectRoom(found);
-        }
-      }
-    } catch (e) {
-      console.warn('Error loading rooms', e);
-    } finally {
-      setLoadingRooms(false);
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    if (!text) {
+      setInputHeight(40);
+      lastMeasuredTextRef.current = '';
     }
   };
 
-  const handleSelectRoom = async (room: ChatRoom) => {
-    stopRoomRealtime();
-    setActiveRoom(room);
-    setLoadingMessages(true);
-    try {
-      const msgs = await chatApi.getRoomMessages(room.id);
-      setMessages((msgs || []).map((m) => normalizeIncomingMessage(m, currentUserIdRef.current)));
-    } catch (e) {
-      console.warn('Error loading messages', e);
-    } finally {
-      setLoadingMessages(false);
+  const handleInputContentSizeChange = (
+    event: NativeSyntheticEvent<{ contentSize: { width: number; height: number } }>
+  ) => {
+    if (!inputText) return;
+    // Chỉ đo lại khi nội dung thực sự đổi, tránh vòng lặp chiều cao trên web.
+    if (lastMeasuredTextRef.current === inputText) return;
+    lastMeasuredTextRef.current = inputText;
+    const nextHeight = event.nativeEvent.contentSize.height + 14;
+    setInputHeight(Math.min(112, Math.max(40, nextHeight)));
+  };
+
+  const handleMessagesScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    const nearBottom = distanceFromBottom < 90;
+
+    nearBottomRef.current = nearBottom;
+    setShowJumpToBottom(!nearBottom && contentSize.height > layoutMeasurement.height + 120);
+    if (nearBottom) {
+      setNewMessageCount(0);
     }
+  };
 
-    // Nhận tin nhắn realtime qua STOMP /topic/room.{roomId}
-    unsubscribeRoomRef.current = chatSocket.subscribeToRoom(room.id, (incoming) => {
-      const normalized = normalizeIncomingMessage(incoming, currentUserIdRef.current);
-      if (normalized.id == null) return;
+  // ── Rooms ─────────────────────────────────────────────────
+  const updateRoomFromMessage = useCallback(
+    (roomId: string | number, message: ChatMessage) => {
+      setRooms((prev) => {
+        const index = prev.findIndex((room) => String(room.id) === String(roomId));
+        if (index === -1) return prev;
 
-      setMessages((prev) => {
-        // Đã có tin nhắn này (trùng ID thật) thì bỏ qua
-        if (prev.some((m) => m.id != null && String(m.id) === String(normalized.id))) {
-          return prev;
-        }
+        const room = prev[index];
+        const isActive = activeRoomIdRef.current === String(roomId);
+        const updated: ChatRoom = {
+          ...room,
+          lastMessage: messagePreview(message),
+          lastMessageTime: message.time || room.lastMessageTime,
+          updatedAt: message.createdAt || new Date().toISOString(),
+          unreadCount: isActive
+            ? 0
+            : message.isMe
+              ? room.unreadCount
+              : (room.unreadCount || 0) + 1,
+        };
 
-        // Tin của chính mình: thay thế tin nhắn optimistic (temp) cùng nội dung
-        if (normalized.isMe) {
-          const tempIndex = prev.findIndex(
-            (m) => m.isMe && m.senderId == null && m.content === normalized.content
-          );
-          if (tempIndex !== -1) {
-            const next = [...prev];
-            next[tempIndex] = normalized;
-            return next;
-          }
-        }
-
-        return [...prev, normalized];
+        const next = [...prev];
+        next.splice(index, 1);
+        next.unshift(updated);
+        return next;
       });
+    },
+    []
+  );
 
-      // Cập nhật preview trong danh sách phòng
+  const handleSelectRoom = useCallback(
+    async (room: ChatRoom) => {
+      stopRoomRealtime();
+
+      setActiveRoom(room);
+      setMessages([]);
+      setMessagesError(null);
+      setLoadingMessages(true);
+      setInputText('');
+      setInputHeight(40);
+      setShowJumpToBottom(false);
+      setNewMessageCount(0);
+      nearBottomRef.current = true;
+
       setRooms((prev) =>
-        prev.map((r) =>
-          String(r.id) === String(room.id)
-            ? {
-                ...r,
-                lastMessage:
-                  normalized.messageType === 'IMAGE' ? 'Đã chia sẻ 1 bức ảnh 📸' : normalized.content,
-                lastMessageTime: normalized.createdAt || 'Vừa xong',
-              }
-            : r
+        prev.map((item) =>
+          String(item.id) === String(room.id) ? { ...item, unreadCount: 0 } : item
         )
       );
-    });
 
-    // Polling dự phòng 5s (nếu WebSocket bị mạng/firewall chặn)
-    pollTimerRef.current = setInterval(async () => {
       try {
-        const fresh = await chatApi.getRoomMessages(room.id);
-        if (!Array.isArray(fresh)) return;
-        const normalizedFresh = fresh.map((m) =>
-          normalizeIncomingMessage(m, currentUserIdRef.current)
+        const history = await chatApi.getRoomMessages(room.id);
+        const normalized = history.map((message) =>
+          normalizeIncomingMessage(message, currentUserIdRef.current)
         );
+        setMessages(normalized);
+        setTimeout(() => scrollToBottom(false), 120);
+      } catch {
+        setMessagesError('Không tải được tin nhắn. Kiểm tra kết nối và thử lại.');
+      } finally {
+        setLoadingMessages(false);
+      }
+
+      // Realtime qua STOMP /topic/room.{roomId}
+      unsubscribeRoomRef.current = chatSocket.subscribeToRoom(room.id, (incoming) => {
+        if (activeRoomIdRef.current !== String(room.id)) return;
+
+        const normalized = normalizeIncomingMessage(incoming, currentUserIdRef.current);
+        if (normalized.id == null) return;
+
+        setMessages((prev) => mergeIncomingMessage(prev, normalized));
+        updateRoomFromMessage(room.id, normalized);
+
+        if (!nearBottomRef.current && !normalized.isMe) {
+          setNewMessageCount((count) => count + 1);
+        }
+      });
+
+      // Polling dự phòng 5s nếu WebSocket bị chặn
+      pollTimerRef.current = setInterval(async () => {
+        try {
+          const freshHistory = await chatApi.getRoomMessages(room.id);
+          if (activeRoomIdRef.current !== String(room.id)) return;
+
+          const normalized = freshHistory.map((message) =>
+            normalizeIncomingMessage(message, currentUserIdRef.current)
+          );
+
+          setMessages((prev) => {
+            const merged = mergeFetchedMessages(prev, normalized);
+            const unchanged =
+              merged.length === prev.length &&
+              merged.every((message, index) => String(message.id) === String(prev[index]?.id));
+            return unchanged ? prev : merged;
+          });
+
+          const latest = normalized[normalized.length - 1];
+          if (latest) updateRoomFromMessage(room.id, latest);
+        } catch {
+          // Bỏ qua lỗi polling, lần sau thử lại
+        }
+      }, 5000);
+    },
+    [scrollToBottom, stopRoomRealtime, updateRoomFromMessage]
+  );
+
+  const loadRooms = useCallback(
+    async (silent = false) => {
+      const showSkeleton = !silent && !hasLoadedRoomsRef.current;
+      if (showSkeleton) setLoadingRooms(true);
+      setRoomsError(null);
+
+      try {
+        const data = await chatApi.getRooms();
+        hasLoadedRoomsRef.current = true;
+        setRooms(sortRooms(data));
+
+        if (initialRoomId && !initialRoomHandledRef.current) {
+          const found = data.find((room) => String(room.id) === String(initialRoomId));
+          if (found) {
+            initialRoomHandledRef.current = true;
+            handleSelectRoom(found);
+          }
+        }
+      } catch {
+        setRoomsError('Không tải được hộp thư. Kiểm tra kết nối và thử lại.');
+      } finally {
+        if (showSkeleton) setLoadingRooms(false);
+      }
+    },
+    [handleSelectRoom, initialRoomId]
+  );
+
+  // Mở/đóng modal
+  useEffect(() => {
+    if (!visible) {
+      stopRoomRealtime();
+      setActiveRoom(null);
+      setMessages([]);
+      setSearchQuery('');
+      setActiveFilter('all');
+      setPreviewImage(null);
+      setIsAiTyping(false);
+      setInputText('');
+      setInputHeight(40);
+      setNewMessageCount(0);
+      setShowJumpToBottom(false);
+      return;
+    }
+    if (initialRoomId) {
+      initialRoomHandledRef.current = false;
+    }
+    loadRooms();
+  }, [visible, initialRoomId, loadRooms, stopRoomRealtime]);
+
+  // Tự cập nhật danh sách phòng khi đang ở màn hình hộp thư
+  useEffect(() => {
+    if (!visible || activeRoom) return;
+    const timer = setInterval(() => loadRooms(true), 30_000);
+    return () => clearInterval(timer);
+  }, [visible, activeRoom, loadRooms]);
+
+  useEffect(() => {
+    if (isAiTyping) {
+      setTimeout(() => scrollToBottom(true), 60);
+    }
+  }, [isAiTyping, scrollToBottom]);
+
+  // Nhịp thở nhẹ cho badge "Chưa đọc" ở bộ lọc
+  useEffect(() => {
+    if (activeFilter !== 'unread') return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(filterPulse, {
+          toValue: 1.04,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(filterPulse, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      filterPulse.setValue(1);
+    };
+  }, [activeFilter, filterPulse]);
+
+  // ── Navigation within chat ────────────────────────────────
+  const handleBack = () => {
+    stopRoomRealtime();
+    setActiveRoom(null);
+    setMessages([]);
+    setMessagesError(null);
+    setInputText('');
+    setInputHeight(40);
+    setShowJumpToBottom(false);
+    setNewMessageCount(0);
+    setPreviewImage(null);
+    setIsAiTyping(false);
+    loadRooms(true);
+  };
+
+  const handleClose = () => {
+    stopRoomRealtime();
+    onClose();
+  };
+
+  const handleRefreshRooms = async () => {
+    setRefreshingRooms(true);
+    await loadRooms(true);
+    setRefreshingRooms(false);
+  };
+
+  const handleCreatedRoom = (room: ChatRoom) => {
+    setIsNewChatOpen(false);
+    setRooms((prev) =>
+      prev.some((item) => String(item.id) === String(room.id))
+        ? prev
+        : sortRooms([room, ...prev])
+    );
+    handleSelectRoom(room);
+  };
+
+  // ── Sending ───────────────────────────────────────────────
+  const appendLocalAssistantMessage = useCallback(
+    (room: ChatRoom, content: string) => {
+      if (activeRoomIdRef.current !== String(room.id)) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `local-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          roomId: room.id,
+          senderName: 'Trợ lý du lịch',
+          senderAvatar: room.avatarUrl || AI_FALLBACK_AVATAR,
+          content,
+          messageType: 'TEXT',
+          createdAt: new Date().toISOString(),
+          time: formatClock(new Date()),
+          isMe: false,
+          isLocal: true,
+        },
+      ]);
+      setTimeout(() => scrollToBottom(true), 60);
+    },
+    [scrollToBottom]
+  );
+
+  const requestAiReply = useCallback(
+    async (room: ChatRoom, prompt: string) => {
+      setIsAiTyping(true);
+      try {
+        const reply = await aiService.generateText({
+          prompt,
+          systemPrompt:
+            'Bạn là trợ lý du lịch thân thiện của Wayfare. Hãy tư vấn điểm đến, ẩm thực, chi phí và lịch trình một cách súc tích, thực tế, tự nhiên bằng tiếng Việt. Không dùng từ ngữ phóng đại hay sáo rỗng.',
+          temperature: 0.7,
+          responseMimeType: 'text/plain',
+        });
+        appendLocalAssistantMessage(
+          room,
+          reply?.trim() ||
+            'Mình chưa có gợi ý phù hợp cho câu hỏi này. Bạn thử hỏi cụ thể hơn về điểm đến hoặc ngân sách nhé!'
+        );
+      } catch {
+        appendLocalAssistantMessage(
+          room,
+          'Trợ lý đang tạm thời gián đoạn kết nối. Bạn thử lại sau ít phút nhé!'
+        );
+      } finally {
+        if (activeRoomIdRef.current === String(room.id)) {
+          setIsAiTyping(false);
+        }
+      }
+    },
+    [appendLocalAssistantMessage]
+  );
+
+  const sendMessageInternal = useCallback(
+    async (rawContent: string, messageType: ChatMessageType = 'TEXT', localImageUri?: string) => {
+      const room = activeRoom;
+      if (!room || sendingRef.current) return;
+
+      const content = rawContent.trim();
+      if (!content && messageType !== 'IMAGE') return;
+
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const optimistic: ChatMessage = {
+        id: tempId,
+        roomId: room.id,
+        content: localImageUri || content,
+        messageType,
+        createdAt: new Date().toISOString(),
+        time: formatClock(new Date()),
+        isMe: true,
+        isPending: true,
+      };
+
+      setMessages((prev) => [...prev, optimistic]);
+      scrollToBottom(true);
+
+      if (messageType !== 'IMAGE') {
+        setInputText('');
+        setInputHeight(40);
+      }
+
+      sendingRef.current = true;
+      setSending(true);
+
+      try {
+        let payload = content;
+        if (messageType === 'IMAGE' && localImageUri) {
+          const uploadedUrl = await uploadApi.uploadSingle(localImageUri);
+          if (!uploadedUrl) {
+            throw new Error('Không tải được ảnh lên máy chủ');
+          }
+          payload = uploadedUrl;
+        }
+
+        const saved = await chatApi.sendMessage(room.id, payload, messageType);
+        const normalizedSaved = normalizeIncomingMessage(saved, currentUserIdRef.current);
 
         setMessages((prev) => {
-          const prevLastId = prev.length ? String(prev[prev.length - 1]?.id) : null;
-          const freshLastId = normalizedFresh.length
-            ? String(normalizedFresh[normalizedFresh.length - 1]?.id)
-            : null;
-
-          // Không có gì mới -> giữ nguyên mảng để tránh re-render/scroll nhảy
-          if (prev.length === normalizedFresh.length && prevLastId === freshLastId) {
-            return prev;
+          const withoutTemp = prev.filter((message) => message.id !== tempId);
+          if (
+            normalizedSaved.id != null &&
+            withoutTemp.some((message) => String(message.id) === String(normalizedSaved.id))
+          ) {
+            return withoutTemp;
           }
-
-          // Giữ lại tin optimistic chưa được server trả về
-          const optimistic = prev.filter(
-            (m) => m.isMe && m.senderId == null && !normalizedFresh.some((f) => f.content === m.content)
-          );
-          return [...normalizedFresh, ...optimistic];
+          return [...withoutTemp, normalizedSaved];
         });
-      } catch {
-        // Bỏ qua lỗi polling, lần sau thử lại
-      }
-    }, 5000);
-  };
 
-  // Gửi tin nhắn văn bản
-  const sendMessageInternal = async (contentToSend: string) => {
-    if (!contentToSend.trim() || !activeRoom) return;
-    const cleanText = contentToSend.trim();
-    setInputText('');
-    setSending(true);
+        updateRoomFromMessage(room.id, normalizedSaved);
 
-    const tempMsg: ChatMessage = {
-      id: Date.now(),
-      roomId: activeRoom.id,
-      content: cleanText,
-      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true,
-      messageType: 'TEXT',
-    };
-    setMessages((prev) => [...prev, tempMsg]);
-
-    try {
-      await chatApi.sendMessage(activeRoom.id, cleanText);
-
-      // Nếu là AI Bot, phản hồi tự động thông minh bằng AI thật
-      if (activeRoom.type === 'AI') {
-        setIsAiTyping(true);
-        (async () => {
-          try {
-            const aiReply = await aiService.generateText({
-              prompt: cleanText,
-              systemPrompt: 'Bạn là WanderAI, trợ lý du lịch thông minh, thân thiện của Wayfare. Hãy tư vấn điểm đến, ẩm thực, chi phí và lịch trình một cách súc tích, hấp dẫn và thiết thực bằng tiếng Việt.',
-              temperature: 0.7,
-              responseMimeType: 'text/plain',
-            });
-
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now() + 1,
-                roomId: activeRoom.id,
-                senderName: 'Trợ lý AI Wayfare',
-                senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                content: aiReply || 'Chào bạn! Tôi có thể giúp gì cho chuyến du lịch sắp tới của bạn?',
-                createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isMe: false,
-              },
-            ]);
-          } catch (aiErr: any) {
-            console.warn('AI chatbot error:', aiErr);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now() + 1,
-                roomId: activeRoom.id,
-                senderName: 'Trợ lý AI Wayfare',
-                senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                content: 'WanderAI hiện đang bận xử lý hoặc kết nối gián đoạn. Bạn vui lòng thử lại sau giây lát nhé!',
-                createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isMe: false,
-              },
-            ]);
-          } finally {
-            setIsAiTyping(false);
+        if (room.type === 'AI') {
+          if (messageType === 'TEXT') {
+            requestAiReply(room, content);
+          } else if (messageType === 'IMAGE') {
+            appendLocalAssistantMessage(
+              room,
+              'Ảnh đã được gửi đi. Bạn có muốn mình gợi ý thêm vài điểm check-in tương tự cho chuyến đi không?'
+            );
           }
-        })();
+        }
+      } catch {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === tempId
+              ? { ...message, isPending: false, isFailed: true }
+              : message
+          )
+        );
+      } finally {
+        sendingRef.current = false;
+        setSending(false);
       }
-    } catch (e) {
-      console.warn('Error sending message', e);
-    } finally {
-      setSending(false);
-    }
-  };
+    },
+    [activeRoom, appendLocalAssistantMessage, requestAiReply, scrollToBottom, updateRoomFromMessage]
+  );
 
-  // Gửi ảnh chụp từ máy
   const handlePickImage = async () => {
-    if (!activeRoom) return;
+    if (!activeRoom || sendingRef.current) return;
+
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Cần quyền truy cập', 'Vui lòng cho phép ứng dụng truy cập thư viện ảnh để gửi hình ảnh.');
+        Alert.alert(
+          'Cần quyền truy cập ảnh',
+          'Vui lòng cho phép ứng dụng truy cập thư viện ảnh để gửi hình ảnh trong cuộc trò chuyện.'
+        );
         return;
       }
 
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       });
 
-      if (!res.canceled && res.assets && res.assets[0].uri) {
-        const imageUri = res.assets[0].uri;
-        const newMsg: ChatMessage = {
-          id: Date.now(),
-          roomId: activeRoom.id,
-          content: 'Đã chia sẻ 1 bức ảnh hành trình 📸',
-          imageUrl: imageUri,
-          createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isMe: true,
-          messageType: 'IMAGE',
-        };
-        setMessages((prev) => [...prev, newMsg]);
-
-        if (activeRoom.type === 'AI') {
-          setIsAiTyping(true);
-          setTimeout(() => {
-            setIsAiTyping(false);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now() + 1,
-                roomId: activeRoom.id,
-                senderName: 'Trợ lý AI Wayfare',
-                senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                content: 'Bức ảnh chụp góc rất đẹp và ánh sáng tự nhiên tuyệt vời! Điểm check-in này rất thích hợp để đưa vào cẩm nang du lịch Wayfare của bạn. ✨',
-                createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isMe: false,
-              },
-            ]);
-          }, 800);
-        }
+      const asset = result.assets?.[0];
+      if (!result.canceled && asset?.uri) {
+        await sendMessageInternal('Hình ảnh', 'IMAGE', asset.uri);
       }
-    } catch (err) {
-      Alert.alert('Lỗi', 'Không thể chọn ảnh từ máy.');
+    } catch {
+      Alert.alert('Không chọn được ảnh', 'Vui lòng thử lại sau ít phút.');
     }
   };
 
-  const handleClearChat = () => {
-    Alert.alert('Xóa cuộc trò chuyện', 'Bạn có chắc chắn muốn xóa tin nhắn trong phòng này không?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: () => setMessages([]),
-      },
-    ]);
+  const handleRetry = (failed: ChatMessage) => {
+    if (!activeRoom) return;
+    const type = failed.messageType || 'TEXT';
+    const isLocalUri = type === 'IMAGE' && !/^https?:\/\//i.test(failed.content);
+
+    setMessages((prev) => prev.filter((message) => message.id !== failed.id));
+    sendMessageInternal(
+      isLocalUri ? 'Hình ảnh' : failed.content,
+      type,
+      isLocalUri ? failed.content : undefined
+    );
   };
 
-  // Filtered rooms
+  const handleClearChat = () => {
+    Alert.alert(
+      'Xoá lịch sử trò chuyện?',
+      'Tin nhắn chỉ bị xoá khỏi thiết bị này. Những người khác trong cuộc trò chuyện vẫn giữ nguyên.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xoá',
+          style: 'destructive',
+          onPress: () => setMessages([]),
+        },
+      ]
+    );
+  };
+
+  // ── Derived data ──────────────────────────────────────────
+  const aiRoom = useMemo(() => rooms.find((room) => room.type === 'AI'), [rooms]);
+
+  const counts = useMemo(
+    () => ({
+      all: rooms.length,
+      unread: rooms.filter((room) => (room.unreadCount || 0) > 0).length,
+      ai: rooms.filter((room) => room.type === 'AI').length,
+      group: rooms.filter((room) => room.type === 'GROUP' || room.type === 'ITINERARY').length,
+      direct: rooms.filter((room) => room.type === 'DIRECT').length,
+    }),
+    [rooms]
+  );
+
+  const unreadTotal = useMemo(
+    () => rooms.reduce((total, room) => total + (room.unreadCount || 0), 0),
+    [rooms]
+  );
+
   const filteredRooms = useMemo(() => {
-    return rooms.filter((r) => {
-      // Type filter
-      if (activeFilter === 'ai' && r.type !== 'AI') return false;
-      if (activeFilter === 'group' && r.type !== 'GROUP') return false;
-      if (activeFilter === 'direct' && (r.type === 'AI' || r.type === 'GROUP')) return false;
+    const query = normalizeVi(searchQuery);
 
-      // Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = (r.name || '').toLowerCase().includes(q);
-        const matchLast = (r.lastMessage || '').toLowerCase().includes(q);
-        return matchName || matchLast;
-      }
-      return true;
+    return rooms.filter((room) => {
+      let matchesFilter = true;
+      if (activeFilter === 'unread') matchesFilter = (room.unreadCount || 0) > 0;
+      else if (activeFilter === 'ai') matchesFilter = room.type === 'AI';
+      else if (activeFilter === 'group') {
+        matchesFilter = room.type === 'GROUP' || room.type === 'ITINERARY';
+      } else if (activeFilter === 'direct') matchesFilter = room.type === 'DIRECT';
+
+      if (!matchesFilter) return false;
+      if (!query) return true;
+
+      return (
+        normalizeVi(room.name).includes(query) ||
+        normalizeVi(room.lastMessage).includes(query)
+      );
     });
-  }, [rooms, activeFilter, searchQuery]);
+  }, [activeFilter, rooms, searchQuery]);
 
-  const aiBotRoom = useMemo(() => rooms.find((r) => r.type === 'AI') || rooms[0], [rooms]);
+  const roomItems = useMemo<RoomListItem[]>(() => {
+    const items: RoomListItem[] = [];
+    let currentGroup = '';
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalRoot, { paddingTop: insets.top }]}>
-        
-        {/* ========================================================= */}
-        {/* 1. TOP PREMIUM HEADER BAR                                 */}
-        {/* ========================================================= */}
-        <View style={styles.topHeader}>
-          {/* Left Action Button (Back or Close) */}
-          <TouchableOpacity
-            style={styles.headerCircleBtn}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (activeRoom) {
-                stopRoomRealtime();
-                setActiveRoom(null);
-              } else {
-                onClose();
-              }
-            }}>
-            <FontAwesome
-              name={activeRoom ? 'chevron-left' : 'times'}
-              size={15}
-              color="#0F172A"
-            />
-          </TouchableOpacity>
+    filteredRooms.forEach((room) => {
+      const group = roomDateGroup(room);
+      if (group !== currentGroup) {
+        currentGroup = group;
+        items.push({
+          kind: 'section',
+          key: `section-${group}-${items.length}`,
+          label: group,
+          count: filteredRooms.filter((item) => roomDateGroup(item) === group).length,
+        });
+      }
+      items.push({ kind: 'room', key: `room-${room.id}`, room });
+    });
 
-          {/* Center Info */}
-          {activeRoom ? (
-            <View style={styles.activeHeaderInfo}>
-              <View style={styles.avatarMiniWrapper}>
-                <Image source={{ uri: activeRoom.avatarUrl }} style={styles.activeHeaderAvatar} />
-                <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Text style={styles.activeHeaderTitle} numberOfLines={1}>
-                    {activeRoom.name}
-                  </Text>
-                  {activeRoom.type === 'AI' && (
-                    <View style={styles.aiBadgePill}>
-                      <Text style={styles.aiBadgePillText}>AI Bot</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.activeHeaderSub} numberOfLines={1}>
-                  {activeRoom.type === 'AI' ? 'Trợ lý du lịch 24/7 • Phản hồi tức thì' : 'Đang hoạt động trên Wayfare'}
-                </Text>
-              </View>
+    return items;
+  }, [filteredRooms]);
+
+  const chatItems = useMemo(
+    () => buildChatItems(messages, activeRoom?.type !== 'DIRECT'),
+    [activeRoom?.type, messages]
+  );
+
+  // ── Renderers ─────────────────────────────────────────────
+  const openItinerary = (itinerary: ItineraryItem) => {
+    setSelectedItinForModal(itinerary);
+    setItinModalVisible(true);
+  };
+
+  const openAttachment = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Không mở được liên kết', 'Vui lòng thử lại trên trình duyệt.');
+    }
+  };
+
+  const renderItineraryCard = (message: ChatMessage) => {
+    const payload = message.itineraryData || parseItineraryPayload(message.content);
+    if (!payload) {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.attachmentCard}
+          onPress={() => openAttachment(message.content)}>
+          <View style={styles.attachmentIcon}>
+            <FontAwesome name="map-o" size={15} color={WF_COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.attachmentTitle}>Lịch trình được chia sẻ</Text>
+            <Text style={styles.attachmentSubtitle} numberOfLines={1}>
+              Bấm để xem chi tiết
+            </Text>
+          </View>
+          <FontAwesome name="angle-right" size={15} color={WF_COLORS.slate400} />
+        </TouchableOpacity>
+      );
+    }
+
+    const cover = payload.coverImageUrl || '';
+    const destination = payload.destination || 'Việt Nam';
+    const duration =
+      payload.duration ||
+      (payload.daysCount ? `${payload.daysCount} ngày` : 'Nhiều ngày');
+    const budget = Number(payload.budgetTotal || 0);
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={styles.itineraryCard}
+        onPress={() => {
+          if (payload.id && payload.title && payload.destination) {
+            openItinerary(payload as ItineraryItem);
+          }
+        }}>
+        {!!cover && (
+          <Image source={{ uri: cover }} style={styles.itineraryCover} resizeMode="cover" />
+        )}
+        <View style={styles.itineraryBody}>
+          <View style={styles.itineraryTopRow}>
+            <View style={styles.itineraryDestinationPill}>
+              <FontAwesome
+                name="map-marker"
+                size={9}
+                color={WF_COLORS.white}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.itineraryDestinationText} numberOfLines={1}>
+                {destination}
+              </Text>
             </View>
-          ) : (
-            <View style={styles.roomListHeaderCenter}>
-              <View style={styles.headerIconBadge}>
-                <FontAwesome name="comments" size={16} color="#0284C7" />
-              </View>
-              <View>
-                <Text style={styles.mainHeaderTitle}>Hộp Thư & Chat</Text>
-                <View style={styles.liveIndicatorRow}>
-                  <Animated.View style={[styles.pulseLiveDot, { transform: [{ scale: pulseAnim }] }]} />
-                  <Text style={styles.liveIndicatorText}>Trực tuyến • Kết nối thời gian thực</Text>
+            <Text style={styles.itineraryDuration}>{duration}</Text>
+          </View>
+          <Text style={styles.itineraryTitle} numberOfLines={2}>
+            {payload.title || 'Lịch trình du lịch'}
+          </Text>
+          <View style={styles.itineraryBottomRow}>
+            <Text style={styles.itineraryBudget}>
+              {budget > 0 ? `~${budget.toLocaleString('vi-VN')} đ/người` : 'Chi phí linh hoạt'}
+            </Text>
+            <View style={styles.itineraryLink}>
+              <Text style={styles.itineraryLinkText}>Xem chi tiết</Text>
+              <FontAwesome
+                name="arrow-right"
+                size={9}
+                color={WF_COLORS.primary}
+                style={{ marginLeft: 4 }}
+              />
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderMessageContent = (message: ChatMessage, isMe: boolean) => {
+    if (message.messageType === 'IMAGE') {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setPreviewImage(message.content)}
+          disabled={!message.content || message.isFailed}
+          style={styles.imageWrap}>
+          <Image source={{ uri: message.content }} style={styles.imageBubble} resizeMode="cover" />
+          {message.isPending && (
+            <View style={styles.imageOverlay}>
+              <ActivityIndicator size="small" color={WF_COLORS.white} />
+              <Text style={styles.imageOverlayText}>Đang gửi...</Text>
+            </View>
+          )}
+          {message.isFailed && (
+            <View style={styles.imageOverlay}>
+              <FontAwesome name="exclamation-circle" size={18} color={WF_COLORS.white} />
+              <Text style={styles.imageOverlayText}>Gửi thất bại</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    if (message.messageType === 'ITINERARY') {
+      return renderItineraryCard(message);
+    }
+
+    if (
+      message.messageType === 'VIDEO' ||
+      message.messageType === 'AUDIO' ||
+      message.messageType === 'VOICE' ||
+      message.messageType === 'FILE' ||
+      message.messageType === 'LOCATION'
+    ) {
+      const config: Record<
+        string,
+        { icon: React.ComponentProps<typeof FontAwesome>['name']; title: string; subtitle: string }
+      > = {
+        VIDEO: { icon: 'play-circle', title: 'Video', subtitle: 'Bấm để xem video' },
+        AUDIO: { icon: 'music', title: 'Tin nhắn thoại', subtitle: 'Bấm để nghe' },
+        VOICE: { icon: 'music', title: 'Tin nhắn thoại', subtitle: 'Bấm để nghe' },
+        FILE: { icon: 'file-o', title: 'Tệp đính kèm', subtitle: 'Bấm để mở tệp' },
+        LOCATION: { icon: 'map-marker', title: 'Vị trí', subtitle: 'Bấm để xem trên bản đồ' },
+      };
+      const item = config[message.messageType || 'FILE'];
+      return (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.attachmentCard, isMe && styles.attachmentCardMe]}
+          onPress={() => openAttachment(message.content)}>
+          <View style={[styles.attachmentIcon, isMe && styles.attachmentIconMe]}>
+            <FontAwesome
+              name={item.icon}
+              size={15}
+              color={isMe ? WF_COLORS.white : WF_COLORS.primary}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.attachmentTitle, isMe && styles.attachmentTextMe]}>
+              {item.title}
+            </Text>
+            <Text
+              style={[styles.attachmentSubtitle, isMe && styles.attachmentSubtitleMe]}
+              numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+          </View>
+          <FontAwesome
+            name="angle-right"
+            size={15}
+            color={isMe ? 'rgba(255,255,255,0.7)' : WF_COLORS.slate400}
+          />
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextOther]}>
+        {message.content}
+      </Text>
+    );
+  };
+
+  const renderChatItem = ({ item }: { item: ChatListItem }) => {
+    if (item.kind === 'date') {
+      return (
+        <View style={styles.dateRow}>
+          <View style={styles.dateLine} />
+          <Text style={styles.dateLabel}>{item.label}</Text>
+          <View style={styles.dateLine} />
+        </View>
+      );
+    }
+
+    const { message, isFirstInGroup, isLastInGroup, showAvatar, showSenderName } = item;
+    const isMe = !!message.isMe;
+
+    if (message.messageType === 'SYSTEM') {
+      return (
+        <View style={styles.systemRow}>
+          <Text style={styles.systemText}>{message.content}</Text>
+        </View>
+      );
+    }
+
+    const senderName =
+      message.senderName ||
+      (activeRoom?.type === 'AI' ? 'Trợ lý du lịch' : activeRoom?.name || 'Thành viên');
+
+    const bubbleShape = isMe
+      ? {
+          borderTopRightRadius: isFirstInGroup ? 18 : 7,
+          borderBottomRightRadius: isLastInGroup ? 6 : 7,
+        }
+      : {
+          borderTopLeftRadius: isFirstInGroup ? 18 : 7,
+          borderBottomLeftRadius: isLastInGroup ? 6 : 7,
+        };
+
+    return (
+      <View style={[styles.messageRow, isMe ? styles.messageRowMe : styles.messageRowOther]}>
+        {!isMe && (
+          <View style={styles.avatarSlot}>
+            {showAvatar ? (
+              <Image
+                source={{
+                  uri: message.senderAvatar || activeRoom?.avatarUrl || FALLBACK_AVATAR,
+                }}
+                style={styles.messageAvatar}
+              />
+            ) : null}
+          </View>
+        )}
+
+        <View style={[styles.messageColumn, isMe && styles.messageColumnMe]}>
+          {showSenderName && (
+            <View style={styles.senderRow}>
+              <Text style={styles.senderName} numberOfLines={1}>
+                {senderName}
+              </Text>
+              {activeRoom?.type === 'AI' && !message.isMe && (
+                <View style={styles.assistantBadge}>
+                  <FontAwesome name="compass" size={7} color="#B45309" />
+                  <Text style={styles.assistantBadgeText}>Trợ lý</Text>
                 </View>
-              </View>
+              )}
             </View>
           )}
 
-          {/* Right Action Button */}
-          {activeRoom ? (
-            <View style={styles.headerRightRow}>
-              <TouchableOpacity
-                style={styles.headerCircleBtn}
-                activeOpacity={0.8}
-                onPress={handleClearChat}>
-                <FontAwesome name="trash-o" size={15} color="#EF4444" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.headerCircleBtn, { marginLeft: 8 }]}
-                activeOpacity={0.8}
-                onPress={onClose}>
-                <FontAwesome name="times" size={15} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-          ) : (
+          <View
+            style={[
+              styles.bubble,
+              isMe ? styles.bubbleMe : styles.bubbleOther,
+              bubbleShape,
+              message.messageType === 'IMAGE' && styles.bubbleImage,
+            ]}>
+            {renderMessageContent(message, isMe)}
+
+            {isLastInGroup && (
+              <View style={styles.bubbleMeta}>
+                <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>
+                  {message.time || ''}
+                </Text>
+                {isMe &&
+                  (message.isPending ? (
+                    <FontAwesome
+                      name="clock-o"
+                      size={9}
+                      color="rgba(255,255,255,0.75)"
+                      style={{ marginLeft: 4 }}
+                    />
+                  ) : message.isFailed ? (
+                    <FontAwesome
+                      name="exclamation-circle"
+                      size={9}
+                      color="#FECACA"
+                      style={{ marginLeft: 4 }}
+                    />
+                  ) : (
+                    <FontAwesome
+                      name="check"
+                      size={9}
+                      color="rgba(255,255,255,0.8)"
+                      style={{ marginLeft: 4 }}
+                    />
+                  ))}
+              </View>
+            )}
+          </View>
+
+          {message.isFailed && (
             <TouchableOpacity
-              style={styles.headerCircleBtn}
-              activeOpacity={0.8}
-              onPress={onClose}>
-              <FontAwesome name="times" size={15} color="#64748B" />
+              activeOpacity={0.7}
+              style={styles.retryRow}
+              onPress={() => handleRetry(message)}>
+              <FontAwesome name="refresh" size={9} color="#DC2626" />
+              <Text style={styles.retryText}>Gửi lại</Text>
             </TouchableOpacity>
           )}
         </View>
+      </View>
+    );
+  };
 
-        {/* ========================================================= */}
-        {/* 2. BODY CONTENT: ROOMS LIST OR ACTIVE CHAT THREAD        */}
-        {/* ========================================================= */}
-        {!activeRoom ? (
-          <View style={styles.roomsMainContainer}>
-            
-            {/* WanderAI Concierge Hero Card */}
-            {aiBotRoom && (
-              <TouchableOpacity
-                activeOpacity={0.92}
-                onPress={() => handleSelectRoom(aiBotRoom)}
-                style={styles.aiHeroCard}>
-                <View style={styles.aiHeroLeft}>
-                  <View style={styles.aiHeroAvatarRing}>
-                    <Image
-                      source={{
-                        uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                      }}
-                      style={styles.aiHeroAvatar}
-                    />
-                    <View style={styles.aiHeroSparkle}>
-                      <FontAwesome name="magic" size={10} color="#FFFFFF" />
-                    </View>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.aiHeroTitleRow}>
-                      <Text style={styles.aiHeroTitle}>WanderAI Concierge</Text>
-                      <View style={styles.aiHeroStatusPill}>
-                        <View style={styles.greenPulse} />
-                        <Text style={styles.aiHeroStatusText}>Sẵn sàng</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.aiHeroDesc} numberOfLines={2}>
-                      Hỏi đáp cẩm nang, gợi ý quán ngon và săn tour trọn gói tức thì 24/7!
-                    </Text>
-                  </View>
+  const renderRoomItem = ({ item }: { item: RoomListItem }) => {
+    if (item.kind === 'section') {
+      return (
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionLabel}>{item.label}</Text>
+          <Text style={styles.sectionCount}>{item.count}</Text>
+        </View>
+      );
+    }
+
+    const { room } = item;
+    const unread = room.unreadCount || 0;
+    const isGroup = room.type === 'GROUP' || room.type === 'ITINERARY';
+    const isAi = room.type === 'AI';
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={styles.roomRow}
+        onPress={() => handleSelectRoom(room)}
+        accessibilityRole="button"
+        accessibilityLabel={`Mở cuộc trò chuyện ${room.name}`}>
+        <View style={styles.roomAvatarWrap}>
+          <Image
+            source={{ uri: room.avatarUrl || FALLBACK_AVATAR }}
+            style={[styles.roomAvatar, unread > 0 && styles.roomAvatarUnread]}
+          />
+
+          {isAi && (
+            <View style={styles.roomAvatarBadgeAi}>
+              <FontAwesome name="compass" size={8} color={WF_COLORS.white} />
+            </View>
+          )}
+
+          {isGroup && (
+            <View style={styles.roomAvatarBadgeGroup}>
+              <FontAwesome name="users" size={7} color={WF_COLORS.white} />
+            </View>
+          )}
+
+          {!isAi && !isGroup && room.isOnline && <View style={styles.roomOnlineDot} />}
+        </View>
+
+        <View style={styles.roomBody}>
+          <View style={styles.roomTopRow}>
+            <View style={styles.roomNameRow}>
+              <Text
+                style={[styles.roomName, unread > 0 && styles.roomNameUnread]}
+                numberOfLines={1}>
+                {room.name}
+              </Text>
+              {isAi && (
+                <View style={styles.roomTypePill}>
+                  <Text style={styles.roomTypePillText}>Trợ lý</Text>
                 </View>
-                <View style={styles.aiHeroArrow}>
-                  <FontAwesome name="chevron-right" size={12} color="#0284C7" />
+              )}
+            </View>
+            <Text style={[styles.roomTime, unread > 0 && styles.roomTimeUnread]}>
+              {room.lastMessageTime || ''}
+            </Text>
+          </View>
+
+          <View style={styles.roomBottomRow}>
+            <Text
+              style={[styles.roomSnippet, unread > 0 && styles.roomSnippetUnread]}
+              numberOfLines={1}>
+              {room.lastMessage || 'Bắt đầu cuộc trò chuyện'}
+            </Text>
+            {unread > 0 && (
+              <View style={styles.unreadPill}>
+                <Text style={styles.unreadPillText}>{unread > 99 ? '99+' : unread}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const canSend = inputText.trim().length > 0 && !sending;
+  const showQuickPrompts =
+    activeRoom?.type === 'AI' && !inputText.trim() && !loadingMessages;
+
+  const threadSubtitle = (() => {
+    if (!activeRoom) return '';
+    if (activeRoom.type === 'AI') return 'Trợ lý du lịch · Luôn sẵn sàng';
+    if (activeRoom.type === 'GROUP' || activeRoom.type === 'ITINERARY') {
+      const count = activeRoom.membersCount;
+      return count ? `${count} thành viên` : 'Nhóm trò chuyện';
+    }
+    return activeRoom.statusText || (activeRoom.isOnline ? 'Đang hoạt động' : 'Ngoại tuyến');
+  })();
+
+  // ── UI ────────────────────────────────────────────────────
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={activeRoom ? handleBack : handleClose}>
+      <View style={styles.root}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          {activeRoom ? (
+            <>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                activeOpacity={0.8}
+                onPress={handleBack}
+                accessibilityRole="button"
+                accessibilityLabel="Quay lại danh sách trò chuyện">
+                <FontAwesome name="chevron-left" size={15} color={WF_COLORS.slate700} />
+              </TouchableOpacity>
+
+              <View style={styles.threadHeaderCenter}>
+                <View style={styles.threadAvatarWrap}>
+                  <Image
+                    source={{ uri: activeRoom.avatarUrl || FALLBACK_AVATAR }}
+                    style={styles.threadAvatar}
+                  />
+                  {activeRoom.type !== 'AI' &&
+                    activeRoom.type !== 'GROUP' &&
+                    activeRoom.type !== 'ITINERARY' &&
+                    activeRoom.isOnline && <View style={styles.threadOnlineDot} />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.threadTitle} numberOfLines={1}>
+                    {activeRoom.name}
+                  </Text>
+                  <Text style={styles.threadSubtitle} numberOfLines={1}>
+                    {threadSubtitle}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                activeOpacity={0.8}
+                onPress={handleClearChat}
+                accessibilityRole="button"
+                accessibilityLabel="Xoá lịch sử trò chuyện trên thiết bị">
+                <FontAwesome name="trash-o" size={15} color={WF_COLORS.slate500} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.headerEyebrow}>WAYFARE</Text>
+                <Text style={styles.headerTitle}>Tin nhắn</Text>
+                <Text style={styles.headerSubtitle}>
+                  {loadingRooms && rooms.length === 0
+                    ? 'Đang đồng bộ hộp thư...'
+                    : unreadTotal > 0
+                      ? `${unreadTotal} tin nhắn chưa đọc`
+                      : `${rooms.length} cuộc trò chuyện`}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.composeBtn}
+                activeOpacity={0.85}
+                onPress={() => setIsNewChatOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Bắt đầu cuộc trò chuyện mới">
+                <FontAwesome name="pencil" size={15} color={WF_COLORS.white} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.headerIconBtn, { marginLeft: 8 }]}
+                activeOpacity={0.8}
+                onPress={handleClose}
+                accessibilityRole="button"
+                accessibilityLabel="Đóng hộp thư">
+                <FontAwesome name="times" size={15} color={WF_COLORS.slate500} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {!activeRoom ? (
+          <View style={styles.roomsScreen}>
+            {/* Travel assistant hero */}
+            {aiRoom && (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.assistantCard}
+                onPress={() => handleSelectRoom(aiRoom)}>
+                <View style={styles.assistantIcon}>
+                  <FontAwesome name="compass" size={20} color="#B45309" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.assistantTitle}>Trợ lý du lịch</Text>
+                  <Text style={styles.assistantDesc} numberOfLines={2}>
+                    Gợi ý lịch trình, món ngon và chi phí cho chuyến đi của bạn
+                  </Text>
+                </View>
+                <View style={styles.assistantCta}>
+                  <Text style={styles.assistantCtaText}>Hỏi ngay</Text>
+                  <FontAwesome
+                    name="long-arrow-right"
+                    size={11}
+                    color="#B45309"
+                    style={{ marginLeft: 5 }}
+                  />
                 </View>
               </TouchableOpacity>
             )}
 
-            {/* Clean Rounded Search Bar */}
-            <View style={styles.searchSection}>
-              <View style={styles.searchBox}>
-                <FontAwesome name="search" size={13} color="#94A3B8" style={{ marginRight: 8 }} />
-                <TextInput
-                  placeholder="Tìm kiếm người bạn du lịch, nhóm chat..."
-                  placeholderTextColor="#94A3B8"
-                  style={styles.searchInput}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <FontAwesome name="times-circle" size={14} color="#94A3B8" />
-                  </TouchableOpacity>
-                )}
-              </View>
+            {/* Search */}
+            <View style={styles.searchBox}>
+              <FontAwesome name="search" size={13} color={WF_COLORS.slate400} />
+              <TextInput
+                style={[styles.searchInput, WEB_NO_OUTLINE]}
+                placeholder="Tìm cuộc trò chuyện..."
+                placeholderTextColor={WF_COLORS.slate400}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+                  <FontAwesome name="times-circle" size={15} color={WF_COLORS.slate400} />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Filter Segment Tabs */}
-            <View style={styles.filterScrollWrapper}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                {[
-                  { id: 'all', label: 'Tất cả' },
-                  { id: 'ai', label: 'Trợ lý AI 🤖' },
-                  { id: 'group', label: 'Nhóm du lịch 👥' },
-                  { id: 'direct', label: 'Bạn bè 💬' },
-                ].map((f) => {
-                  const isActive = activeFilter === f.id;
-                  return (
+            {/* Filters */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+              contentContainerStyle={styles.filterRow}>
+              {(
+                [
+                  { id: 'all', label: 'Tất cả', count: counts.all },
+                  { id: 'unread', label: 'Chưa đọc', count: counts.unread },
+                  { id: 'ai', label: 'Trợ lý', count: counts.ai },
+                  { id: 'group', label: 'Nhóm', count: counts.group },
+                  { id: 'direct', label: 'Bạn bè', count: counts.direct },
+                ] as const
+              ).map((filter) => {
+                const isActive = activeFilter === filter.id;
+                return (
+                  <Animated.View
+                    key={filter.id}
+                    style={
+                      filter.id === 'unread' && isActive
+                        ? { transform: [{ scale: filterPulse }] }
+                        : undefined
+                    }>
                     <TouchableOpacity
-                      key={f.id}
                       activeOpacity={0.8}
-                      onPress={() => setActiveFilter(f.id as any)}
-                      style={[styles.filterChip, isActive && styles.filterChipActive]}>
-                      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                        {f.label}
+                      onPress={() => setActiveFilter(filter.id)}
+                      style={[styles.filterChip, isActive && styles.filterChipActive]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Lọc ${filter.label}`}>
+                      <Text
+                        style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                        {filter.label}
                       </Text>
+                      {filter.count > 0 && (
+                        <View
+                          style={[styles.filterCount, isActive && styles.filterCountActive]}>
+                          <Text
+                            style={[
+                              styles.filterCountText,
+                              isActive && styles.filterCountTextActive,
+                            ]}>
+                            {filter.count}
+                          </Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+                  </Animated.View>
+                );
+              })}
+            </ScrollView>
 
-            {/* Rooms List */}
-            {loadingRooms ? (
-              <View style={styles.loadingCenterBox}>
-                <ActivityIndicator size="large" color={WF_COLORS.primary} />
-                <Text style={styles.loadingSubText}>Đang tải danh sách hộp thư...</Text>
+            {roomsError && !loadingRooms ? (
+              <View style={styles.errorBanner}>
+                <FontAwesome name="wifi" size={13} color="#B91C1C" />
+                <Text style={styles.errorBannerText}>{roomsError}</Text>
+                <TouchableOpacity onPress={() => loadRooms()} hitSlop={8}>
+                  <Text style={styles.errorRetry}>Thử lại</Text>
+                </TouchableOpacity>
               </View>
-            ) : filteredRooms.length === 0 ? (
-              <View style={styles.emptyRoomsBox}>
-                <View style={styles.emptyIconCircle}>
-                  <FontAwesome name="comments-o" size={32} color="#94A3B8" />
-                </View>
-                <Text style={styles.emptyRoomsTitle}>Không tìm thấy cuộc trò chuyện</Text>
-                <Text style={styles.emptyRoomsDesc}>
-                  Thử tìm kiếm theo tên khác hoặc bấm trò chuyện cùng WanderAI để nhận gợi ý du lịch nhé!
-                </Text>
-              </View>
+            ) : null}
+
+            {loadingRooms && rooms.length === 0 ? (
+              <RoomsSkeleton />
             ) : (
               <FlatList
-                data={filteredRooms}
-                keyExtractor={(item) => String(item.id)}
+                data={roomItems}
+                keyExtractor={(item) => item.key}
+                renderItem={renderRoomItem}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.roomsList}
-                renderItem={({ item }) => {
-                  const isAI = item.type === 'AI';
-                  const isGroup = item.type === 'GROUP';
-
-                  return (
+                contentContainerStyle={[
+                  styles.roomList,
+                  roomItems.length === 0 && styles.roomListEmpty,
+                ]}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshingRooms}
+                    onRefresh={handleRefreshRooms}
+                    tintColor={WF_COLORS.primary}
+                    colors={[WF_COLORS.primary]}
+                  />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyBox}>
+                    <View style={styles.emptyIcon}>
+                      <FontAwesome
+                        name="comments-o"
+                        size={28}
+                        color={WF_COLORS.primary}
+                      />
+                    </View>
+                    <Text style={styles.emptyTitle}>
+                      {rooms.length === 0
+                        ? 'Hộp thư đang trống'
+                        : 'Không tìm thấy cuộc trò chuyện'}
+                    </Text>
+                    <Text style={styles.emptyDesc}>
+                      {rooms.length === 0
+                        ? 'Bắt đầu trò chuyện với một người bạn hoặc hỏi trợ lý du lịch để lên ý tưởng cho chuyến đi.'
+                        : 'Thử từ khoá khác hoặc xoá bộ lọc để xem tất cả cuộc trò chuyện.'}
+                    </Text>
                     <TouchableOpacity
-                      activeOpacity={0.75}
-                      style={styles.roomItemCard}
-                      onPress={() => handleSelectRoom(item)}>
-                      {/* Avatar */}
-                      <View style={styles.roomAvatarWrapper}>
-                        <Image source={{ uri: item.avatarUrl }} style={styles.roomAvatarImage} />
-                        <View style={[styles.roomOnlineDot, isAI && { backgroundColor: '#F59E0B' }]} />
-                        {isGroup && (
-                          <View style={styles.groupBadgeMini}>
-                            <FontAwesome name="users" size={8} color="#FFFFFF" />
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Content */}
-                      <View style={styles.roomItemBody}>
-                        <View style={styles.roomItemTopRow}>
-                          <Text style={styles.roomItemName} numberOfLines={1}>
-                            {item.name}
-                          </Text>
-                          <Text style={styles.roomItemTime}>{item.lastMessageTime || 'Vừa xong'}</Text>
-                        </View>
-                        <View style={styles.roomItemBottomRow}>
-                          <Text style={styles.roomItemSnippet} numberOfLines={1}>
-                            {item.lastMessage || 'Bắt đầu cuộc trò chuyện...'}
-                          </Text>
-                          {(item.unreadCount ?? 0) > 0 && (
-                            <View style={styles.unreadPill}>
-                              <Text style={styles.unreadPillText}>{item.unreadCount}</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
+                      activeOpacity={0.85}
+                      style={styles.emptyAction}
+                      onPress={() => {
+                        if (rooms.length === 0) {
+                          setIsNewChatOpen(true);
+                        } else {
+                          setSearchQuery('');
+                          setActiveFilter('all');
+                        }
+                      }}>
+                      <Text style={styles.emptyActionText}>
+                        {rooms.length === 0 ? 'Bắt đầu trò chuyện' : 'Xoá bộ lọc'}
+                      </Text>
                     </TouchableOpacity>
-                  );
-                }}
+                  </View>
+                }
               />
             )}
           </View>
         ) : (
-          /* ========================================================= */
-          /* 3. ACTIVE CHAT THREAD VIEW                                */
-          /* ========================================================= */
+          /* ── Thread ─────────────────────────────────────── */
           <KeyboardAvoidingView
-            style={styles.chatThreadMain}
+            style={styles.threadScreen}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-            
-            {loadingMessages ? (
-              <View style={styles.loadingCenterBox}>
-                <ActivityIndicator size="large" color={WF_COLORS.primary} />
-                <Text style={styles.loadingSubText}>Đang nạp lịch sử tin nhắn...</Text>
-              </View>
-            ) : (
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={(item, index) => String(item.id || index)}
-                contentContainerStyle={styles.messagesScrollList}
-                showsVerticalScrollIndicator={false}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                renderItem={({ item }) => {
-                  const isMe = item.isMe;
-                  const isAiSender = !isMe && activeRoom.type === 'AI';
-
-                  return (
-                    <View style={[styles.msgRowWrapper, isMe ? styles.msgRowMe : styles.msgRowOther]}>
-                      {!isMe && (
+            <View style={styles.threadBody}>
+              {loadingMessages ? (
+                <MessagesSkeleton />
+              ) : messagesError ? (
+                <View style={styles.threadError}>
+                  <View style={styles.threadErrorIcon}>
+                    <FontAwesome name="wifi" size={22} color="#B91C1C" />
+                  </View>
+                  <Text style={styles.threadErrorTitle}>Không tải được tin nhắn</Text>
+                  <Text style={styles.threadErrorDesc}>{messagesError}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={styles.threadErrorBtn}
+                    onPress={() => handleSelectRoom(activeRoom)}>
+                    <Text style={styles.threadErrorBtnText}>Thử lại</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <FlatList
+                  ref={listRef}
+                  data={chatItems}
+                  keyExtractor={(item) => item.key}
+                  renderItem={renderChatItem}
+                  contentContainerStyle={[
+                    styles.messageList,
+                    chatItems.length === 0 && styles.messageListEmpty,
+                  ]}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                  onScroll={handleMessagesScroll}
+                  scrollEventThrottle={16}
+                  onContentSizeChange={() => {
+                    if (nearBottomRef.current) {
+                      listRef.current?.scrollToEnd({ animated: true });
+                    }
+                  }}
+                  ListFooterComponent={
+                    isAiTyping ? (
+                      <View style={styles.typingRow}>
                         <Image
-                          source={{
-                            uri:
-                              item.senderAvatar ||
-                              activeRoom.avatarUrl ||
-                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                          }}
-                          style={styles.senderAvatarImage}
+                          source={{ uri: activeRoom.avatarUrl || AI_FALLBACK_AVATAR }}
+                          style={styles.typingAvatar}
                         />
-                      )}
-
-                      <View style={[styles.bubbleContainer, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-                        {!isMe && (
-                          <View style={styles.senderBadgeRow}>
-                            <Text style={styles.senderNameText}>
-                              {item.senderName || activeRoom.name}
-                            </Text>
-                            {isAiSender && (
-                              <View style={styles.aiSenderBadge}>
-                                <FontAwesome name="magic" size={8} color="#D97706" style={{ marginRight: 3 }} />
-                                <Text style={styles.aiSenderBadgeText}>AI Trợ lý</Text>
-                              </View>
-                            )}
-                          </View>
-                        )}
-
-                        {/* Image message */}
-                        {item.imageUrl && (
-                          <Image
-                            source={{ uri: item.imageUrl }}
-                            style={styles.bubbleImagePreview}
-                            resizeMode="cover"
-                          />
-                        )}
-
-                        {/* Text message */}
-                        <Text style={[styles.bubbleContentText, isMe ? styles.bubbleContentMe : styles.bubbleContentOther]}>
-                          {item.content}
-                        </Text>
-
-                        {/* Embedded Itinerary Card (nếu AI đính kèm lịch trình) */}
-                        {item.itineraryData && (
-                          <TouchableOpacity
-                            activeOpacity={0.88}
-                            onPress={() => {
-                              setSelectedItinForModal(item.itineraryData);
-                              setItinModalVisible(true);
-                            }}
-                            style={styles.chatItineraryCard}>
-                            <Image
-                              source={{ uri: item.itineraryData.coverImageUrl }}
-                              style={styles.chatItinCover}
-                              resizeMode="cover"
-                            />
-                            <View style={styles.chatItinBody}>
-                              <View style={styles.chatItinHeaderRow}>
-                                <View style={styles.chatItinDestBadge}>
-                                  <FontAwesome name="map-marker" size={10} color="#FFFFFF" style={{ marginRight: 4 }} />
-                                  <Text style={styles.chatItinDestText}>{item.itineraryData.destination}</Text>
-                                </View>
-                                <Text style={styles.chatItinDuration}>
-                                  {item.itineraryData.daysCount ? `${item.itineraryData.daysCount}N${item.itineraryData.daysCount - 1}Đ` : '3N2Đ'}
-                                </Text>
-                              </View>
-                              <Text style={styles.chatItinTitle} numberOfLines={2}>
-                                {item.itineraryData.title}
-                              </Text>
-                              <View style={styles.chatItinBottomRow}>
-                                <Text style={styles.chatItinBudget}>
-                                  ~{Number(item.itineraryData.budgetTotal || 3500000).toLocaleString('vi-VN')} đ/người
-                                </Text>
-                                <View style={styles.chatItinActionBtn}>
-                                  <Text style={styles.chatItinActionText}>Xem chi tiết</Text>
-                                  <FontAwesome name="arrow-right" size={10} color="#0284C7" style={{ marginLeft: 4 }} />
-                                </View>
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                        )}
-
-                        {/* Footer Time & Status */}
-                        <View style={styles.bubbleFooterRow}>
-                          <Text style={[styles.bubbleTimeText, isMe ? styles.bubbleTimeMe : styles.bubbleTimeOther]}>
-                            {item.createdAt}
-                          </Text>
-                          {isMe && (
-                            <FontAwesome name="check" size={10} color="rgba(255, 255, 255, 0.8)" style={{ marginLeft: 4 }} />
-                          )}
+                        <View style={styles.typingBubble}>
+                          <TypingDots />
+                          <Text style={styles.typingLabel}>Đang soạn...</Text>
                         </View>
                       </View>
+                    ) : null
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.threadEmpty}>
+                      <View style={styles.threadEmptyIcon}>
+                        <FontAwesome
+                          name={activeRoom.type === 'AI' ? 'compass' : 'comments-o'}
+                          size={26}
+                          color={WF_COLORS.primary}
+                        />
+                      </View>
+                      <Text style={styles.threadEmptyTitle}>
+                        {activeRoom.type === 'AI'
+                          ? 'Bắt đầu trò chuyện với trợ lý'
+                          : 'Chưa có tin nhắn nào'}
+                      </Text>
+                      <Text style={styles.threadEmptyDesc}>
+                        {activeRoom.type === 'AI'
+                          ? 'Hỏi về điểm đến, lịch trình, món ngon hoặc ngân sách cho chuyến đi của bạn.'
+                          : 'Gửi lời chào đầu tiên để bắt đầu cuộc trò chuyện.'}
+                      </Text>
                     </View>
-                  );
-                }}
-              />
-            )}
+                  }
+                />
+              )}
 
-            {/* AI Typing Indicator */}
-            {isAiTyping && (
-              <View style={styles.aiTypingBox}>
-                <ActivityIndicator size="small" color="#0284C7" style={{ marginRight: 8 }} />
-                <Text style={styles.aiTypingText}>WanderAI đang tìm kiếm cẩm nang & kinh nghiệm tốt nhất... ✨</Text>
-              </View>
-            )}
-
-            {/* Quick AI Suggestion Chips (Gợi ý câu hỏi nhanh) */}
-            <View style={styles.quickPromptContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.quickPromptScroll}>
-                {QUICK_AI_PROMPTS.map((prompt, pIdx) => (
-                  <TouchableOpacity
-                    key={pIdx}
-                    activeOpacity={0.8}
-                    style={styles.quickPromptChip}
-                    onPress={() => sendMessageInternal(prompt)}>
-                    <Text style={styles.quickPromptText}>{prompt}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {showJumpToBottom && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.jumpButton}
+                  onPress={() => scrollToBottom(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Xuống tin nhắn mới nhất">
+                  <FontAwesome name="angle-down" size={17} color={WF_COLORS.primary} />
+                  {newMessageCount > 0 && (
+                    <View style={styles.jumpBadge}>
+                      <Text style={styles.jumpBadgeText}>
+                        {newMessageCount > 9 ? '9+' : newMessageCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Bottom Input Action Bar */}
-            <View style={[styles.bottomInputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-              {/* Photo Button */}
+            {showQuickPrompts && (
+              <View style={styles.quickWrap}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.quickScrollView}
+                  contentContainerStyle={styles.quickScroll}
+                  keyboardShouldPersistTaps="handled">
+                  {QUICK_AI_PROMPTS.map((prompt) => (
+                    <TouchableOpacity
+                      key={prompt}
+                      activeOpacity={0.8}
+                      style={styles.quickChip}
+                      onPress={() => sendMessageInternal(prompt)}>
+                      <Text style={styles.quickChipText}>{prompt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            <View
+              style={[
+                styles.inputBar,
+                { paddingBottom: Math.max(insets.bottom, 10) },
+              ]}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                style={styles.inputActionIconBtn}
-                onPress={handlePickImage}>
-                <FontAwesome name="camera" size={17} color="#64748B" />
+                style={styles.attachButton}
+                onPress={handlePickImage}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel="Gửi ảnh từ thư viện">
+                <FontAwesome
+                  name="camera"
+                  size={17}
+                  color={sending ? WF_COLORS.slate400 : WF_COLORS.slate600}
+                />
               </TouchableOpacity>
 
-              {/* Text Input */}
-              <View style={styles.inputBubbleContainer}>
+              <View style={styles.inputWrap}>
                 <TextInput
-                  style={styles.textInputBox}
-                  placeholder={activeRoom.type === 'AI' ? 'Hỏi WanderAI về điểm đến, khách sạn, món ngon...' : 'Nhập tin nhắn trò chuyện...'}
-                  placeholderTextColor="#94A3B8"
+                  style={[styles.input, WEB_NO_OUTLINE, { height: Math.min(112, Math.max(40, inputHeight)) }]}
+                  placeholder={
+                    activeRoom.type === 'AI'
+                      ? 'Hỏi về điểm đến, món ngon, chi phí...'
+                      : 'Nhập tin nhắn...'
+                  }
+                  placeholderTextColor={WF_COLORS.slate400}
                   value={inputText}
-                  onChangeText={setInputText}
+                  onChangeText={handleInputChange}
+                  onContentSizeChange={handleInputContentSizeChange}
                   multiline
                   maxLength={500}
+                  blurOnSubmit={false}
+                  onFocus={() => setTimeout(() => scrollToBottom(true), 260)}
                 />
+                {inputText.length > 440 && (
+                  <Text style={styles.charCount}>{inputText.length}/500</Text>
+                )}
               </View>
 
-              {/* Send Button */}
               <TouchableOpacity
                 activeOpacity={0.85}
-                style={[
-                  styles.sendBtn,
-                  inputText.trim().length > 0 ? styles.sendBtnActive : styles.sendBtnDisabled,
-                ]}
+                style={[styles.sendButton, canSend ? styles.sendButtonActive : styles.sendButtonIdle]}
                 onPress={() => sendMessageInternal(inputText)}
-                disabled={inputText.trim().length === 0 || sending}>
+                disabled={!canSend}
+                accessibilityRole="button"
+                accessibilityLabel="Gửi tin nhắn">
                 {sending ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={WF_COLORS.white} />
                 ) : (
-                  <FontAwesome name="paper-plane" size={14} color="#FFFFFF" />
+                  <FontAwesome
+                    name="paper-plane"
+                    size={14}
+                    color={canSend ? WF_COLORS.white : WF_COLORS.slate400}
+                  />
                 )}
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         )}
 
-        {/* Modal Xem chi tiết Lịch trình khi bấm vào thẻ trong đoạn chat */}
+        {/* New chat sheet */}
+        <NewChatSheet
+          visible={isNewChatOpen}
+          onClose={() => setIsNewChatOpen(false)}
+          onSelectRoom={handleCreatedRoom}
+        />
+
+        {/* Full-screen image preview */}
+        {!!previewImage && (
+          <View style={styles.previewRoot}>
+            <Pressable
+              style={styles.previewBackdrop}
+              onPress={() => setPreviewImage(null)}
+            />
+            <Image
+              source={{ uri: previewImage }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+            <TouchableOpacity
+              style={[styles.previewClose, { top: insets.top + 12 }]}
+              onPress={() => setPreviewImage(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Đóng ảnh">
+              <FontAwesome name="times" size={18} color={WF_COLORS.white} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Itinerary detail */}
         {selectedItinForModal && (
           <ItineraryDetailModal
             visible={itinModalVisible}
@@ -848,688 +1933,1113 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
+  root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F6F8FB',
   },
 
-  // 1. Top Header
-  topHeader: {
+  // ── Header ────────────────────────────────────────────────
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingBottom: 12,
+    backgroundColor: WF_COLORS.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: WF_COLORS.slate200,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 3,
+    zIndex: 5,
   },
-  headerCircleBtn: {
+  headerEyebrow: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    color: WF_COLORS.primary,
+    marginBottom: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: WF_COLORS.slate900,
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    color: WF_COLORS.slate500,
+    marginTop: 1,
+  },
+  headerIconBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: WF_COLORS.slate100,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_COLORS.slate200,
   },
-  roomListHeaderCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginLeft: 12,
-  },
-  headerIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E0F2FE',
+  composeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    backgroundColor: WF_COLORS.primary,
+    shadowColor: WF_COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  mainHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  liveIndicatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  pulseLiveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#10B981',
-    marginRight: 5,
-  },
-  liveIndicatorText: {
-    fontSize: 10.5,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  activeHeaderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  threadHeaderCenter: {
     flex: 1,
-    marginLeft: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
   },
-  avatarMiniWrapper: {
+  threadAvatarWrap: {
     position: 'relative',
     marginRight: 10,
   },
-  activeHeaderAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#E2E8F0',
+  threadAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: WF_COLORS.slate100,
     borderWidth: 1.5,
-    borderColor: '#BAE6FD',
+    borderColor: WF_COLORS.primaryLight,
   },
-  statusDot: {
+  threadOnlineDot: {
     position: 'absolute',
-    bottom: -1,
     right: -1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    bottom: -1,
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    backgroundColor: WF_COLORS.emerald,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: WF_COLORS.white,
   },
-  activeHeaderTitle: {
+  threadTitle: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: '#0F172A',
-    maxWidth: SCREEN_WIDTH - 190,
+    color: WF_COLORS.slate900,
   },
-  aiBadgePill: {
+  threadSubtitle: {
+    fontSize: 10.5,
+    color: WF_COLORS.slate500,
+    marginTop: 1,
+  },
+
+  // ── Rooms screen ─────────────────────────────────────────
+  roomsScreen: {
+    flex: 1,
+  },
+  assistantCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 12,
+    padding: 13,
+    borderRadius: 18,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#B45309',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  assistantIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  aiBadgePillText: {
-    fontSize: 9.5,
+  assistantTitle: {
+    fontSize: 13.5,
     fontWeight: '800',
-    color: '#D97706',
-  },
-  activeHeaderSub: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  headerRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  // 2. Rooms List Screen
-  roomsMainContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  aiHeroCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 10,
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  aiHeroLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  aiHeroAvatarRing: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  aiHeroAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#E2E8F0',
-  },
-  aiHeroSparkle: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#0284C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  aiHeroTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    color: '#78350F',
     marginBottom: 2,
   },
-  aiHeroTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+  assistantDesc: {
+    fontSize: 10.5,
+    lineHeight: 15,
+    color: '#92400E',
   },
-  aiHeroStatusPill: {
+  assistantCta: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-  },
-  greenPulse: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#10B981',
-    marginRight: 4,
-  },
-  aiHeroStatusText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#047857',
-  },
-  aiHeroDesc: {
-    fontSize: 11.5,
-    color: '#64748B',
-    lineHeight: 16,
-  },
-  aiHeroArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#E0F2FE',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginLeft: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
   },
-  searchSection: {
-    paddingHorizontal: 16,
-    marginBottom: 8,
+  assistantCtaText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    gap: 8,
+    marginHorizontal: 16,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    height: 42,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.white,
   },
   searchInput: {
     flex: 1,
     fontSize: 12.5,
-    color: '#0F172A',
+    color: WF_COLORS.slate900,
+    paddingVertical: 0,
   },
-  filterScrollWrapper: {
-    marginBottom: 8,
-  },
-  filterScroll: {
+  filterRow: {
     paddingHorizontal: 16,
+    paddingVertical: 10,
     gap: 8,
   },
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 50,
+  },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  filterChipActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-  },
-  roomsList: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  roomItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 13,
-    marginBottom: 10,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 13,
+    backgroundColor: WF_COLORS.white,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_COLORS.slate200,
+  },
+  filterChipActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  filterChipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: WF_COLORS.slate600,
+  },
+  filterChipTextActive: {
+    color: WF_COLORS.white,
+  },
+  filterCount: {
+    minWidth: 16,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: WF_COLORS.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountActive: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  filterCountText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: WF_COLORS.slate500,
+  },
+  filterCountTextActive: {
+    color: WF_COLORS.white,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 10.5,
+    lineHeight: 15,
+    color: '#B91C1C',
+  },
+  errorRetry: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#B91C1C',
+  },
+  roomList: {
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+  },
+  roomListEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    paddingBottom: 5,
+  },
+  sectionLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: WF_COLORS.slate400,
+    textTransform: 'uppercase',
+  },
+  sectionCount: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: WF_COLORS.slate400,
+  },
+  roomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: WF_COLORS.white,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#EDF2F7',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.025,
     shadowRadius: 4,
     elevation: 1,
   },
-  roomAvatarWrapper: {
+  roomAvatarWrap: {
     position: 'relative',
     marginRight: 12,
   },
-  roomAvatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E2E8F0',
+  roomAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: WF_COLORS.slate100,
+  },
+  roomAvatarUnread: {
+    borderWidth: 2,
+    borderColor: WF_COLORS.primaryLight,
   },
   roomOnlineDot: {
     position: 'absolute',
-    bottom: 0,
     right: 0,
+    bottom: 0,
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#10B981',
+    backgroundColor: WF_COLORS.emerald,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: WF_COLORS.white,
   },
-  groupBadgeMini: {
+  roomAvatarBadgeAi: {
     position: 'absolute',
-    top: -2,
+    right: -2,
+    bottom: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#D97706',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: WF_COLORS.white,
+  },
+  roomAvatarBadgeGroup: {
+    position: 'absolute',
     left: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -2,
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
     backgroundColor: '#6366F1',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: WF_COLORS.white,
   },
-  roomItemBody: {
+  roomBody: {
     flex: 1,
   },
-  roomItemTopRow: {
+  roomTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 3,
   },
-  roomItemName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+  roomNameRow: {
     flex: 1,
-    marginRight: 8,
-  },
-  roomItemTime: {
-    fontSize: 10.5,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  roomItemBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  roomItemSnippet: {
-    fontSize: 12,
-    color: '#64748B',
-    flex: 1,
     marginRight: 8,
+    gap: 6,
   },
-  unreadPill: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
+  roomName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+    flexShrink: 1,
   },
-  unreadPillText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  roomNameUnread: {
+    fontWeight: '800',
+    color: '#0B1220',
+  },
+  roomTypePill: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    backgroundColor: WF_COLORS.amberLight,
+  },
+  roomTypePillText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  roomTime: {
+    fontSize: 9.5,
+    fontWeight: '500',
+    color: WF_COLORS.slate400,
+  },
+  roomTimeUnread: {
+    color: WF_COLORS.primary,
     fontWeight: '800',
   },
-  emptyRoomsBox: {
+  roomBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roomSnippet: {
+    flex: 1,
+    fontSize: 11.5,
+    color: WF_COLORS.slate500,
+    marginRight: 8,
+  },
+  roomSnippetUnread: {
+    color: WF_COLORS.slate700,
+    fontWeight: '600',
+  },
+  unreadPill: {
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: WF_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 36,
-    marginTop: 20,
   },
-  emptyIconCircle: {
+  unreadPillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: WF_COLORS.white,
+  },
+  emptyBox: {
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 30,
+  },
+  emptyIcon: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: WF_COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
   },
-  emptyRoomsTitle: {
+  emptyTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 6,
-  },
-  emptyRoomsDesc: {
-    fontSize: 12,
-    color: '#64748B',
+    color: WF_COLORS.slate900,
+    marginBottom: 5,
     textAlign: 'center',
+  },
+  emptyDesc: {
+    fontSize: 11.5,
     lineHeight: 18,
-    maxWidth: 280,
+    color: WF_COLORS.slate500,
+    textAlign: 'center',
+    maxWidth: 290,
+  },
+  emptyAction: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 13,
+    backgroundColor: WF_COLORS.primary,
+  },
+  emptyActionText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: WF_COLORS.white,
   },
 
-  // 3. Active Chat Thread
-  chatThreadMain: {
+  // ── Thread ───────────────────────────────────────────────
+  threadScreen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
-  messagesScrollList: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  threadBody: {
+    flex: 1,
+    position: 'relative',
   },
-  msgRowWrapper: {
+  messageList: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  messageListEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  dateRow: {
     flexDirection: 'row',
-    marginBottom: 14,
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    marginVertical: 12,
+    paddingHorizontal: 6,
   },
-  msgRowMe: {
+  dateLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: WF_COLORS.slate200,
+  },
+  dateLabel: {
+    marginHorizontal: 10,
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: WF_COLORS.slate400,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 3,
+  },
+  messageRowMe: {
     justifyContent: 'flex-end',
   },
-  msgRowOther: {
+  messageRowOther: {
     justifyContent: 'flex-start',
   },
-  senderAvatarImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 2,
-    backgroundColor: '#E2E8F0',
+  avatarSlot: {
+    width: 34,
+    marginRight: 6,
+    alignItems: 'center',
   },
-  bubbleContainer: {
-    maxWidth: SCREEN_WIDTH * 0.76,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  messageAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: WF_COLORS.slate100,
+  },
+  messageColumn: {
+    maxWidth: '79%',
+    alignItems: 'flex-start',
+  },
+  messageColumnMe: {
+    alignItems: 'flex-end',
+  },
+  senderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 3,
+    marginLeft: 3,
+  },
+  senderName: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: WF_COLORS.primary,
+    maxWidth: 190,
+  },
+  assistantBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    backgroundColor: WF_COLORS.amberLight,
+  },
+  assistantBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  bubble: {
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    maxWidth: '100%',
   },
   bubbleMe: {
-    backgroundColor: '#0284C7',
-    borderBottomRightRadius: 4,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    backgroundColor: WF_COLORS.primary,
+    shadowColor: WF_COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
     shadowRadius: 6,
     elevation: 2,
   },
   bubbleOther: {
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 4,
+    backgroundColor: WF_COLORS.white,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8EEF5',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.035,
+    shadowRadius: 5,
+    elevation: 1,
   },
-  senderBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: 6,
+  bubbleImage: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
-  senderNameText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
-  aiSenderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  aiSenderBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#D97706',
-  },
-  bubbleContentText: {
+  bubbleText: {
     fontSize: 13,
     lineHeight: 19,
   },
-  bubbleContentMe: {
-    color: '#FFFFFF',
+  bubbleTextMe: {
+    color: WF_COLORS.white,
   },
-  bubbleContentOther: {
+  bubbleTextOther: {
     color: '#1E293B',
   },
-  bubbleImagePreview: {
-    width: 200,
-    height: 140,
-    borderRadius: 12,
-    marginBottom: 6,
-  },
-  bubbleFooterRow: {
+  bubbleMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 4,
+    marginTop: 3,
+    paddingHorizontal: 2,
   },
-  bubbleTimeText: {
-    fontSize: 9.5,
-    fontWeight: '500',
+  bubbleTime: {
+    fontSize: 8.5,
+    fontWeight: '600',
+    color: WF_COLORS.slate400,
   },
   bubbleTimeMe: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: 'rgba(255,255,255,0.72)',
   },
-  bubbleTimeOther: {
-    color: '#94A3B8',
-  },
-
-  // Itinerary Card in Chat
-  chatItineraryCard: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  chatItinCover: {
-    width: '100%',
-    height: 90,
-  },
-  chatItinBody: {
-    padding: 10,
-  },
-  chatItinHeaderRow: {
+  retryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    gap: 4,
+    marginTop: 3,
+    marginRight: 2,
   },
-  chatItinDestBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  chatItinDestText: {
-    color: '#FFFFFF',
+  retryText: {
     fontSize: 9.5,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#DC2626',
   },
-  chatItinDuration: {
+  systemRow: {
+    alignItems: 'center',
+    marginVertical: 7,
+  },
+  systemText: {
+    fontSize: 9.5,
+    lineHeight: 14,
+    color: WF_COLORS.slate500,
+    backgroundColor: '#EDF2F7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    overflow: 'hidden',
+    textAlign: 'center',
+  },
+  typingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  typingAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 6,
+    backgroundColor: WF_COLORS.slate100,
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: WF_COLORS.white,
+    borderWidth: 1,
+    borderColor: '#E8EEF5',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 16,
+    borderBottomLeftRadius: 6,
+  },
+  typingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  typingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: WF_COLORS.primary,
+  },
+  typingLabel: {
+    fontSize: 9,
+    color: WF_COLORS.slate400,
+    fontWeight: '600',
+  },
+  jumpButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: WF_COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  jumpBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: WF_COLORS.rose,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: WF_COLORS.white,
+  },
+  jumpBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: WF_COLORS.white,
+  },
+  threadEmpty: {
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  threadEmptyIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: WF_COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  threadEmptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: WF_COLORS.slate900,
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  threadEmptyDesc: {
+    fontSize: 11.5,
+    lineHeight: 18,
+    color: WF_COLORS.slate500,
+    textAlign: 'center',
+    maxWidth: 290,
+  },
+  quickWrap: {
+    backgroundColor: WF_COLORS.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WF_COLORS.slate200,
+  },
+  quickScroll: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 7,
+  },
+  quickScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 44,
+  },
+  quickChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: WF_COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+  },
+  quickChipText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#0369A1',
   },
-  chatItinTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 6,
-    lineHeight: 16,
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    backgroundColor: WF_COLORS.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WF_COLORS.slate200,
   },
-  chatItinBottomRow: {
+  attachButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: WF_COLORS.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 7,
+    marginBottom: 1,
+  },
+  inputWrap: {
+    flex: 1,
+    backgroundColor: WF_COLORS.slate50,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+    marginRight: 7,
+    justifyContent: 'center',
+    minHeight: 40,
+  },
+  input: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: WF_COLORS.slate900,
+    paddingTop: Platform.OS === 'ios' ? 9 : 7,
+    paddingBottom: Platform.OS === 'ios' ? 9 : 7,
+  },
+  charCount: {
+    position: 'absolute',
+    right: 9,
+    bottom: 2,
+    fontSize: 8,
+    color: WF_COLORS.slate400,
+  },
+  sendButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 1,
+  },
+  sendButtonActive: {
+    backgroundColor: WF_COLORS.primary,
+    shadowColor: WF_COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.26,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  sendButtonIdle: {
+    backgroundColor: WF_COLORS.slate100,
+  },
+
+  // ── Attachments & itinerary ──────────────────────────────
+  imageWrap: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: WF_COLORS.slate100,
+  },
+  imageBubble: {
+    width: Math.min(SCREEN_WIDTH * 0.62, 238),
+    height: Math.min(SCREEN_WIDTH * 0.62, 238) * 0.74,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  imageOverlayText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: WF_COLORS.white,
+  },
+  attachmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    minWidth: 190,
+    maxWidth: 250,
+    paddingVertical: 6,
+  },
+  attachmentCardMe: {
+    minWidth: 190,
+  },
+  attachmentIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: WF_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentIconMe: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  attachmentTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: WF_COLORS.slate900,
+  },
+  attachmentTextMe: {
+    color: WF_COLORS.white,
+  },
+  attachmentSubtitle: {
+    fontSize: 9.5,
+    color: WF_COLORS.slate500,
+    marginTop: 1,
+  },
+  attachmentSubtitleMe: {
+    color: 'rgba(255,255,255,0.75)',
+  },
+  itineraryCard: {
+    width: 244,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: WF_COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+  },
+  itineraryCover: {
+    width: '100%',
+    height: 86,
+  },
+  itineraryBody: {
+    padding: 9,
+  },
+  itineraryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#E0F2FE',
+    marginBottom: 4,
+    gap: 6,
   },
-  chatItinBudget: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#D97706',
-  },
-  chatItinActionBtn: {
+  itineraryDestinationPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: WF_COLORS.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 7,
+    maxWidth: '70%',
   },
-  chatItinActionText: {
-    fontSize: 10.5,
+  itineraryDestinationText: {
+    fontSize: 8.5,
     fontWeight: '800',
-    color: '#0284C7',
+    color: WF_COLORS.white,
   },
-
-  // AI Typing
-  aiTypingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#E0F2FE',
-    borderRadius: 14,
-  },
-  aiTypingText: {
-    fontSize: 11,
-    color: '#0369A1',
-    fontWeight: '600',
-    fontStyle: 'italic',
-    flex: 1,
-  },
-
-  // Quick Prompt Chips
-  quickPromptContainer: {
-    paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  quickPromptScroll: {
-    paddingHorizontal: 14,
-    gap: 8,
-  },
-  quickPromptChip: {
-    backgroundColor: '#F0F9FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  quickPromptText: {
-    fontSize: 11,
+  itineraryDuration: {
+    fontSize: 9,
     fontWeight: '700',
     color: '#0369A1',
   },
-
-  // Bottom Input Bar
-  bottomInputBar: {
+  itineraryTitle: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    color: WF_COLORS.slate900,
+    marginBottom: 6,
+  },
+  itineraryBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingTop: 5,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: WF_COLORS.primaryLight,
   },
-  inputActionIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F1F5F9',
+  itineraryBudget: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  itineraryLink: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
   },
-  inputBubbleContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 8 : 4,
-    marginRight: 8,
-    maxHeight: 90,
-  },
-  textInputBox: {
-    fontSize: 13,
-    color: '#0F172A',
-    lineHeight: 18,
-  },
-  sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnActive: {
-    backgroundColor: '#0284C7',
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sendBtnDisabled: {
-    backgroundColor: '#CBD5E1',
+  itineraryLinkText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: WF_COLORS.primary,
   },
 
-  loadingCenterBox: {
+  // ── Loading / error ──────────────────────────────────────
+  roomsSkeleton: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  skeletonRoomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: WF_COLORS.white,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#EDF2F7',
+  },
+  skeletonAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: WF_COLORS.slate200,
+    marginRight: 12,
+  },
+  skeletonLineWide: {
+    height: 11,
+    width: '58%',
+    borderRadius: 5,
+    backgroundColor: WF_COLORS.slate200,
+    marginBottom: 7,
+  },
+  skeletonLineShort: {
+    height: 9,
+    width: '82%',
+    borderRadius: 5,
+    backgroundColor: WF_COLORS.slate100,
+  },
+  skeletonTime: {
+    width: 28,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: WF_COLORS.slate100,
+    marginLeft: 8,
+  },
+  messagesSkeleton: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+  },
+  skeletonBubble: {
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: WF_COLORS.slate200,
+    marginBottom: 12,
+  },
+  skeletonBubbleOther: {
+    alignSelf: 'flex-start',
+    width: '58%',
+  },
+  skeletonBubbleMe: {
+    alignSelf: 'flex-end',
+    width: '46%',
+    backgroundColor: WF_COLORS.primaryLight,
+  },
+  threadError: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 32,
   },
-  loadingSubText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
-    marginTop: 10,
+  threadErrorIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  threadErrorTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: WF_COLORS.slate900,
+    marginBottom: 5,
+  },
+  threadErrorDesc: {
+    fontSize: 11.5,
+    lineHeight: 17,
+    color: WF_COLORS.slate500,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  threadErrorBtn: {
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 13,
+    backgroundColor: WF_COLORS.primary,
+  },
+  threadErrorBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: WF_COLORS.white,
+  },
+
+  // ── Image preview ────────────────────────────────────────
+  previewRoot: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(2, 6, 23, 0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 80,
+    elevation: 80,
+  },
+  previewBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  previewImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 1.2,
+  },
+  previewClose: {
+    position: 'absolute',
+    right: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

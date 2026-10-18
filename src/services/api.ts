@@ -27,13 +27,14 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor xử lý lỗi chung
+// Interceptor xử lý lỗi chung (401 Unauthorized handling)
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Hết hạn session
-      console.warn('Session expired or unauthorized');
+      console.warn('Session expired or unauthorized (401). Clearing session and notifying listeners.');
+      await authStorage.clearSession();
+      authStorage.notifyUnauthorized();
     }
     return Promise.reject(error);
   }
@@ -155,10 +156,7 @@ export const authApi = {
 
   async logout(): Promise<void> {
     try {
-      const session = await authStorage.getSession();
-      await apiClient.post('/auth/logout', null, {
-        params: { email: session?.email },
-      });
+      await apiClient.post('/auth/logout');
     } catch (e) {
       console.warn('Logout API error', e);
     } finally {
@@ -239,21 +237,12 @@ export interface UserProfileItem {
 // ─── COMMUNITY POSTS API ───────────────────────────────────
 export const postApi = {
   async getCommunityPosts(params?: { category?: string; keyword?: string }): Promise<PostItem[]> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts', {
-      params: {
-        ...params,
-        email: session?.email,
-      },
-    });
+    const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts', { params });
     return res.data.data || [];
   },
 
   async getPostById(id: number): Promise<PostItem> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.get<ApiResponse<PostItem>>(`/posts/${id}`, {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.get<ApiResponse<PostItem>>(`/posts/${id}`);
     return res.data.data;
   },
 
@@ -320,18 +309,12 @@ export const userApi = {
   },
 
   async getUserProfile(id: number): Promise<UserProfileItem> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.get<ApiResponse<UserProfileItem>>(`/users/${id}/profile`, {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.get<ApiResponse<UserProfileItem>>(`/users/${id}/profile`);
     return res.data.data;
   },
 
   async updateProfile(payload: UpdateProfilePayload): Promise<UserProfileItem> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.put<ApiResponse<UserProfileItem>>('/users/profile', payload, {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.put<ApiResponse<UserProfileItem>>('/users/profile', payload);
     return res.data.data;
   },
 
@@ -438,10 +421,7 @@ export interface CreateItineraryPayload {
 // ─── ITINERARIES API ───────────────────────────────────────
 export const itineraryApi = {
   async getMyItineraries(): Promise<ItineraryItem[]> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.get<ApiResponse<ItineraryItem[]>>('/itineraries', {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.get<ApiResponse<ItineraryItem[]>>('/itineraries');
     return res.data.data || [];
   },
 
@@ -451,10 +431,7 @@ export const itineraryApi = {
   },
 
   async getItineraryById(id: number): Promise<ItineraryItem> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.get<ApiResponse<ItineraryItem>>(`/itineraries/${id}`, {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.get<ApiResponse<ItineraryItem>>(`/itineraries/${id}`);
     return res.data.data;
   },
 
@@ -482,18 +459,12 @@ export const itineraryApi = {
     style: string;
     duration: string;
   }): Promise<ItineraryItem> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.post<ApiResponse<ItineraryItem>>('/itineraries/ai-quick-generate', payload, {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.post<ApiResponse<ItineraryItem>>('/itineraries/ai-quick-generate', payload);
     return res.data.data;
   },
 
   async cloneItinerary(id: number): Promise<ItineraryItem> {
-    const session = await authStorage.getSession();
-    const res = await apiClient.post<ApiResponse<ItineraryItem>>(`/itineraries/${id}/clone`, null, {
-      params: { email: session?.email },
-    });
+    const res = await apiClient.post<ApiResponse<ItineraryItem>>(`/itineraries/${id}/clone`);
     return res.data.data;
   },
 };
@@ -527,13 +498,14 @@ export const homeApi = {
   async getStats(): Promise<HomeStatsData> {
     try {
       const res = await apiClient.get<ApiResponse<HomeStatsData>>('/home/stats');
-      return res.data.data;
+      return res.data.data || { totalItineraries: 0, totalPlaces: 0, totalPosts: 0, totalUsers: 0 };
     } catch (e) {
+      console.warn('homeApi.getStats failed:', e);
       return {
-        totalItineraries: 128,
-        totalPlaces: 84,
-        totalPosts: 320,
-        totalUsers: 1450,
+        totalItineraries: 0,
+        totalPlaces: 0,
+        totalPosts: 0,
+        totalUsers: 0,
       };
     }
   },
@@ -563,7 +535,8 @@ export const homeApi = {
       const res = await apiClient.get<ApiResponse<string[]>>('/home/trending-destinations');
       return res.data.data || [];
     } catch (e) {
-      return ['Đà Lạt', 'Phú Quốc', 'Sa Pa', 'Đà Nẵng & Hội An', 'Mù Cang Chải', 'Ninh Bình'];
+      console.warn('homeApi.getTrendingDestinations failed:', e);
+      return [];
     }
   },
 };
@@ -597,99 +570,35 @@ export interface ChatRoom {
 export const chatApi = {
   async getRooms(): Promise<ChatRoom[]> {
     try {
-      const session = await authStorage.getSession();
-      const res = await apiClient.get<ApiResponse<ChatRoom[]>>('/chat/rooms', {
-        params: { email: session?.email },
-      });
+      const res = await apiClient.get<ApiResponse<ChatRoom[]>>('/chat/rooms');
       return res.data.data || [];
     } catch (e) {
-      console.warn('Chat rooms API fallback', e);
-      return [
-        {
-          id: 'ai-bot',
-          name: 'Trợ lý Du lịch AI Wayfare 🤖',
-          type: 'AI',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-          lastMessage: 'Chào bạn! Tôi có thể giúp gì cho chuyến du lịch sắp tới?',
-          lastMessageTime: 'Vừa xong',
-          unreadCount: 1,
-        },
-        {
-          id: 'group-dalat',
-          name: 'Hội Săn Mây Đà Lạt 2026 🌫️',
-          type: 'GROUP',
-          avatarUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=200&q=80',
-          lastMessage: 'Mọi người đã chuẩn bị áo ấm chưa, mai nhiệt độ xuống 16 độ đấy!',
-          lastMessageTime: '10 phút trước',
-          unreadCount: 3,
-        },
-        {
-          id: 'group-phuquoc',
-          name: 'Kinh Nghiệm Phượt Đảo Phú Quốc 🏖️',
-          type: 'GROUP',
-          avatarUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=200&q=80',
-          lastMessage: 'Hòn Mây Rút nước trong vắt, lặn san hô cực đỉnh luôn.',
-          lastMessageTime: '1 giờ trước',
-          unreadCount: 0,
-        },
-      ];
+      console.warn('chatApi.getRooms failed:', e);
+      return [];
     }
   },
 
   async getRoomMessages(roomId: number | string): Promise<ChatMessage[]> {
     try {
-      const session = await authStorage.getSession();
-      const res = await apiClient.get<ApiResponse<ChatMessage[]>>(`/chat/rooms/${roomId}/messages`, {
-        params: { email: session?.email },
-      });
+      const res = await apiClient.get<ApiResponse<ChatMessage[]>>(`/chat/rooms/${roomId}/messages`);
       return res.data.data || [];
     } catch (e) {
-      console.warn('Room messages fallback', e);
-      return [
-        {
-          id: 1,
-          roomId,
-          senderName: 'Trợ lý AI Wayfare',
-          senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-          content: 'Xin chào! Tôi là Trợ lý Du lịch thông minh của Wayfare. Bạn muốn tìm địa điểm ăn ngon, lịch trình tiết kiệm hay góc sống ảo ở thành phố nào?',
-          createdAt: '10:00',
-          isMe: false,
-        },
-      ];
+      console.warn(`chatApi.getRoomMessages(${roomId}) failed:`, e);
+      return [];
     }
   },
 
   async sendMessage(roomId: number | string, content: string): Promise<ChatMessage> {
-    const session = await authStorage.getSession();
-    try {
-      const res = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/rooms/${roomId}/messages`, {
-        content,
-        messageType: 'TEXT',
-      }, {
-        params: { email: session?.email },
-      });
-      return res.data.data;
-    } catch (e) {
-      // Local mock response if offline / demo
-      return {
-        id: Date.now(),
-        roomId,
-        senderName: session?.fullName || 'Tôi',
-        senderAvatar: session?.avatar,
-        content,
-        createdAt: 'Vừa xong',
-        isMe: true,
-      };
-    }
+    const res = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/rooms/${roomId}/messages`, {
+      content,
+      messageType: 'TEXT',
+    });
+    return res.data.data;
   },
 
   async createDirectRoom(targetUserId: number): Promise<ChatRoom> {
-    const session = await authStorage.getSession();
     const res = await apiClient.post<ApiResponse<ChatRoom>>('/chat/direct', null, {
-      params: {
-        targetUserId,
-        email: session?.email,
-      },
+      params: { targetUserId },
     });
     return res.data.data;
   },
@@ -711,13 +620,9 @@ export interface NotificationDto {
 }
 
 export const notificationApi = {
-  async getNotifications(email?: string): Promise<NotificationDto[]> {
-    const session = await authStorage.getSession();
-    const targetEmail = email || session?.email;
+  async getNotifications(): Promise<NotificationDto[]> {
     try {
-      const res = await apiClient.get<NotificationDto[]>('/notifications', {
-        params: targetEmail ? { email: targetEmail } : undefined,
-      });
+      const res = await apiClient.get<NotificationDto[]>('/notifications');
       return res.data || [];
     } catch (e) {
       console.warn('Failed to fetch notifications:', e);
@@ -725,26 +630,18 @@ export const notificationApi = {
     }
   },
 
-  async getUnreadCount(email?: string): Promise<number> {
-    const session = await authStorage.getSession();
-    const targetEmail = email || session?.email;
+  async getUnreadCount(): Promise<number> {
     try {
-      const res = await apiClient.get<{ unreadCount: number }>('/notifications/unread-count', {
-        params: targetEmail ? { email: targetEmail } : undefined,
-      });
+      const res = await apiClient.get<{ unreadCount: number }>('/notifications/unread-count');
       return res.data?.unreadCount ?? 0;
     } catch (e) {
       return 0;
     }
   },
 
-  async markAsRead(id: number, email?: string): Promise<NotificationDto | null> {
-    const session = await authStorage.getSession();
-    const targetEmail = email || session?.email;
+  async markAsRead(id: number): Promise<NotificationDto | null> {
     try {
-      const res = await apiClient.put<NotificationDto>(`/notifications/${id}/read`, null, {
-        params: targetEmail ? { email: targetEmail } : undefined,
-      });
+      const res = await apiClient.put<NotificationDto>(`/notifications/${id}/read`);
       return res.data;
     } catch (e) {
       console.warn(`Failed to mark notification ${id} as read:`, e);
@@ -752,13 +649,9 @@ export const notificationApi = {
     }
   },
 
-  async markAllAsRead(email?: string): Promise<boolean> {
-    const session = await authStorage.getSession();
-    const targetEmail = email || session?.email;
+  async markAllAsRead(): Promise<boolean> {
     try {
-      await apiClient.put('/notifications/read-all', null, {
-        params: targetEmail ? { email: targetEmail } : undefined,
-      });
+      await apiClient.put('/notifications/read-all');
       return true;
     } catch (e) {
       console.warn('Failed to mark all notifications as read:', e);
@@ -766,13 +659,9 @@ export const notificationApi = {
     }
   },
 
-  async deleteNotification(id: number, email?: string): Promise<boolean> {
-    const session = await authStorage.getSession();
-    const targetEmail = email || session?.email;
+  async deleteNotification(id: number): Promise<boolean> {
     try {
-      await apiClient.delete(`/notifications/${id}`, {
-        params: targetEmail ? { email: targetEmail } : undefined,
-      });
+      await apiClient.delete(`/notifications/${id}`);
       return true;
     } catch (e) {
       console.warn(`Failed to delete notification ${id}:`, e);

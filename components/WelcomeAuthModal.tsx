@@ -72,8 +72,9 @@ export function WelcomeAuthModal({
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
+      const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com';
       const redirectUri = Linking.createURL('oauth');
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(googleClientId)}&redirect_uri=${encodeURIComponent(
         redirectUri
       )}&response_type=token%20id_token&scope=openid%20profile%20email&nonce=wayfare_${Date.now()}`;
 

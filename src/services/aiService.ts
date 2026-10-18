@@ -1,10 +1,9 @@
 /**
  * WanderAI Core Service for React Native (Expo) - Google Gemini Integration
  */
-const FALLBACK_KEY = ['AQ', '.', 'Ab8RN6ImrdiBnKxd4puWGo3T4mcwynBz8mUlD314c7WuWbaN8A'].join('');
-const GEMINI_API_KEY = (process.env.EXPO_PUBLIC_GEMINI_API_KEY && process.env.EXPO_PUBLIC_GEMINI_API_KEY.trim()) || FALLBACK_KEY;
+const GEMINI_API_KEY = (process.env.EXPO_PUBLIC_GEMINI_API_KEY && process.env.EXPO_PUBLIC_GEMINI_API_KEY.trim()) || '';
 const GEMINI_API_URL = process.env.EXPO_PUBLIC_GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 export interface GenerateTextParams {
   prompt: string;
@@ -17,6 +16,9 @@ export interface GenerateTextParams {
 
 export const aiService = {
   getApiKey(): string {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Chưa cấu hình EXPO_PUBLIC_GEMINI_API_KEY. Vui lòng thiết lập biến môi trường này để sử dụng tính năng AI.');
+    }
     return GEMINI_API_KEY;
   },
 

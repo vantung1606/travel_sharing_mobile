@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
-import { Image, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image, View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_COLORS } from '@/constants/Colors';
@@ -50,6 +50,24 @@ export default function TabLayout() {
         refreshUnreadCount();
       }
     });
+
+    const unsubscribeAuth = authStorage.subscribe((session) => {
+      setCurrentUser(session);
+      if (session) {
+        refreshUnreadCount();
+      }
+    });
+
+    const unsubscribeUnauth = authStorage.onUnauthorized(() => {
+      setCurrentUser(null);
+      setIsAuthOpen(true);
+      Alert.alert('Phiên làm việc đã hết hạn', 'Vui lòng đăng nhập lại để tiếp tục sử dụng đầy đủ các tính năng.');
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeUnauth();
+    };
   }, [refreshUnreadCount]);
 
   useEffect(() => {

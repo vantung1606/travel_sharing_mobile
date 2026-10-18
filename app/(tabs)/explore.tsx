@@ -9,13 +9,13 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Text, TextInput } from '@/components/Themed';
 import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
+import { showToast } from '@/components/Toast';
 import { placeApi, PlaceItem, itineraryApi, ItineraryItem } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 import { BrandedLoading } from '@/components/BrandedLoading';
@@ -154,7 +154,12 @@ export default function ExploreScreen() {
   const handleOpenAddToPlan = async () => {
     const session = await authStorage.getSession();
     if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để thêm địa điểm vào Lịch trình cá nhân!');
+      showToast({
+        kind: 'info',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để thêm địa điểm vào lịch trình cá nhân.',
+        icon: 'lock',
+      });
       return;
     }
 
@@ -184,14 +189,20 @@ export default function ExploreScreen() {
         note: `Thêm từ Khám phá: ${selectedPlace.name}`,
       });
 
-      Alert.alert(
-        'Đã thêm thành công! 🎉',
-        `"${selectedPlace.name}" đã được đưa vào Ngày ${selectedDayNumber} của chuyến đi "${itinerary.title}".`
-      );
+      showToast({
+        kind: 'success',
+        title: 'Đã thêm vào lịch trình',
+        message: `"${selectedPlace.name}" đã được đưa vào Ngày ${selectedDayNumber} của chuyến đi "${itinerary.title}".`,
+        icon: 'map-marker',
+      });
       setAddToPlanModalVisible(false);
       setDetailModalVisible(false);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.response?.data?.message || 'Không thể thêm vào lịch trình');
+      showToast({
+        kind: 'error',
+        title: 'Thêm vào lịch trình thất bại',
+        message: err.response?.data?.message || 'Không thể thêm địa điểm này vào lịch trình.',
+      });
     }
   };
 

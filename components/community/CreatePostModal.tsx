@@ -3,7 +3,6 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -19,6 +18,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { POST_CATEGORIES } from '@/components/community/communityUtils';
 import { WF_COLORS } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
+import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, postApi, PostItem, uploadApi } from '@/src/services/api';
 
 interface CreatePostModalProps {
@@ -75,7 +75,11 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Quyền truy cập', 'Cần cấp quyền thư viện ảnh để đính kèm hình.');
+        showToast({
+          kind: 'info',
+          title: 'Cần quyền truy cập ảnh',
+          message: 'Vui lòng cấp quyền thư viện ảnh để đính kèm hình vào bài viết.',
+        });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -98,10 +102,18 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
       }
       setImages((prev) => [...prev, ...uploaded].slice(0, MAX_IMAGES));
       if (!uploaded.length) {
-        Alert.alert('Tải ảnh thất bại', 'Không thể tải ảnh lên. Vui lòng thử lại.');
+        showToast({
+          kind: 'error',
+          title: 'Tải ảnh thất bại',
+          message: 'Không thể tải ảnh lên. Vui lòng thử lại.',
+        });
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể chọn ảnh');
+      showToast({
+        kind: 'error',
+        title: 'Không chọn được ảnh',
+        message: err?.message || 'Vui lòng thử lại sau ít phút.',
+      });
     } finally {
       setUploading(false);
     }
@@ -109,11 +121,19 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
 
   const handleSubmit = async () => {
     if (!content.trim()) {
-      Alert.alert('Thiếu nội dung', 'Vui lòng nhập nội dung bài viết.');
+      showToast({
+        kind: 'error',
+        title: 'Thiếu nội dung',
+        message: 'Vui lòng nhập nội dung bài viết trước khi đăng.',
+      });
       return;
     }
     if (uploading) {
-      Alert.alert('Đang tải ảnh', 'Vui lòng đợi ảnh tải xong rồi đăng bài.');
+      showToast({
+        kind: 'info',
+        title: 'Đang tải ảnh',
+        message: 'Vui lòng đợi ảnh tải xong rồi đăng bài.',
+      });
       return;
     }
     try {
@@ -132,10 +152,11 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
         : await postApi.createPost(payload);
       onSubmitted(result);
     } catch (err: any) {
-      Alert.alert(
-        isEdit ? 'Lỗi cập nhật' : 'Lỗi đăng bài',
-        err?.response?.data?.message || err?.message || 'Không thể lưu bài viết'
-      );
+      showToast({
+        kind: 'error',
+        title: isEdit ? 'Cập nhật thất bại' : 'Đăng bài thất bại',
+        message: err?.response?.data?.message || err?.message || 'Không thể lưu bài viết.',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -309,6 +330,9 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
             </View>
           </KeyboardAvoidingView>
         </View>
+
+        {/* Thông báo trong chính modal soạn bài */}
+        <ToastHost enabled={visible} />
       </View>
     </Modal>
   );

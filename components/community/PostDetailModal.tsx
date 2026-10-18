@@ -2,7 +2,6 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -27,6 +26,8 @@ import {
 } from '@/components/community/communityUtils';
 import { WF_COLORS } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
+import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
+import { ToastHost, showToast } from '@/components/Toast';
 import { postApi, CommentItem, PostItem } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 
@@ -139,7 +140,11 @@ export function PostDetailModal({
     const text = input.trim();
     if (!text) return;
     if (!session) {
-      Alert.alert('Yêu cầu đăng nhập', 'Vui lòng đăng nhập ở tab "Tài khoản" để bình luận!');
+      showToast({
+        kind: 'info',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để bình luận.',
+      });
       return;
     }
     try {
@@ -169,39 +174,46 @@ export function PostDetailModal({
       setInput('');
       setReplyTarget(null);
     } catch (err: any) {
-      Alert.alert('Lỗi gửi bình luận', err?.response?.data?.message || err?.message || 'Không thể gửi bình luận');
+      showToast({
+        kind: 'error',
+        title: 'Gửi bình luận thất bại',
+        message: err?.response?.data?.message || err?.message || 'Không thể gửi bình luận.',
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = (comment: CommentItem, parentId?: number) => {
-    Alert.alert('Xóa bình luận', 'Bạn chắc chắn muốn xóa bình luận này?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await postApi.deleteComment(post.id, comment.id);
-            if (parentId != null) {
-              setComments((prev) =>
-                prev.map((c) =>
-                  c.id === parentId ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id) } : c
-                )
-              );
-            } else {
-              setComments((prev) => prev.filter((c) => c.id !== comment.id));
-            }
-            const nextCount = Math.max(0, commentCount - 1);
-            setCommentCount(nextCount);
-            onCommentCountChange?.(post.id, nextCount);
-          } catch (err: any) {
-            Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể xóa bình luận');
-          }
-        },
-      },
-    ]);
+  const handleDelete = async (comment: CommentItem, parentId?: number) => {
+    const confirmed = await confirmDialog({
+      title: 'Xóa bình luận?',
+      message: 'Bình luận này sẽ bị gỡ khỏi bài viết.',
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await postApi.deleteComment(post.id, comment.id);
+      if (parentId != null) {
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === parentId ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id) } : c
+          )
+        );
+      } else {
+        setComments((prev) => prev.filter((c) => c.id !== comment.id));
+      }
+      const nextCount = Math.max(0, commentCount - 1);
+      setCommentCount(nextCount);
+      onCommentCountChange?.(post.id, nextCount);
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Xóa bình luận thất bại',
+        message: err?.response?.data?.message || 'Không thể xóa bình luận này.',
+      });
+    }
   };
 
   const renderAvatar = (uri?: string) => (
@@ -486,6 +498,10 @@ export function PostDetailModal({
             }
           }}
         />
+
+        {/* Thông báo & hộp xác nhận trong chính modal bài viết */}
+        <ConfirmHost enabled={visible} />
+        <ToastHost enabled={visible} />
       </View>
     </Modal>
   );

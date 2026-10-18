@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Platform,
@@ -33,6 +32,8 @@ import {
   filterAndSortPosts,
 } from '@/components/community/communityUtils';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { showToast } from '@/components/Toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { WF_COLORS } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { itineraryApi, ItineraryItem, postApi, PostItem, userApi } from '@/src/services/api';
@@ -266,7 +267,12 @@ export default function CommunityScreen() {
 
   // ── Hành động ─────────────────────────────────────────────
   const requireLogin = (action: string) => {
-    Alert.alert('Yêu cầu đăng nhập', `Vui lòng đăng nhập ở tab "Tài khoản" để ${action}!`);
+    showToast({
+      kind: 'info',
+      title: 'Yêu cầu đăng nhập',
+      message: `Vui lòng đăng nhập ở tab "Tài khoản" để ${action}.`,
+      icon: 'lock',
+    });
   };
 
   const toggleLike = async (postId: number) => {
@@ -299,13 +305,21 @@ export default function CommunityScreen() {
         const found = displayPosts.find((p) => p.id === postId);
         return found && !prev.some((p) => p.id === postId) ? [found, ...prev] : prev;
       });
-      Alert.alert(
-        'Bộ sưu tập',
-        res.isBookmarked ? 'Đã lưu bài viết vào bộ sưu tập! 🔖' : 'Đã bỏ lưu bài viết khỏi bộ sưu tập.'
-      );
+      showToast({
+        kind: 'success',
+        title: res.isBookmarked ? 'Đã lưu bài viết' : 'Đã bỏ lưu',
+        message: res.isBookmarked
+          ? 'Bài viết đã nằm trong bộ sưu tập của bạn.'
+          : 'Bài viết đã được gỡ khỏi bộ sưu tập.',
+        icon: 'bookmark',
+      });
     } catch (err: any) {
       setBookmarkedPosts((prev) => ({ ...prev, [postId]: isSaved }));
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể lưu bài viết lúc này');
+      showToast({
+        kind: 'error',
+        title: 'Lưu thất bại',
+        message: err?.response?.data?.message || 'Không thể lưu bài viết lúc này.',
+      });
     }
   };
 
@@ -370,9 +384,21 @@ export default function CommunityScreen() {
     try {
       const updated = await postApi.updatePostVisibility(post.id, next);
       patchPost(post.id, { visibility: updated?.visibility || next });
-      Alert.alert('Đã cập nhật', next === 'PUBLIC' ? 'Bài viết đã chuyển sang công khai.' : 'Bài viết đã chuyển sang chỉ mình tôi.');
+      showToast({
+        kind: 'success',
+        title: next === 'PUBLIC' ? 'Đã chuyển sang công khai' : 'Đã chuyển sang riêng tư',
+        message:
+          next === 'PUBLIC'
+            ? 'Mọi người trong cộng đồng đều có thể xem bài viết này.'
+            : 'Chỉ mình bạn nhìn thấy bài viết này.',
+        icon: next === 'PUBLIC' ? 'globe' : 'lock',
+      });
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể đổi chế độ hiển thị');
+      showToast({
+        kind: 'error',
+        title: 'Đổi chế độ thất bại',
+        message: err?.response?.data?.message || 'Không thể đổi chế độ hiển thị bài viết.',
+      });
     }
   };
 
@@ -383,26 +409,33 @@ export default function CommunityScreen() {
     setDetailPost((prev) => (prev && prev.id === postId ? { ...prev, ...patch } : prev));
   };
 
-  const confirmDelete = (post: PostItem) => {
-    Alert.alert('Xóa bài viết', 'Bạn chắc chắn muốn xóa bài viết này? Hành động không thể hoàn tác.', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await postApi.deletePost(post.id);
-            setPagedPosts((prev) => prev.filter((p) => p.id !== post.id));
-            setFullPosts((prev) => (prev ? prev.filter((p) => p.id !== post.id) : prev));
-            setSavedPosts((prev) => (prev ? prev.filter((p) => p.id !== post.id) : prev));
-            setDetailPost((prev) => (prev && prev.id === post.id ? null : prev));
-            Alert.alert('Đã xóa', 'Bài viết đã được xóa khỏi cộng đồng.');
-          } catch (err: any) {
-            Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể xóa bài viết');
-          }
-        },
-      },
-    ]);
+  const confirmDelete = async (post: PostItem) => {
+    const confirmed = await confirmDialog({
+      title: 'Xóa bài viết?',
+      message: 'Bài viết sẽ bị gỡ khỏi cộng đồng. Hành động không thể hoàn tác.',
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await postApi.deletePost(post.id);
+      setPagedPosts((prev) => prev.filter((p) => p.id !== post.id));
+      setFullPosts((prev) => (prev ? prev.filter((p) => p.id !== post.id) : prev));
+      setSavedPosts((prev) => (prev ? prev.filter((p) => p.id !== post.id) : prev));
+      setDetailPost((prev) => (prev && prev.id === post.id ? null : prev));
+      showToast({
+        kind: 'success',
+        title: 'Đã xóa bài viết',
+        message: 'Bài viết đã được gỡ khỏi cộng đồng.',
+      });
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Xóa thất bại',
+        message: err?.response?.data?.message || 'Không thể xóa bài viết này.',
+      });
+    }
   };
 
   const submitReport = async (post: PostItem, reason: string, details: string) => {
@@ -412,9 +445,18 @@ export default function CommunityScreen() {
         category: reason,
         details: details || undefined,
       });
-      Alert.alert('Đã gửi báo cáo', 'Cảm ơn bạn! Ban quản trị sẽ xem xét bài viết này trong thời gian sớm nhất.');
+      showToast({
+        kind: 'success',
+        title: 'Đã gửi báo cáo',
+        message: 'Cảm ơn bạn! Ban quản trị sẽ xem xét bài viết này trong thời gian sớm nhất.',
+        duration: 4200,
+      });
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể gửi báo cáo lúc này');
+      showToast({
+        kind: 'error',
+        title: 'Gửi báo cáo thất bại',
+        message: err?.response?.data?.message || 'Không thể gửi báo cáo lúc này.',
+      });
       throw err;
     }
   };
@@ -427,7 +469,11 @@ export default function CommunityScreen() {
       setItineraryDetail(it);
       setItineraryVisible(true);
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể mở lịch trình này');
+      showToast({
+        kind: 'error',
+        title: 'Không mở được lịch trình',
+        message: err?.response?.data?.message || 'Vui lòng thử lại sau.',
+      });
     }
   };
 
@@ -436,13 +482,21 @@ export default function CommunityScreen() {
     try {
       setCloningPostId(post.id);
       const cloned = await postApi.cloneItineraryFromPost(post.id);
-      Alert.alert('Đã sao chép 🎉', 'Lịch trình đã được lưu vào mục Lịch trình của bạn.');
+      showToast({
+        kind: 'success',
+        title: 'Đã sao chép lịch trình',
+        message: 'Lịch trình đã được lưu vào mục Lịch trình của bạn.',
+      });
       if (cloned) {
         setItineraryDetail(cloned);
         setItineraryVisible(true);
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể sao chép lịch trình');
+      showToast({
+        kind: 'error',
+        title: 'Sao chép thất bại',
+        message: err?.response?.data?.message || 'Không thể sao chép lịch trình này.',
+      });
     } finally {
       setCloningPostId(null);
     }
@@ -850,14 +904,22 @@ export default function CommunityScreen() {
           if (editingPost && post) {
             patchPost(editingPost.id, post);
             setEditingPost(null);
-            Alert.alert('Đã cập nhật', 'Bài viết của bạn đã được lưu.');
+            showToast({
+              kind: 'success',
+              title: 'Đã cập nhật bài viết',
+              message: 'Thay đổi của bạn đã được lưu lên cộng đồng.',
+            });
           } else {
             setEditingPost(null);
             setFullPosts(null);
             setSavedPosts(null);
             setScope('all');
             resetFilters();
-            Alert.alert('Thành công! 🎉', 'Bài viết của bạn đã được đăng lên Bảng tin cộng đồng.');
+            showToast({
+              kind: 'success',
+              title: 'Đã đăng bài viết',
+              message: 'Bài viết của bạn đã xuất hiện trên bảng tin cộng đồng.',
+            });
             loadInitial();
           }
         }}

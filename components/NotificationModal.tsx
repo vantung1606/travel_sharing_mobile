@@ -8,7 +8,6 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { Text, TextInput } from '@/components/Themed';
@@ -17,6 +16,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { WF_COLORS } from '@/constants/Colors';
+import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
+import { ToastHost, showToast } from '@/components/Toast';
 import { notificationApi, NotificationDto } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 
@@ -125,46 +126,55 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const handleMarkAllAsRead = async () => {
     const unreadCount = notifications.filter((n) => !n.isRead).length;
     if (unreadCount === 0) {
-      Alert.alert('Thông báo', 'Bạn đã đọc hết tất cả thông báo!');
+      showToast({
+        kind: 'info',
+        title: 'Đã đọc hết',
+        message: 'Bạn không còn thông báo nào chưa đọc.',
+      });
       return;
     }
 
-    Alert.alert(
-      'Đánh dấu đã đọc',
-      `Bạn có muốn đánh dấu tất cả ${unreadCount} thông báo là đã đọc?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Đồng ý',
-          style: 'default',
-          onPress: async () => {
-            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-            await notificationApi.markAllAsRead();
-            if (onNotificationRead) {
-              onNotificationRead();
-            }
-          },
-        },
-      ]
-    );
+    const confirmed = await confirmDialog({
+      title: 'Đánh dấu đã đọc?',
+      message: `Cả ${unreadCount} thông báo chưa đọc sẽ được đánh dấu là đã đọc.`,
+      confirmText: 'Đánh dấu',
+      icon: 'check',
+      accent: 'primary',
+    });
+    if (!confirmed) return;
+
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    await notificationApi.markAllAsRead();
+    if (onNotificationRead) {
+      onNotificationRead();
+    }
+    showToast({
+      kind: 'success',
+      title: 'Đã đánh dấu đã đọc',
+      message: `Đã cập nhật ${unreadCount} thông báo.`,
+    });
   };
 
   // Delete single notification
-  const handleDeleteNotification = (id: number) => {
-    Alert.alert('Xóa thông báo', 'Bạn có chắc muốn xóa thông báo này khỏi danh sách?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          setNotifications((prev) => prev.filter((n) => n.id !== id));
-          await notificationApi.deleteNotification(id);
-          if (onNotificationRead) {
-            onNotificationRead();
-          }
-        },
-      },
-    ]);
+  const handleDeleteNotification = async (id: number) => {
+    const confirmed = await confirmDialog({
+      title: 'Xóa thông báo?',
+      message: 'Thông báo này sẽ được gỡ khỏi danh sách của bạn.',
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    await notificationApi.deleteNotification(id);
+    if (onNotificationRead) {
+      onNotificationRead();
+    }
+    showToast({
+      kind: 'success',
+      title: 'Đã xóa thông báo',
+      message: 'Thông báo đã được gỡ khỏi danh sách.',
+    });
   };
 
   // Resolve metadata by notification type
@@ -518,6 +528,10 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             }}
           />
         )}
+
+        {/* Thông báo & hộp xác nhận trong chính modal */}
+        <ConfirmHost enabled={visible} />
+        <ToastHost enabled={visible} />
       </View>
     </Modal>
   );

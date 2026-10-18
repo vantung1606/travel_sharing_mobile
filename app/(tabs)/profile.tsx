@@ -6,7 +6,6 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   Dimensions,
@@ -43,6 +42,7 @@ import {
 import { FollowModal } from '@/components/FollowModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { showToast } from '@/components/Toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 
 const { width } = Dimensions.get('window');
 
@@ -279,27 +279,28 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất tài khoản?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đồng ý',
-        style: 'destructive',
-        onPress: async () => {
-          await authApi.logout();
-          setUser(null);
-          setProfileData(null);
-          setSavedPosts([]);
-          // Quay về đúng form đăng nhập ban đầu, không giữ lại nội dung đã nhập.
-          resetAuthForm();
-          showToast({
-            kind: 'info',
-            title: 'Đã đăng xuất',
-            message: 'Hẹn gặp lại bạn trên hành trình tiếp theo!',
-            icon: 'sign-out',
-          });
-        },
-      },
-    ]);
+    const confirmed = await confirmDialog({
+      title: 'Đăng xuất tài khoản?',
+      message: 'Bạn sẽ cần đăng nhập lại để sử dụng đầy đủ các tính năng.',
+      confirmText: 'Đăng xuất',
+      destructive: true,
+      icon: 'sign-out',
+      accent: 'slate',
+    });
+    if (!confirmed) return;
+
+    await authApi.logout();
+    setUser(null);
+    setProfileData(null);
+    setSavedPosts([]);
+    // Quay về đúng form đăng nhập ban đầu, không giữ lại nội dung đã nhập.
+    resetAuthForm();
+    showToast({
+      kind: 'info',
+      title: 'Đã đăng xuất',
+      message: 'Hẹn gặp lại bạn trên hành trình tiếp theo!',
+      icon: 'sign-out',
+    });
   };
 
   // ─── EDIT PROFILE HANDLER ──────────────────────────────────
@@ -441,35 +442,30 @@ export default function ProfileScreen() {
   };
 
   // ─── DELETE ITINERARY HANDLER ───────────────────────────────
-  const handleDeleteItinerary = (itin: ItineraryItem) => {
-    Alert.alert(
-      'Xóa lịch trình',
-      `Bạn có chắc chắn muốn xóa chuyến đi "${itin.title}" khỏi kho cá nhân của bạn không?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await itineraryApi.deleteItinerary(itin.id);
-              showToast({
-                kind: 'success',
-                title: 'Đã xóa lịch trình',
-                message: `Chuyến đi "${itin.title}" đã được xóa khỏi kho cá nhân.`,
-              });
-              loadProfile();
-            } catch {
-              showToast({
-                kind: 'error',
-                title: 'Xóa thất bại',
-                message: 'Không thể xóa lịch trình này.',
-              });
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteItinerary = async (itin: ItineraryItem) => {
+    const confirmed = await confirmDialog({
+      title: 'Xóa lịch trình?',
+      message: `Chuyến đi "${itin.title}" sẽ bị xóa khỏi kho cá nhân của bạn. Hành động không thể hoàn tác.`,
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await itineraryApi.deleteItinerary(itin.id);
+      showToast({
+        kind: 'success',
+        title: 'Đã xóa lịch trình',
+        message: `Chuyến đi "${itin.title}" đã được xóa khỏi kho cá nhân.`,
+      });
+      loadProfile();
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Xóa thất bại',
+        message: 'Không thể xóa lịch trình này.',
+      });
+    }
   };
 
   // ─── PRESTIGE TIER CALCULATION ─────────────────────────────

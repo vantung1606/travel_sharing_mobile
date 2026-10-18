@@ -7,7 +7,6 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Alert,
   Share,
   Platform,
   Linking,
@@ -17,6 +16,8 @@ import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
+import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
+import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem } from '@/src/services/api';
 
 const PACKING_CHECKLIST = [
@@ -99,24 +100,33 @@ export function ItineraryDetailModal({
     ? detailsList
     : detailsList.filter(d => d.dayNumber === selectedDay);
 
-  const handleDeleteStop = (detailId?: number) => {
+  const handleDeleteStop = async (detailId?: number) => {
     if (!detailId || !fullItin?.id) return;
-    Alert.alert('Xác nhận xóa', 'Bạn có chắc muốn xóa điểm dừng chân này khỏi lịch trình?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await itineraryApi.deleteDetail(detailId);
-            fetchFullDetail(fullItin.id);
-            onItineraryUpdated?.();
-          } catch {
-            Alert.alert('Lỗi', 'Không thể xóa điểm dừng chân');
-          }
-        },
-      },
-    ]);
+
+    const confirmed = await confirmDialog({
+      title: 'Xóa điểm dừng chân?',
+      message: 'Điểm dừng chân này sẽ được xóa khỏi lịch trình.',
+      confirmText: 'Xóa',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await itineraryApi.deleteDetail(detailId);
+      fetchFullDetail(fullItin.id);
+      onItineraryUpdated?.();
+      showToast({
+        kind: 'success',
+        title: 'Đã xóa điểm dừng',
+        message: 'Lịch trình đã được cập nhật.',
+      });
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Xóa thất bại',
+        message: 'Không thể xóa điểm dừng chân này.',
+      });
+    }
   };
 
   const coverUrl =
@@ -320,7 +330,11 @@ export function ItineraryDetailModal({
                               Linking.openURL(
                                 `https://www.google.com/maps/search/?api=1&query=${q}`
                               ).catch(() => {
-                                Alert.alert('Thông báo', 'Không thể mở liên kết bản đồ');
+                                showToast({
+                                  kind: 'error',
+                                  title: 'Không mở được bản đồ',
+                                  message: 'Vui lòng thử lại sau.',
+                                });
                               });
                             }}>
                             <Text style={styles.mapBtnText}>Bản đồ</Text>
@@ -397,6 +411,10 @@ export function ItineraryDetailModal({
             </View>
           </ScrollView>
         )}
+
+        {/* Thông báo & hộp xác nhận trong chính modal */}
+        <ConfirmHost enabled={visible} />
+        <ToastHost enabled={visible} />
       </SafeAreaView>
     </Modal>
   );

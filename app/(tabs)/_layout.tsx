@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
-import { Image, View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Image, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_COLORS } from '@/constants/Colors';
@@ -67,8 +67,20 @@ export default function TabLayout() {
 
     const unsubscribeUnauth = authStorage.onUnauthorized(() => {
       setCurrentUser(null);
+      setIsChatOpen(false);
+      setIsNotificationOpen(false);
       setIsAuthOpen(true);
-      Alert.alert('Phiên làm việc đã hết hạn', 'Vui lòng đăng nhập lại để tiếp tục sử dụng đầy đủ các tính năng.');
+      // Chờ modal đăng nhập mở xong rồi mới báo, để thông báo hiện đúng
+      // bên trong modal thay vì bị lớp phủ che mất.
+      setTimeout(() => {
+        showToast({
+          kind: 'error',
+          title: 'Phiên làm việc đã hết hạn',
+          message: 'Vui lòng đăng nhập lại để tiếp tục sử dụng đầy đủ các tính năng.',
+          duration: 4600,
+          icon: 'clock-o',
+        });
+      }, 340);
     });
 
     return () => {

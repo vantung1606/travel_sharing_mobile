@@ -7,7 +7,6 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { LogBox } from 'react-native';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
-import { WaterRippleOverlay } from '@/components/WaterRippleOverlay';
 
 // Initialize global Times New Roman / Serif typography across the entire app
 applyGlobalSerifTypography();
@@ -52,14 +51,12 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   return (
-    <WaterRippleOverlay>
-      <ThemeProvider value={DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
-    </WaterRippleOverlay>
+    <ThemeProvider value={DefaultTheme}>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+      </Stack>
+    </ThemeProvider>
   );
 }
 

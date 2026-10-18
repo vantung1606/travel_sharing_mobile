@@ -26,6 +26,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
 import { ChatModal } from '@/components/ChatModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { BrandedLoading } from '@/components/BrandedLoading';
 import {
   itineraryApi,
   ItineraryItem,
@@ -1117,10 +1118,10 @@ Ví dụ chuẩn:
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.centerBox}>
-              <ActivityIndicator size="large" color={WF_COLORS.primary} />
-              <Text style={styles.loadingText}>Đang nạp kế hoạch chuyến đi...</Text>
-            </View>
+            <BrandedLoading
+              title="Đang tải lịch trình"
+              subtitle="Wayfare đang sắp xếp lại các chuyến đi của bạn."
+            />
           ) : (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
@@ -1923,13 +1924,6 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
-    fontFamily: SERIF_FONT,
   },
   emptyContainer: {
     padding: 30,

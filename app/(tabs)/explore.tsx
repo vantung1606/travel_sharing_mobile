@@ -16,8 +16,9 @@ import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
-import { placeApi, PlaceItem, API_BASE_URL, itineraryApi, ItineraryItem } from '@/src/services/api';
+import { placeApi, PlaceItem, itineraryApi, ItineraryItem } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
+import { BrandedLoading } from '@/components/BrandedLoading';
 
 // Trạm thời tiết du lịch nhanh (Bê nguyên xi từ ExploreHeader của Web)
 const WEATHER_TICKERS = [
@@ -398,16 +399,18 @@ export default function ExploreScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.centerBox}>
-              <ActivityIndicator size="large" color={WF_COLORS.primary} />
-              <Text style={styles.loadingText}>Đang nạp tọa độ du lịch từ Railway...</Text>
-            </View>
+            <BrandedLoading
+              title="Đang tải điểm đến"
+              subtitle="Wayfare đang chuẩn bị những tọa độ du lịch đẹp nhất cho bạn."
+            />
           ) : hasConnectionError ? (
             <View style={styles.centerBox}>
               <View style={styles.alertCard}>
                 <FontAwesome name="cloud" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
-                <Text style={styles.alertTitle}>Đang kết nối Cloud Railway</Text>
-                <Text style={styles.alertDesc}>Đang nạp dữ liệu từ: {API_BASE_URL}</Text>
+                <Text style={styles.alertTitle}>Không thể tải điểm đến</Text>
+                <Text style={styles.alertDesc}>
+                  Kiểm tra kết nối mạng rồi thử lại nhé. Danh sách điểm đến sẽ hiện ngay khi có dữ liệu.
+                </Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={fetchPlaces}>
                   <Text style={styles.retryBtnText}>Thử kết nối lại</Text>
                 </TouchableOpacity>
@@ -907,11 +910,6 @@ const styles = StyleSheet.create({
   centerBox: {
     padding: 30,
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: WF_COLORS.slate500,
   },
   alertCard: {
     backgroundColor: WF_COLORS.white,

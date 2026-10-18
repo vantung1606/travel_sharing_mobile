@@ -44,6 +44,11 @@ const TRAVEL_HASHTAGS = [
 
 export default function CommunityScreen() {
   const [posts, setPosts] = useState<PostItem[]>([]);
+  // Phân trang phía server cho bảng tin cộng đồng
+  const [postsTotal, setPostsTotal] = useState<number>(0);
+  const [hasMorePosts, setHasMorePosts] = useState<boolean>(false);
+  const [postsPage, setPostsPage] = useState<number>(0);
+  const [loadingMorePosts, setLoadingMorePosts] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
@@ -75,7 +80,20 @@ export default function CommunityScreen() {
   const fetchPosts = useCallback(async () => {
     try {
       setHasError(false);
-      const data = await postApi.getCommunityPosts();
+      const result = await postApi.getCommunityPostsPaged({ page: 0, size: 10 });
+      let data: PostItem[];
+      if (result && Array.isArray(result.items)) {
+        data = result.items;
+        setPostsTotal(result.totalElements || data.length);
+        setHasMorePosts(Boolean(result.hasNext));
+        setPostsPage(0);
+      } else {
+        // Fallback: API phân trang không khả dụng -> tải toàn bộ như trước
+        data = await postApi.getCommunityPosts();
+        setPostsTotal((data || []).length);
+        setHasMorePosts(false);
+        setPostsPage(0);
+      }
       setPosts(data || []);
 
       // Khởi tạo likes
@@ -95,6 +113,39 @@ export default function CommunityScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  // Tải thêm bài viết khi cuộn gần cuối bảng tin
+  const loadMorePosts = useCallback(async () => {
+    if (loadingMorePosts || !hasMorePosts) return;
+    setLoadingMorePosts(true);
+    try {
+      const nextPage = postsPage + 1;
+      const result = await postApi.getCommunityPostsPaged({ page: nextPage, size: 10 });
+      if (result && Array.isArray(result.items)) {
+        setPosts(prev => {
+          const seen = new Set(prev.map(p => p.id));
+          return [...prev, ...result.items.filter(p => !seen.has(p.id))];
+        });
+
+        const likesMap: Record<number, boolean> = {};
+        const countMap: Record<number, number> = {};
+        result.items.forEach(p => {
+          likesMap[p.id] = !!p.isLiked;
+          countMap[p.id] = p.likesCount || 0;
+        });
+        setLikedPosts(prev => ({ ...prev, ...likesMap }));
+        setLikesCount(prev => ({ ...prev, ...countMap }));
+
+        setPostsPage(nextPage);
+        setPostsTotal(result.totalElements || 0);
+        setHasMorePosts(Boolean(result.hasNext));
+      }
+    } catch (err: any) {
+      console.warn('Load more posts error:', err?.message || err);
+    } finally {
+      setLoadingMorePosts(false);
+    }
+  }, [loadingMorePosts, hasMorePosts, postsPage]);
 
   useEffect(() => {
     fetchPosts();
@@ -336,6 +387,19 @@ export default function CommunityScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          <View style={styles.listFooter}>
+            {loadingMorePosts ? (
+              <ActivityIndicator size="small" color={WF_COLORS.primary} />
+            ) : hasMorePosts ? (
+              <Text style={styles.listFooterText}>Cuộn để tải thêm · {posts.length}/{postsTotal} bài viết</Text>
+            ) : posts.length > 0 ? (
+              <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {postsTotal} bài viết</Text>
+            ) : null}
+          </View>
+        }
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
 
@@ -560,6 +624,16 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 24,
+  },
+  listFooter: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listFooterText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
   },
   headerWrapper: {
     paddingHorizontal: 16,

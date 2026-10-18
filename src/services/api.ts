@@ -166,10 +166,33 @@ export const authApi = {
 };
 
 // ─── PLACES API ────────────────────────────────────────────
+export interface PagedResult<T> {
+  items: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
 export const placeApi = {
   async getAllPlaces(params?: { city?: string; category?: string; keyword?: string; status?: string }): Promise<PlaceItem[]> {
     const res = await apiClient.get<ApiResponse<PlaceItem[]>>('/places', { params });
     return res.data.data || [];
+  },
+
+  /**
+   * Lấy địa điểm có phân trang phía server (giảm payload so với tải toàn bộ).
+   * Trả về null nếu API chưa hỗ trợ, caller có thể fallback sang getAllPlaces.
+   */
+  async getPlacesPaged(params: { page?: number; size?: number; city?: string; category?: string; keyword?: string; status?: string } = {}): Promise<PagedResult<PlaceItem> | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<PagedResult<PlaceItem>>>('/places', { params });
+      return res.data.data || null;
+    } catch (err: any) {
+      console.warn('API error fetching paged places:', err?.message || err);
+      return null;
+    }
   },
 
   async getPlaceById(id: number): Promise<PlaceItem> {
@@ -239,6 +262,20 @@ export const postApi = {
   async getCommunityPosts(params?: { category?: string; keyword?: string }): Promise<PostItem[]> {
     const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts', { params });
     return res.data.data || [];
+  },
+
+  /**
+   * Lấy bài viết cộng đồng có phân trang phía server.
+   * Trả về null nếu API chưa hỗ trợ, caller có thể fallback sang getCommunityPosts.
+   */
+  async getCommunityPostsPaged(params: { page?: number; size?: number; category?: string; keyword?: string } = {}): Promise<PagedResult<PostItem> | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<PagedResult<PostItem>>>('/posts', { params });
+      return res.data.data || null;
+    } catch (err: any) {
+      console.warn('API error fetching paged posts:', err?.message || err);
+      return null;
+    }
   },
 
   async getPostById(id: number): Promise<PostItem> {

@@ -43,6 +43,11 @@ const WEB_CATEGORIES = [
 export default function ExploreScreen() {
   const [exploreLayer, setExploreLayer] = useState<'spots' | 'destinations'>('spots');
   const [places, setPlaces] = useState<PlaceItem[]>([]);
+  // Phân trang phía server cho danh sách địa điểm
+  const [placesTotal, setPlacesTotal] = useState<number>(0);
+  const [hasMorePlaces, setHasMorePlaces] = useState<boolean>(false);
+  const [placesPage, setPlacesPage] = useState<number>(0);
+  const [loadingMorePlaces, setLoadingMorePlaces] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -66,11 +71,29 @@ export default function ExploreScreen() {
     try {
       setHasConnectionError(false);
       const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
-      const data = await placeApi.getAllPlaces({
+      const result = await placeApi.getPlacesPaged({
+        page: 0,
+        size: 50,
         keyword: searchQuery.trim() || undefined,
         category: categoryParam,
       });
-      setPlaces(data || []);
+
+      if (result && Array.isArray(result.items)) {
+        setPlaces(result.items);
+        setPlacesTotal(result.totalElements || result.items.length);
+        setHasMorePlaces(Boolean(result.hasNext));
+        setPlacesPage(0);
+      } else {
+        // Fallback: API phân trang không khả dụng -> tải toàn bộ như trước
+        const data = await placeApi.getAllPlaces({
+          keyword: searchQuery.trim() || undefined,
+          category: categoryParam,
+        });
+        setPlaces(data || []);
+        setPlacesTotal((data || []).length);
+        setHasMorePlaces(false);
+        setPlacesPage(0);
+      }
     } catch (err: any) {
       console.warn('Backend connection notice:', err.message || err);
       setHasConnectionError(true);
@@ -79,6 +102,35 @@ export default function ExploreScreen() {
       setRefreshing(false);
     }
   }, [searchQuery, selectedCategory]);
+
+  // Tải thêm địa điểm khi cuộn gần cuối danh sách
+  const loadMorePlaces = useCallback(async () => {
+    if (loadingMorePlaces || !hasMorePlaces) return;
+    setLoadingMorePlaces(true);
+    try {
+      const nextPage = placesPage + 1;
+      const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
+      const result = await placeApi.getPlacesPaged({
+        page: nextPage,
+        size: 50,
+        keyword: searchQuery.trim() || undefined,
+        category: categoryParam,
+      });
+      if (result && Array.isArray(result.items)) {
+        setPlaces(prev => {
+          const seen = new Set(prev.map(p => p.id));
+          return [...prev, ...result.items.filter(p => !seen.has(p.id))];
+        });
+        setPlacesPage(nextPage);
+        setPlacesTotal(result.totalElements || 0);
+        setHasMorePlaces(Boolean(result.hasNext));
+      }
+    } catch (err: any) {
+      console.warn('Load more places error:', err?.message || err);
+    } finally {
+      setLoadingMorePlaces(false);
+    }
+  }, [loadingMorePlaces, hasMorePlaces, placesPage, searchQuery, selectedCategory]);
 
   useEffect(() => {
     fetchPlaces();
@@ -235,6 +287,19 @@ export default function ExploreScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        onEndReached={loadMorePlaces}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          <View style={styles.listFooter}>
+            {loadingMorePlaces ? (
+              <ActivityIndicator size="small" color={WF_COLORS.primary} />
+            ) : hasMorePlaces ? (
+              <Text style={styles.listFooterText}>Cuộn để tải thêm · {places.length}/{placesTotal} địa điểm</Text>
+            ) : places.length > 0 ? (
+              <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {placesTotal} địa điểm</Text>
+            ) : null}
+          </View>
+        }
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
 
@@ -526,6 +591,16 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingBottom: 24,
+  },
+  listFooter: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listFooterText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
   },
   headerWrapper: {
     paddingHorizontal: 16,

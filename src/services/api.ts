@@ -77,6 +77,7 @@ export interface PostItem {
   content: string;
   authorId?: number;
   authorName?: string;
+  authorEmail?: string;
   authorAvatar?: string;
   authorHandle?: string;
   authorRole?: string;
@@ -87,14 +88,33 @@ export interface PostItem {
   coverImage?: string;
   imageUrl?: string;
   images?: string[];
+  videoUrl?: string;
+  visibility?: string;
+  badgeText?: string;
+  status?: string;
+  aiSafetyScore?: number;
+  aiFlagReason?: string;
   likesCount?: number;
   likeCount?: number;
   commentsCount?: number;
   commentCount?: number;
   isLiked?: boolean;
   isBookmarked?: boolean;
+  isOwner?: boolean;
   createdAt?: string;
   timeAgo?: string;
+  formattedDate?: string;
+  /** Lịch trình đính kèm (nếu bài viết gắn tour) */
+  itineraryId?: number;
+  itineraryTitle?: string;
+  itineraryDestination?: string;
+  itineraryDuration?: string;
+  itineraryBudget?: number;
+  itineraryPlacesCount?: number;
+  itineraryIsAi?: boolean;
+  /** Bài viết gốc khi đây là bài chia sẻ lại */
+  sharedPostId?: number;
+  sharedPost?: PostItem;
 }
 
 export interface ItineraryItem {
@@ -215,16 +235,23 @@ export interface CommentItem {
   createdAt: string;
   timeAgo?: string;
   parentId?: number;
+  replyToUserId?: number;
+  replyToUserName?: string;
+  replyToUserHandle?: string;
+  replies?: CommentItem[];
 }
 
 export interface CreatePostPayload {
   title?: string;
   content: string;
   category?: string;
-  locationName?: string;
-  coverImage?: string;
+  locationTag?: string;
+  imageUrl?: string;
   images?: string[];
+  videoUrl?: string;
+  visibility?: string;
   itineraryId?: number;
+  sharedPostId?: number;
 }
 
 export interface UserProfileItem {
@@ -324,6 +351,34 @@ export const postApi = {
     const res = await apiClient.post<ApiResponse<ItineraryItem>>(`/posts/${postId}/clone-itinerary`);
     return res.data.data;
   },
+
+  async updatePost(id: number, payload: CreatePostPayload): Promise<PostItem> {
+    // UpdatePostRequest không có sharedPostId -> loại bỏ để payload khớp hợp đồng backend
+    const body: CreatePostPayload = { ...payload };
+    delete body.sharedPostId;
+    const res = await apiClient.put<ApiResponse<PostItem>>(`/posts/${id}`, body);
+    return res.data.data;
+  },
+
+  async updatePostVisibility(id: number, visibility: string): Promise<PostItem> {
+    const res = await apiClient.patch<ApiResponse<PostItem>>(`/posts/${id}/visibility`, null, {
+      params: { visibility },
+    });
+    return res.data.data;
+  },
+
+  async deletePost(id: number): Promise<void> {
+    await apiClient.delete(`/posts/${id}`);
+  },
+
+  async reportPost(id: number, payload: { reason: string; category?: string; details?: string }): Promise<void> {
+    await apiClient.post(`/posts/${id}/report`, payload);
+  },
+
+  async getBookmarkedPostIds(): Promise<number[]> {
+    const res = await apiClient.get<ApiResponse<number[]>>('/posts/bookmarked/ids');
+    return res.data.data || [];
+  },
 };
 
 export interface UpdateProfilePayload {
@@ -366,6 +421,22 @@ export const userApi = {
       return res.data.data || [];
     } catch {
       return [];
+    }
+  },
+
+  async getFollowingIds(): Promise<number[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<number[]>>('/users/following/ids');
+      return res.data.data || [];
+    } catch {
+      try {
+        const list = await userApi.getFollowing();
+        return list
+          .map((u: any) => Number(u?.id ?? u?.userId ?? u?.followingId))
+          .filter((n: number) => Number.isFinite(n));
+      } catch {
+        return [];
+      }
     }
   },
 

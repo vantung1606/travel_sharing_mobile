@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -19,12 +18,13 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { WF_COLORS } from '@/constants/Colors';
+import { ToastHost, showToast } from '@/components/Toast';
 import { authApi } from '@/src/services/api';
 import { UserSession } from '@/src/services/authStorage';
 
 interface WelcomeAuthModalProps {
   visible: boolean;
-  onLoginSuccess: (session: UserSession) => void;
+  onLoginSuccess: (session: UserSession, mode: 'login' | 'register' | 'google') => void;
   onContinueAsGuest?: () => void;
 }
 
@@ -43,13 +43,35 @@ export function WelcomeAuthModal({
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
   const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | null>(null);
 
+  // Mỗi lần mở lại form (sau khi đăng xuất hoặc bấm từ header) luôn trả về
+  // đúng trạng thái ban đầu: tab Đăng nhập, ô nhập trống, mật khẩu đang ẩn.
+  useEffect(() => {
+    if (!visible) return;
+    setMode('login');
+    setFullName('');
+    setEmail('');
+    setPassword('');
+    setShowPassword(false);
+    setFocusedField(null);
+    setLoading(false);
+    setGoogleLoading(false);
+  }, [visible]);
+
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ Email và Mật khẩu.');
+      showToast({
+        kind: 'error',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập đầy đủ Email và Mật khẩu.',
+      });
       return;
     }
     if (mode === 'register' && !fullName.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập Họ và tên để đăng ký thành viên.');
+      showToast({
+        kind: 'error',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập Họ và tên để đăng ký thành viên.',
+      });
       return;
     }
 
@@ -57,15 +79,21 @@ export function WelcomeAuthModal({
     try {
       if (mode === 'login') {
         const session = await authApi.login(email.trim(), password.trim());
-        Alert.alert('Chào mừng trở lại! 🎉', `Đăng nhập thành công, xin chào ${session.fullName || session.email}!`);
-        onLoginSuccess(session);
+        onLoginSuccess(session, 'login');
       } else {
         const session = await authApi.register(fullName.trim(), email.trim(), password.trim());
-        Alert.alert('Đăng ký thành công! 🌟', 'Tài khoản Wayfare của bạn đã được khởi tạo.');
-        onLoginSuccess(session);
+        onLoginSuccess(session, 'register');
       }
     } catch (err: any) {
-      Alert.alert('Đăng nhập thất bại', err.response?.data?.message || err.message || 'Email hoặc mật khẩu không chính xác!');
+      showToast({
+        kind: 'error',
+        title: 'Đăng nhập thất bại',
+        message:
+          err.response?.data?.message ||
+          err.message ||
+          'Email hoặc mật khẩu không chính xác.',
+        duration: 4200,
+      });
     } finally {
       setLoading(false);
     }
@@ -87,21 +115,27 @@ export function WelcomeAuthModal({
         const token = params.get('id_token') || params.get('access_token');
         if (token) {
           const session = await authApi.loginWithGoogle(token);
-          Alert.alert('Đăng nhập thành công! 🎉', `Chào mừng ${session.fullName} đến với Wayfare!`);
-          onLoginSuccess(session);
+          onLoginSuccess(session, 'google');
           return;
         }
       }
 
-      Alert.alert(
-        'Đăng nhập Google',
-        'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng. Bạn có thể đăng nhập hoặc đăng ký tài khoản nhanh bằng Email & Mật khẩu ngay phía trên.'
-      );
+      showToast({
+        kind: 'info',
+        title: 'Đăng nhập Google',
+        message:
+          'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng. Bạn có thể đăng nhập nhanh bằng Email & Mật khẩu ngay phía trên.',
+        duration: 4600,
+      });
     } catch (err: any) {
-      Alert.alert(
-        'Đăng nhập Google',
-        err.message || 'Không thể mở trình duyệt xác thực Google. Vui lòng sử dụng Đăng nhập bằng Email!'
-      );
+      showToast({
+        kind: 'error',
+        title: 'Không thể đăng nhập Google',
+        message:
+          err.message ||
+          'Không thể mở trình duyệt xác thực Google. Vui lòng sử dụng Đăng nhập bằng Email.',
+        duration: 4200,
+      });
     } finally {
       setGoogleLoading(false);
     }
@@ -292,6 +326,10 @@ export function WelcomeAuthModal({
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Toast đặt ngay trong modal để thông báo không bị lớp phủ của modal che.
+          Chỉ nhận hiển thị khi modal đang mở (visible). */}
+      <ToastHost enabled={visible} />
     </Modal>
   );
 }

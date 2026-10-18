@@ -42,6 +42,7 @@ import {
 } from '@/src/utils/tierSystem';
 import { FollowModal } from '@/components/FollowModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { showToast } from '@/components/Toast';
 
 const { width } = Dimensions.get('window');
 
@@ -100,6 +101,15 @@ export default function ProfileScreen() {
   const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
   const [itineraryDetailVisible, setItineraryDetailVisible] = useState<boolean>(false);
 
+  // Trả form đăng nhập/đăng ký về đúng trạng thái ban đầu (tab Đăng nhập,
+  // ô nhập trống) để sau khi đăng xuất người dùng không phải xoá/bấm lại.
+  const resetAuthForm = useCallback(() => {
+    setAuthMode('login');
+    setAuthFullName('');
+    setAuthEmail('');
+    setAuthPassword('');
+  }, []);
+
   const loadProfile = useCallback(async () => {
     try {
       const session = await authStorage.getSession();
@@ -133,6 +143,24 @@ export default function ProfileScreen() {
     loadProfile();
   }, [loadProfile]);
 
+  // Giữ tab Tài khoản đồng bộ với phiên đăng nhập ở mọi nơi trong app:
+  // đăng nhập từ modal header thì hồ sơ tự hiện ra, đăng xuất thì form
+  // đăng nhập trở về đúng trạng thái ban đầu.
+  useEffect(() => {
+    const unsubscribe = authStorage.subscribe((session) => {
+      if (session?.token) {
+        setUser(session);
+        loadProfile();
+      } else {
+        setUser(null);
+        setProfileData(null);
+        setSavedPosts([]);
+        resetAuthForm();
+      }
+    });
+    return unsubscribe;
+  }, [loadProfile, resetAuthForm]);
+
   // Load saved posts when switching to 'saved' tab
   useEffect(() => {
     if (activeTab === 'saved' && user?.token) {
@@ -163,7 +191,11 @@ export default function ProfileScreen() {
   // ─── AUTH HANDLERS ──────────────────────────────────────────
   const handleAuth = async () => {
     if (!authEmail.trim() || !authPassword.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ Email và Mật khẩu');
+      showToast({
+        kind: 'error',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập đầy đủ Email và Mật khẩu.',
+      });
       return;
     }
 
@@ -172,21 +204,33 @@ export default function ProfileScreen() {
       let authData: UserSession;
       if (authMode === 'login') {
         authData = await authApi.login(authEmail.trim(), authPassword);
-        Alert.alert('Thành công! 🎉', `Chào mừng trở lại, ${authData.fullName}!`);
+        showToast({
+          kind: 'success',
+          title: 'Đăng nhập thành công',
+          message: `Chào mừng ${authData.fullName || authData.email} trở lại Wayfare!`,
+        });
       } else {
         if (!authFullName.trim()) {
-          Alert.alert('Thông báo', 'Vui lòng nhập Họ và tên để đăng ký');
+          showToast({
+            kind: 'error',
+            title: 'Thiếu thông tin',
+            message: 'Vui lòng nhập Họ và tên để đăng ký.',
+          });
           return;
         }
         authData = await authApi.register(authFullName.trim(), authEmail.trim(), authPassword);
-        Alert.alert('Thành công! 🎉', 'Tài khoản của bạn đã được khởi tạo thành công.');
+        showToast({
+          kind: 'success',
+          title: 'Tạo tài khoản thành công',
+          message: 'Chào mừng bạn đến với cộng đồng Wayfare!',
+        });
       }
       setUser(authData);
-      setAuthPassword('');
+      resetAuthForm();
       loadProfile();
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Thao tác không thành công';
-      Alert.alert('Lỗi xác thực', msg);
+      showToast({ kind: 'error', title: 'Đăng nhập thất bại', message: msg, duration: 4200 });
     } finally {
       setSubmittingAuth(false);
     }
@@ -209,14 +253,26 @@ export default function ProfileScreen() {
         if (token) {
           const session = await authApi.loginWithGoogle(token);
           setUser(session);
-          Alert.alert('Thành công! 🎉', `Đăng nhập Google thành công, xin chào ${session.fullName}!`);
+          showToast({
+            kind: 'success',
+            title: 'Đăng nhập Google thành công',
+            message: `Xin chào ${session.fullName || session.email}, hồ sơ Google đã được kết nối.`,
+          });
           loadProfile();
           return;
         }
       }
-      Alert.alert('Đăng nhập Google', 'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng.');
+      showToast({
+        kind: 'info',
+        title: 'Đăng nhập Google',
+        message: 'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng.',
+      });
     } catch (e: any) {
-      Alert.alert('Lỗi', e.message || 'Không thể đăng nhập Google lúc này.');
+      showToast({
+        kind: 'error',
+        title: 'Không thể đăng nhập Google',
+        message: e.message || 'Vui lòng thử lại sau.',
+      });
     } finally {
       setSubmittingAuth(false);
     }
@@ -233,6 +289,14 @@ export default function ProfileScreen() {
           setUser(null);
           setProfileData(null);
           setSavedPosts([]);
+          // Quay về đúng form đăng nhập ban đầu, không giữ lại nội dung đã nhập.
+          resetAuthForm();
+          showToast({
+            kind: 'info',
+            title: 'Đã đăng xuất',
+            message: 'Hẹn gặp lại bạn trên hành trình tiếp theo!',
+            icon: 'sign-out',
+          });
         },
       },
     ]);
@@ -241,7 +305,7 @@ export default function ProfileScreen() {
   // ─── EDIT PROFILE HANDLER ──────────────────────────────────
   const handleSaveProfile = async () => {
     if (!editFullName.trim()) {
-      Alert.alert('Thông báo', 'Họ và tên không được để trống!');
+      showToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Họ và tên không được để trống.' });
       return;
     }
     try {
@@ -271,11 +335,15 @@ export default function ProfileScreen() {
           setUser(newSession);
         }
         setIsEditModalOpen(false);
-        Alert.alert('Thành công! 🎉', 'Đã lưu thông tin hồ sơ của bạn vào cơ sở dữ liệu!');
+        showToast({
+          kind: 'success',
+          title: 'Đã lưu hồ sơ',
+          message: 'Thông tin cá nhân của bạn đã được cập nhật.',
+        });
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Lỗi khi cập nhật hồ sơ';
-      Alert.alert('Lỗi', msg);
+      showToast({ kind: 'error', title: 'Cập nhật thất bại', message: msg });
     } finally {
       setIsSavingProfile(false);
     }
@@ -286,7 +354,11 @@ export default function ProfileScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh đại diện!');
+        showToast({
+          kind: 'info',
+          title: 'Cần quyền truy cập ảnh',
+          message: 'Vui lòng cấp quyền thư viện ảnh để chọn ảnh đại diện.',
+        });
         return;
       }
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -308,11 +380,19 @@ export default function ProfileScreen() {
             await authStorage.saveSession(newSession);
             setUser(newSession);
           }
-          Alert.alert('Thành công! 🎉', 'Đã tải ảnh đại diện từ thiết bị lên máy chủ thành công!');
+          showToast({
+            kind: 'success',
+            title: 'Đã cập nhật ảnh đại diện',
+            message: 'Ảnh mới của bạn đã được tải lên thành công.',
+          });
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Không thể tải ảnh đại diện: ' + (err.message || 'Vui lòng thử lại'));
+      showToast({
+        kind: 'error',
+        title: 'Tải ảnh đại diện thất bại',
+        message: err.message || 'Vui lòng thử lại.',
+      });
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -322,7 +402,11 @@ export default function ProfileScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để đổi ảnh bìa!');
+        showToast({
+          kind: 'info',
+          title: 'Cần quyền truy cập ảnh',
+          message: 'Vui lòng cấp quyền thư viện ảnh để đổi ảnh bìa.',
+        });
         return;
       }
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -338,11 +422,19 @@ export default function ProfileScreen() {
         if (uploaded) {
           await userApi.updateProfile({ coverImageUrl: uploaded });
           setProfileData((prev) => (prev ? { ...prev, coverImageUrl: uploaded } : prev));
-          Alert.alert('Thành công! 📸', 'Đã cập nhật ảnh bìa mới từ thiết bị thành công!');
+          showToast({
+            kind: 'success',
+            title: 'Đã cập nhật ảnh bìa',
+            message: 'Ảnh bìa mới đã được áp dụng cho hồ sơ của bạn.',
+          });
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Không thể tải ảnh bìa: ' + (err.message || 'Vui lòng thử lại'));
+      showToast({
+        kind: 'error',
+        title: 'Tải ảnh bìa thất bại',
+        message: err.message || 'Vui lòng thử lại.',
+      });
     } finally {
       setIsUploadingCover(false);
     }
@@ -361,10 +453,18 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               await itineraryApi.deleteItinerary(itin.id);
-              Alert.alert('Thành công', 'Đã xóa lịch trình thành công.');
+              showToast({
+                kind: 'success',
+                title: 'Đã xóa lịch trình',
+                message: `Chuyến đi "${itin.title}" đã được xóa khỏi kho cá nhân.`,
+              });
               loadProfile();
             } catch {
-              Alert.alert('Lỗi', 'Không thể xóa lịch trình này.');
+              showToast({
+                kind: 'error',
+                title: 'Xóa thất bại',
+                message: 'Không thể xóa lịch trình này.',
+              });
             }
           },
         },
@@ -1283,9 +1383,17 @@ export default function ProfileScreen() {
                           try {
                             await postApi.toggleBookmark(post.id);
                             setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
-                            Alert.alert('Đã xóa', 'Đã bỏ lưu bài viết khỏi kho của bạn');
+                            showToast({
+                              kind: 'success',
+                              title: 'Đã bỏ lưu',
+                              message: 'Bài viết đã được xóa khỏi kho lưu của bạn.',
+                            });
                           } catch (e) {
-                            Alert.alert('Lỗi', 'Không thể bỏ lưu bài viết');
+                            showToast({
+                              kind: 'error',
+                              title: 'Thao tác thất bại',
+                              message: 'Không thể bỏ lưu bài viết này.',
+                            });
                           }
                         }}
                         style={styles.unbookmarkBtn}

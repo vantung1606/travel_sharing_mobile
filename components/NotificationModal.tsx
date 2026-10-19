@@ -125,14 +125,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   // Mark all as read
   const handleMarkAllAsRead = async () => {
     const unreadCount = notifications.filter((n) => !n.isRead).length;
-    if (unreadCount === 0) {
-      showToast({
-        kind: 'info',
-        title: 'Đã đọc hết',
-        message: 'Bạn không còn thông báo nào chưa đọc.',
-      });
-      return;
-    }
+    if (unreadCount === 0) return;
 
     const confirmed = await confirmDialog({
       title: 'Đánh dấu đã đọc?',
@@ -148,11 +141,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     if (onNotificationRead) {
       onNotificationRead();
     }
-    showToast({
-      kind: 'success',
-      title: 'Đã đánh dấu đã đọc',
-      message: `Đã cập nhật ${unreadCount} thông báo.`,
-    });
+    // Không thông báo: huy hiệu số chưa đọc đã tự biến mất ngay trên màn hình.
   };
 
   // Delete single notification

@@ -742,7 +742,8 @@ export default function ProfileScreen() {
                   activeOpacity={0.8}
                   accessibilityLabel="Đăng xuất"
                 >
-                  <FontAwesome name="sign-out" size={14} color="#EF4444" />
+                  <FontAwesome name="sign-out" size={13} color="#DC2626" style={{ marginRight: 6 }} />
+                  <Text style={styles.logoutBtnText}>Đăng xuất</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1379,11 +1380,7 @@ export default function ProfileScreen() {
                           try {
                             await postApi.toggleBookmark(post.id);
                             setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
-                            showToast({
-                              kind: 'success',
-                              title: 'Đã bỏ lưu',
-                              message: 'Bài viết đã được xóa khỏi kho lưu của bạn.',
-                            });
+                            // Không thông báo: bài viết đã biến mất khỏi kho lưu ngay trước mắt.
                           } catch (e) {
                             showToast({
                               kind: 'error',
@@ -1870,14 +1867,20 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FEE2E2',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FECACA',
     justifyContent: 'center',
-    alignItems: 'center',
+  },
+  logoutBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
 
   // User Names Block

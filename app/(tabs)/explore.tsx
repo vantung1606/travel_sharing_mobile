@@ -1,80 +1,74 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  StyleSheet,
-  View,
-  FlatList,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  ScrollView,
-} from 'react-native';
-import { Text, TextInput } from '@/components/Themed';
-import { SERIF_FONT } from '@/constants/Typography';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { WF_COLORS } from '@/constants/Colors';
-import { showToast } from '@/components/Toast';
-import { placeApi, PlaceItem, itineraryApi, ItineraryItem } from '@/src/services/api';
-import { authStorage } from '@/src/services/authStorage';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import { BrandedLoading } from '@/components/BrandedLoading';
+import { Text, TextInput } from '@/components/Themed';
+import { FeaturedPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
+import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
+import { WF_COLORS } from '@/constants/Colors';
+import { authPrompt } from '@/src/services/authPrompt';
+import { authStorage } from '@/src/services/authStorage';
+import { itineraryApi, ItineraryItem, placeApi, PlaceItem } from '@/src/services/api';
+import { savedPlaces } from '@/src/services/savedPlaces';
+import { showToast } from '@/components/Toast';
 
-// Trạm thời tiết du lịch nhanh (Bê nguyên xi từ ExploreHeader của Web)
-const WEATHER_TICKERS = [
-  { city: 'Đà Lạt', temp: '18°C', icon: '🌫️', status: 'Se lạnh săn mây' },
-  { city: 'Sa Pa', temp: '16°C', icon: '⛅', status: 'Sương mù mây ngàn' },
-  { city: 'Phú Quốc', temp: '29°C', icon: '☀️', status: 'Nắng ấm biển êm' },
-  { city: 'Đà Nẵng', temp: '26°C', icon: '🌤️', status: 'Gió biển dễ chịu' },
-  { city: 'Hà Giang', temp: '21°C', icon: '🌾', status: 'Mát mẻ view đèo' },
-  { city: 'Ninh Bình', temp: '23°C', icon: '🛶', status: 'Non nước thanh bình' },
+/**
+ * Danh mục THẬT của Wayfare (đúng chuỗi lưu trong CSDL — backend lọc theo
+ * categoryName). Trước đây thanh danh mục dùng tên tự chế nên bấm vào là ra
+ * danh sách rỗng.
+ */
+const PLACE_CATEGORIES = [
+  { label: 'Tất cả', icon: 'compass' },
+  { label: 'Núi Rừng & Mây Ngàn', icon: 'tree' },
+  { label: 'Di Sản & Phố Cổ', icon: 'university' },
+  { label: 'Biển Đảo & Nghỉ Dưỡng', icon: 'sun-o' },
+  { label: 'Danh Lam & Thắng Cảnh', icon: 'camera' },
+  { label: 'Quán Cafe & Săn Mây', icon: 'coffee' },
 ];
 
-// Danh mục du lịch chuẩn 100% bản Web
-const WEB_CATEGORIES = [
-  { id: 'all', label: 'Tất cả', icon: 'compass', count: '100+' },
-  { id: 'scenic', label: 'Danh Lam & Thắng Cảnh', icon: 'tree', count: '24' },
-  { id: 'heritage', label: 'Di Tích Lịch Sử', icon: 'university', count: '18' },
-  { id: 'beach', label: 'Bãi Biển & Đảo', icon: 'sun-o', count: '32' },
-  { id: 'food', label: 'Ẩm Thực Bản Địa', icon: 'cutlery', count: '45' },
-  { id: 'cafe', label: 'Cafe & Check-in', icon: 'coffee', count: '29' },
-  { id: 'market', label: 'Chợ & Phố Đi Bộ', icon: 'shopping-bag', count: '15' },
-];
+const PAGE_SIZE = 50;
 
 export default function ExploreScreen() {
-  const [exploreLayer, setExploreLayer] = useState<'spots' | 'destinations'>('spots');
   const [places, setPlaces] = useState<PlaceItem[]>([]);
-  // Phân trang phía server cho danh sách địa điểm
   const [placesTotal, setPlacesTotal] = useState<number>(0);
   const [hasMorePlaces, setHasMorePlaces] = useState<boolean>(false);
   const [placesPage, setPlacesPage] = useState<number>(0);
   const [loadingMorePlaces, setLoadingMorePlaces] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [fetching, setFetching] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
 
-  // Modal Chi tiết Địa điểm
   const [selectedPlace, setSelectedPlace] = useState<PlaceItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
 
-  // Modal Chọn Lịch Trình để thêm địa điểm
   const [addToPlanModalVisible, setAddToPlanModalVisible] = useState<boolean>(false);
   const [myItineraries, setMyItineraries] = useState<ItineraryItem[]>([]);
   const [loadingItineraries, setLoadingItineraries] = useState<boolean>(false);
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
 
-  // Wishlist
-  const [savedPlaces, setSavedPlaces] = useState<Record<number, boolean>>({});
+  const [savedIds, setSavedIds] = useState<number[]>([]);
 
   const fetchPlaces = useCallback(async () => {
+    setFetching(true);
     try {
       setHasConnectionError(false);
       const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
       const result = await placeApi.getPlacesPaged({
         page: 0,
-        size: 50,
+        size: PAGE_SIZE,
         keyword: searchQuery.trim() || undefined,
         category: categoryParam,
       });
@@ -85,7 +79,7 @@ export default function ExploreScreen() {
         setHasMorePlaces(Boolean(result.hasNext));
         setPlacesPage(0);
       } else {
-        // Fallback: API phân trang không khả dụng -> tải toàn bộ như trước
+        // API phân trang không khả dụng -> tải toàn bộ như trước
         const data = await placeApi.getAllPlaces({
           keyword: searchQuery.trim() || undefined,
           category: categoryParam,
@@ -100,11 +94,11 @@ export default function ExploreScreen() {
       setHasConnectionError(true);
     } finally {
       setLoading(false);
+      setFetching(false);
       setRefreshing(false);
     }
   }, [searchQuery, selectedCategory]);
 
-  // Tải thêm địa điểm khi cuộn gần cuối danh sách
   const loadMorePlaces = useCallback(async () => {
     if (loadingMorePlaces || !hasMorePlaces) return;
     setLoadingMorePlaces(true);
@@ -113,14 +107,14 @@ export default function ExploreScreen() {
       const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
       const result = await placeApi.getPlacesPaged({
         page: nextPage,
-        size: 50,
+        size: PAGE_SIZE,
         keyword: searchQuery.trim() || undefined,
         category: categoryParam,
       });
       if (result && Array.isArray(result.items)) {
-        setPlaces(prev => {
-          const seen = new Set(prev.map(p => p.id));
-          return [...prev, ...result.items.filter(p => !seen.has(p.id))];
+        setPlaces((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...result.items.filter((p) => !seen.has(p.id))];
         });
         setPlacesPage(nextPage);
         setPlacesTotal(result.totalElements || 0);
@@ -137,13 +131,24 @@ export default function ExploreScreen() {
     fetchPlaces();
   }, [fetchPlaces]);
 
+  // Danh sách "muốn đi" lưu bền trên thiết bị
+  useEffect(() => {
+    savedPlaces.getAll().then(setSavedIds);
+    return savedPlaces.subscribe(setSavedIds);
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchPlaces();
   };
 
-  const toggleSave = (id: number) => {
-    setSavedPlaces(prev => ({ ...prev, [id]: !prev[id] }));
+  const handleToggleSave = async (place: PlaceItem) => {
+    const session = await authStorage.getSession();
+    if (!session) {
+      authPrompt.open();
+      return;
+    }
+    await savedPlaces.toggle(place.id);
   };
 
   const handleOpenPlaceDetail = (place: PlaceItem) => {
@@ -154,12 +159,8 @@ export default function ExploreScreen() {
   const handleOpenAddToPlan = async () => {
     const session = await authStorage.getSession();
     if (!session) {
-      showToast({
-        kind: 'info',
-        title: 'Yêu cầu đăng nhập',
-        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để thêm địa điểm vào lịch trình cá nhân.',
-        icon: 'lock',
-      });
+      // Mở thẳng form đăng nhập toàn màn hình thay vì chỉ báo lỗi.
+      authPrompt.open();
       return;
     }
 
@@ -186,7 +187,7 @@ export default function ExploreScreen() {
         locationAddress: selectedPlace.address || selectedPlace.city,
         category: selectedPlace.category,
         dayNumber: selectedDayNumber,
-        note: `Thêm từ Khám phá: ${selectedPlace.name}`,
+        note: `Thêm từ Địa điểm: ${selectedPlace.name}`,
       });
 
       showToast({
@@ -206,96 +207,34 @@ export default function ExploreScreen() {
     }
   };
 
-  const renderPlaceCard = ({ item }: { item: PlaceItem }) => {
-    const imageUrl = item.coverImage || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80';
-    const isSaved = !!savedPlaces[item.id];
+  const isFiltering = searchQuery.trim().length > 0 || selectedCategory !== 'Tất cả';
 
-    return (
-      <TouchableOpacity
-        activeOpacity={0.92}
-        onPress={() => handleOpenPlaceDetail(item)}
-        style={styles.card}>
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
-          
-          {/* Badge Thành phố & Danh mục */}
-          <View style={styles.badgeTopLeft}>
-            <View style={styles.cityPill}>
-              <FontAwesome name="map-marker" size={10} color="#FFFFFF" style={{ marginRight: 3 }} />
-              <Text style={styles.cityPillText}>{item.city || 'Việt Nam'}</Text>
-            </View>
-            <View style={styles.categoryPill}>
-              <Text style={styles.categoryPillText}>{item.category || 'Địa điểm'}</Text>
-            </View>
-          </View>
-
-          {/* Nút yêu thích */}
-          <TouchableOpacity
-            style={[styles.favBtn, isSaved && { backgroundColor: '#FEE2E2' }]}
-            activeOpacity={0.7}
-            onPress={() => toggleSave(item.id)}>
-            <FontAwesome
-              name={isSaved ? 'heart' : 'heart-o'}
-              size={15}
-              color={isSaved ? '#EF4444' : '#FFFFFF'}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.cardBody}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.rating ? (
-              <View style={styles.ratingBadge}>
-                <FontAwesome name="star" size={13} color="#F59E0B" />
-                <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.locationRow}>
-            <FontAwesome name="map-marker" size={12} color={WF_COLORS.slate400} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {item.address || `${item.city}, Việt Nam`}
-            </Text>
-          </View>
-
-          {item.description ? (
-            <Text style={styles.cardDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
-          ) : null}
-
-          {/* Card Footer Actions */}
-          <View style={styles.cardFooterRow}>
-            <View style={styles.priceTag}>
-              <Text style={styles.priceTagText}>
-                {item.priceLevel ? `Chi phí: ${item.priceLevel}` : 'Miễn phí tham quan'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.cardAddPlanBtn}
-              onPress={() => {
-                setSelectedPlace(item);
-                handleOpenAddToPlan();
-              }}>
-              <FontAwesome name="plus" size={11} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
-              <Text style={styles.cardAddPlanBtnText}>Thêm vào Plan</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  // Dải "Nổi bật": lấy theo điểm đánh giá thật của danh sách đang có.
+  const featured = useMemo(() => {
+    if (isFiltering) return [];
+    return [...places]
+      .filter((p) => (p.reviewsCount ?? 0) > 0 && (p.rating ?? 0) > 0)
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.reviewsCount ?? 0) - (a.reviewsCount ?? 0))
+      .slice(0, 10);
+  }, [places, isFiltering]);
 
   return (
     <View style={styles.container}>
       <FlatList
         data={places}
         keyExtractor={(item) => String(item.id)}
-        renderItem={renderPlaceCard}
+        renderItem={({ item }) => (
+          <PlaceCard
+            place={item}
+            saved={savedIds.includes(item.id)}
+            onPress={() => handleOpenPlaceDetail(item)}
+            onToggleSave={() => handleToggleSave(item)}
+            onAddToPlan={() => {
+              setSelectedPlace(item);
+              handleOpenAddToPlan();
+            }}
+          />
+        )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
@@ -306,66 +245,28 @@ export default function ExploreScreen() {
             {loadingMorePlaces ? (
               <ActivityIndicator size="small" color={WF_COLORS.primary} />
             ) : hasMorePlaces ? (
-              <Text style={styles.listFooterText}>Cuộn để tải thêm · {places.length}/{placesTotal} địa điểm</Text>
+              <Text style={styles.listFooterText}>
+                Cuộn để tải thêm · {places.length}/{placesTotal} địa điểm
+              </Text>
             ) : places.length > 0 ? (
               <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {placesTotal} địa điểm</Text>
             ) : null}
           </View>
         }
         ListHeaderComponent={
-          <View style={styles.headerWrapper}>
-
-            {/* 3. Weather Tickers Bar (Trạm thời tiết du lịch nhanh của Web) */}
-            <View style={styles.weatherTickerWrapper}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weatherScroll}>
-                {WEATHER_TICKERS.map((t, idx) => (
-                  <View key={idx} style={styles.weatherPill}>
-                    <Text style={{ fontSize: 13, marginRight: 4 }}>{t.icon}</Text>
-                    <Text style={styles.weatherCity}>{t.city}</Text>
-                    <Text style={styles.weatherTemp}>{t.temp}</Text>
-                    <Text style={styles.weatherStatus}>• {t.status}</Text>
-                  </View>
-                ))}
-              </ScrollView>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <View style={styles.titleBlock}>
+                <Text style={styles.overline}>WAYFARE · ĐỊA ĐIỂM</Text>
+                <Text style={styles.pageTitle}>Điểm đến Việt Nam</Text>
+                <Text style={styles.pageSubtitle}>Những tọa độ đẹp đã được cộng đồng kiểm chứng</Text>
+              </View>
+              <View style={styles.totalBadge}>
+                <Text style={styles.totalBadgeNum}>{placesTotal || '--'}</Text>
+                <Text style={styles.totalBadgeLabel}>địa điểm</Text>
+              </View>
             </View>
 
-            {/* 4. Primary Discovery Tabs (Tọa độ bản địa / Cẩm nang Tỉnh thành) */}
-            <View style={styles.layerTabsRow}>
-              <TouchableOpacity
-                style={[styles.layerTab, exploreLayer === 'spots' && styles.layerTabActive]}
-                onPress={() => setExploreLayer('spots')}>
-                <FontAwesome
-                  name="map-pin"
-                  size={12}
-                  color={exploreLayer === 'spots' ? '#FFFFFF' : WF_COLORS.slate700}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.layerTabText, exploreLayer === 'spots' && styles.layerTabTextActive]}>
-                  Tọa độ bản địa
-                </Text>
-                <View style={[styles.layerCountBadge, exploreLayer === 'spots' && styles.layerCountBadgeActive]}>
-                  <Text style={[styles.layerCountText, exploreLayer === 'spots' && { color: WF_COLORS.primary }]}>
-                    {places.length || '100+'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.layerTab, exploreLayer === 'destinations' && styles.layerTabActive]}
-                onPress={() => setExploreLayer('destinations')}>
-                <FontAwesome
-                  name="globe"
-                  size={12}
-                  color={exploreLayer === 'destinations' ? '#FFFFFF' : WF_COLORS.slate700}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.layerTabText, exploreLayer === 'destinations' && styles.layerTabTextActive]}>
-                  Cẩm nang Tỉnh thành
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 5. Clean Search Box */}
             <View style={styles.searchBox}>
               <FontAwesome name="search" size={15} color={WF_COLORS.primary} style={styles.searchIcon} />
               <TextInput
@@ -377,20 +278,24 @@ export default function ExploreScreen() {
                 style={styles.searchInput}
                 returnKeyType="search"
               />
-              {searchQuery ? (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
+              {fetching && places.length > 0 ? (
+                <ActivityIndicator size="small" color={WF_COLORS.primary} />
+              ) : searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
                   <FontAwesome name="times-circle" size={15} color={WF_COLORS.slate400} />
                 </TouchableOpacity>
               ) : null}
             </View>
 
-            {/* 6. Horizontal Categories Bar */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-              {WEB_CATEGORIES.map((cat) => {
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryScroll}>
+              {PLACE_CATEGORIES.map((cat) => {
                 const isSelected = selectedCategory === cat.label;
                 return (
                   <TouchableOpacity
-                    key={cat.id}
+                    key={cat.label}
                     onPress={() => setSelectedCategory(cat.label)}
                     style={[styles.categoryBtn, isSelected && styles.categoryBtnActive]}>
                     <FontAwesome
@@ -406,6 +311,32 @@ export default function ExploreScreen() {
                 );
               })}
             </ScrollView>
+
+            {featured.length > 0 ? (
+              <View style={styles.featuredBlock}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Nổi bật tuần này</Text>
+                  <Text style={styles.sectionHint}>Đánh giá cao nhất</Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.featuredScroll}>
+                  {featured.map((place) => (
+                    <FeaturedPlaceCard
+                      key={`featured-${place.id}`}
+                      place={place}
+                      onPress={() => handleOpenPlaceDetail(place)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            <View style={styles.listHeaderRow}>
+              <Text style={styles.sectionTitle}>{isFiltering ? 'Kết quả' : 'Tất cả địa điểm'}</Text>
+              {!isFiltering ? <Text style={styles.sectionHint}>Cuộn để xem thêm</Text> : null}
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -431,168 +362,78 @@ export default function ExploreScreen() {
             <View style={styles.centerBox}>
               <FontAwesome name="compass" size={44} color={WF_COLORS.slate400} style={{ opacity: 0.5 }} />
               <Text style={styles.emptyTitle}>Không tìm thấy địa điểm phù hợp</Text>
-              <Text style={styles.emptySub}>Thử gõ từ khóa khác hoặc bấm nút "Tất cả" xem sao nhé!</Text>
+              <Text style={styles.emptySub}>Thử từ khóa khác, hoặc chọn lại danh mục "Tất cả" nhé!</Text>
             </View>
           )
         }
       />
 
-      {/* ─── MODAL CHI TIẾT ĐỊA ĐIỂM (PLACE DETAIL MODAL) ────────── */}
-      <Modal visible={detailModalVisible} animationType="slide" onRequestClose={() => setDetailModalVisible(false)}>
-        <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
-          <View style={styles.detailNavbar}>
-            <TouchableOpacity onPress={() => setDetailModalVisible(false)} style={styles.backBtn}>
-              <FontAwesome name="chevron-left" size={15} color={WF_COLORS.slate700} />
-            </TouchableOpacity>
-            <Text style={styles.detailNavTitle} numberOfLines={1}>
-              {selectedPlace?.name || 'Chi tiết địa điểm'}
-            </Text>
-            <TouchableOpacity onPress={() => selectedPlace && toggleSave(selectedPlace.id)} style={styles.favNavBtn}>
-              <FontAwesome
-                name={selectedPlace && savedPlaces[selectedPlace.id] ? 'heart' : 'heart-o'}
-                size={18}
-                color={selectedPlace && savedPlaces[selectedPlace.id] ? '#EF4444' : WF_COLORS.slate700}
-              />
-            </TouchableOpacity>
-          </View>
+      <PlaceDetailModal
+        visible={detailModalVisible}
+        place={selectedPlace}
+        saved={Boolean(selectedPlace && savedIds.includes(selectedPlace.id))}
+        onClose={() => setDetailModalVisible(false)}
+        onToggleSave={() => selectedPlace && handleToggleSave(selectedPlace)}
+        onAddToPlan={handleOpenAddToPlan}
+      />
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {selectedPlace ? (
-              <>
-                <Image
-                  source={{ uri: selectedPlace.coverImage || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80' }}
-                  style={styles.detailHeroImage}
-                  resizeMode="cover"
-                />
+      {/* ─── SUB-MODAL CHỌN LỊCH TRÌNH ───────────────────────── */}
+      <Modal
+        visible={addToPlanModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAddToPlanModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardBox}>
+            <View style={styles.modalCardHeader}>
+              <Text style={styles.modalCardTitle}>Chọn Lịch Trình Của Bạn</Text>
+              <TouchableOpacity onPress={() => setAddToPlanModalVisible(false)}>
+                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
+              </TouchableOpacity>
+            </View>
 
-                <View style={styles.detailContentBox}>
-                  {/* Category & Rating */}
-                  <View style={styles.detailTagBar}>
-                    <View style={styles.detailCatTag}>
-                      <Text style={styles.detailCatTagText}>{selectedPlace.category || 'Địa điểm'}</Text>
-                    </View>
-                    <View style={styles.detailCityTag}>
-                      <FontAwesome name="map-marker" size={11} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
-                      <Text style={styles.detailCityTagText}>{selectedPlace.city || 'Việt Nam'}</Text>
-                    </View>
-                    {selectedPlace.rating ? (
-                      <View style={styles.detailRatingPill}>
-                        <FontAwesome name="star" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
-                        <Text style={styles.detailRatingPillText}>{selectedPlace.rating.toFixed(1)}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+            <Text style={styles.modalCardSub}>Thêm "{selectedPlace?.name}" vào:</Text>
 
-                  <Text style={styles.detailMainName}>{selectedPlace.name}</Text>
-
-                  {/* Info rows */}
-                  <View style={styles.infoRow}>
-                    <FontAwesome name="map-marker" size={14} color={WF_COLORS.primary} style={{ width: 20 }} />
-                    <Text style={styles.infoRowText}>{selectedPlace.address || `${selectedPlace.city}, Việt Nam`}</Text>
-                  </View>
-
-                  {selectedPlace.openingHours ? (
-                    <View style={styles.infoRow}>
-                      <FontAwesome name="clock-o" size={14} color={WF_COLORS.emerald} style={{ width: 20 }} />
-                      <Text style={styles.infoRowText}>{selectedPlace.openingHours}</Text>
-                    </View>
-                  ) : null}
-
-                  {selectedPlace.priceLevel ? (
-                    <View style={styles.infoRow}>
-                      <FontAwesome name="ticket" size={14} color={WF_COLORS.amber} style={{ width: 20 }} />
-                      <Text style={styles.infoRowText}>{selectedPlace.priceLevel}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* Tiện ích đặc trưng */}
-                  <Text style={styles.detailSectionTitle}>Tiện ích nổi bật</Text>
-                  <View style={styles.amenityRow}>
-                    {['Wifi miễn phí', 'Chụp ảnh đẹp', 'Bãi đỗ xe', 'Thân thiện gia đình'].map((amenity, idx) => (
-                      <View key={idx} style={styles.amenityChip}>
-                        <FontAwesome name="check-circle" size={12} color={WF_COLORS.emerald} style={{ marginRight: 4 }} />
-                        <Text style={styles.amenityChipText}>{amenity}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Description */}
-                  <Text style={styles.detailSectionTitle}>Giới thiệu chi tiết</Text>
-                  <Text style={styles.detailBodyText}>
-                    {selectedPlace.description || 'Chưa có thông tin mô tả chi tiết cho địa điểm này.'}
+            <View style={styles.daySelectionRow}>
+              <Text style={styles.daySelectionLabel}>Chọn ngày:</Text>
+              {[1, 2, 3, 4, 5].map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  style={[styles.dayCircleBtn, selectedDayNumber === d && styles.dayCircleBtnActive]}
+                  onPress={() => setSelectedDayNumber(d)}>
+                  <Text style={[styles.dayCircleText, selectedDayNumber === d && styles.dayCircleTextActive]}>
+                    N{d}
                   </Text>
-
-                  {/* Add to Trip Action Button */}
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    style={styles.mainAddToPlanBtn}
-                    onPress={handleOpenAddToPlan}>
-                    <FontAwesome name="calendar-plus-o" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.mainAddToPlanBtnText}>Thêm vào Plan chuyến đi</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : null}
-          </ScrollView>
-        </SafeAreaView>
-
-        {/* ─── SUB-MODAL CHỌN LỊCH TRÌNH ───────────────────────── */}
-        <Modal visible={addToPlanModalVisible} animationType="fade" transparent>
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalCardBox}>
-              <View style={styles.modalCardHeader}>
-                <Text style={styles.modalCardTitle}>Chọn Lịch Trình Của Bạn</Text>
-                <TouchableOpacity onPress={() => setAddToPlanModalVisible(false)}>
-                  <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
                 </TouchableOpacity>
+              ))}
+            </View>
+
+            {loadingItineraries ? (
+              <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : myItineraries.length === 0 ? (
+              <View style={styles.noItineraryBox}>
+                <Text style={styles.noItineraryText}>
+                  Bạn chưa có lịch trình nào. Hãy vào tab "Lịch trình" tạo chuyến đi trước nhé!
+                </Text>
               </View>
-
-              <Text style={styles.modalCardSub}>
-                Thêm "{selectedPlace?.name}" vào:
-              </Text>
-
-              {/* Day selection */}
-              <View style={styles.daySelectionRow}>
-                <Text style={styles.daySelectionLabel}>Chọn ngày:</Text>
-                {[1, 2, 3, 4, 5].map((d) => (
+            ) : (
+              <ScrollView style={styles.itineraryList} showsVerticalScrollIndicator={false}>
+                {myItineraries.map((itinerary) => (
                   <TouchableOpacity
-                    key={d}
-                    style={[styles.dayCircleBtn, selectedDayNumber === d && styles.dayCircleBtnActive]}
-                    onPress={() => setSelectedDayNumber(d)}>
-                    <Text style={[styles.dayCircleText, selectedDayNumber === d && styles.dayCircleTextActive]}>
-                      N{d}
-                    </Text>
+                    key={itinerary.id}
+                    style={styles.itineraryChoiceItem}
+                    onPress={() => handleConfirmAddPlaceToItinerary(itinerary)}>
+                    <View style={styles.itineraryChoiceInfo}>
+                      <Text style={styles.itineraryChoiceTitle}>{itinerary.title}</Text>
+                      <Text style={styles.itineraryChoiceDest}>📍 {itinerary.destination}</Text>
+                    </View>
+                    <FontAwesome name="chevron-right" size={13} color={WF_COLORS.primary} />
                   </TouchableOpacity>
                 ))}
-              </View>
-
-              {loadingItineraries ? (
-                <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 20 }} />
-              ) : myItineraries.length === 0 ? (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Text style={{ color: WF_COLORS.slate500, textAlign: 'center', marginBottom: 12 }}>
-                    Bạn chưa có lịch trình nào. Hãy vào tab "Lịch trình" tạo chuyến đi trước nhé!
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
-                  {myItineraries.map((itinerary) => (
-                    <TouchableOpacity
-                      key={itinerary.id}
-                      style={styles.itineraryChoiceItem}
-                      onPress={() => handleConfirmAddPlaceToItinerary(itinerary)}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.itineraryChoiceTitle}>{itinerary.title}</Text>
-                        <Text style={styles.itineraryChoiceDest}>📍 {itinerary.destination}</Text>
-                      </View>
-                      <FontAwesome name="chevron-right" size={13} color={WF_COLORS.primary} />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
+              </ScrollView>
+            )}
           </View>
-        </Modal>
+        </View>
       </Modal>
     </View>
   );
@@ -604,7 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.slate50,
   },
   listContainer: {
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   listFooter: {
     paddingVertical: 18,
@@ -613,135 +454,80 @@ const styles = StyleSheet.create({
   },
   listFooterText: {
     fontSize: 12,
-    color: '#64748b',
+    color: WF_COLORS.slate500,
     fontWeight: '600',
   },
-  headerWrapper: {
-    paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 6,
+  header: {
+    paddingTop: 6,
+    paddingBottom: 10,
+    marginBottom: 6,
     backgroundColor: WF_COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: WF_COLORS.slate200,
-    marginBottom: 8,
   },
-  breadcrumbRow: {
+  titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
-  breadcrumbLink: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WF_COLORS.slate500,
+  titleBlock: {
+    flex: 1,
+    marginRight: 12,
   },
-  breadcrumbDivider: {
-    fontSize: 12,
-    color: WF_COLORS.slate400,
-  },
-  breadcrumbCurrent: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-  },
-  titleSection: {
-    marginBottom: 10,
+  overline: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: WF_COLORS.primary,
+    marginBottom: 3,
   },
   pageTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
     color: WF_COLORS.slate900,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   pageSubtitle: {
     fontSize: 12,
     color: WF_COLORS.slate500,
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: 3,
+    lineHeight: 17,
   },
-  weatherTickerWrapper: {
-    marginBottom: 12,
-  },
-  weatherScroll: {
-    gap: 8,
-  },
-  weatherPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WF_COLORS.slate100,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-  },
-  weatherCity: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    marginRight: 4,
-  },
-  weatherTemp: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WF_COLORS.primary,
-    marginRight: 4,
-  },
-  weatherStatus: {
-    fontSize: 10,
-    color: WF_COLORS.slate500,
-  },
-  layerTabsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  layerTab: {
-    flex: 1,
-    flexDirection: 'row',
+  totalBadge: {
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 74,
+    backgroundColor: WF_COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+    borderRadius: 14,
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: WF_COLORS.slate100,
   },
-  layerTabActive: {
-    backgroundColor: WF_COLORS.primary,
+  totalBadgeNum: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: WF_COLORS.primary,
+    letterSpacing: -0.4,
   },
-  layerTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate700,
-  },
-  layerTabTextActive: {
-    color: '#FFFFFF',
-  },
-  layerCountBadge: {
-    backgroundColor: WF_COLORS.slate200,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-    marginLeft: 6,
-  },
-  layerCountBadgeActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  layerCountText: {
+  totalBadgeLabel: {
     fontSize: 10,
-    fontWeight: '800',
-    color: WF_COLORS.slate700,
+    fontWeight: '700',
+    color: WF_COLORS.primary,
+    marginTop: 1,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: WF_COLORS.slate100,
-    borderRadius: 12,
+    borderRadius: 13,
     paddingHorizontal: 12,
-    height: 44,
+    height: 46,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
   searchIcon: {
     marginRight: 8,
@@ -751,8 +537,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: WF_COLORS.slate900,
   },
+  clearBtn: {
+    padding: 4,
+  },
   categoryScroll: {
     gap: 8,
+    paddingHorizontal: 16,
     paddingBottom: 4,
   },
   categoryBtn: {
@@ -760,7 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: WF_COLORS.white,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
@@ -776,147 +566,39 @@ const styles = StyleSheet.create({
   },
   categoryBtnTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  card: {
-    backgroundColor: WF_COLORS.white,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+  featuredBlock: {
+    marginTop: 16,
   },
-  imageContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 190,
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  badgeTopLeft: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
+  sectionHeader: {
     flexDirection: 'row',
-    gap: 6,
-  },
-  cityPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  cityPillText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  categoryPill: {
-    backgroundColor: 'rgba(2, 132, 199, 0.85)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  categoryPillText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  favBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardBody: {
-    padding: 14,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    flex: 1,
-    marginRight: 6,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#F59E0B',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 6,
-  },
-  locationText: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
-  },
-  cardDescription: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: WF_COLORS.slate500,
+    paddingHorizontal: 16,
     marginBottom: 10,
   },
-  cardFooterRow: {
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: WF_COLORS.slate900,
+  },
+  sectionHint: {
+    fontSize: 11,
+    color: WF_COLORS.slate400,
+    fontWeight: '600',
+  },
+  featuredScroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  listHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: WF_COLORS.slate100,
-  },
-  priceTag: {
-    backgroundColor: WF_COLORS.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  priceTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
-  },
-  cardAddPlanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: WF_COLORS.primaryLight,
-  },
-  cardAddPlanBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
+    paddingHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 10,
   },
   centerBox: {
     padding: 30,
@@ -966,149 +648,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  // Modal Chi tiết
-  modalSafeContainer: {
-    flex: 1,
-    backgroundColor: WF_COLORS.white,
-  },
-  detailNavbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: WF_COLORS.slate200,
-  },
-  backBtn: {
-    padding: 6,
-  },
-  detailNavTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
-  },
-  favNavBtn: {
-    padding: 6,
-  },
-  detailHeroImage: {
-    width: '100%',
-    height: 240,
-  },
-  detailContentBox: {
-    padding: 16,
-  },
-  detailTagBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  detailCatTag: {
-    backgroundColor: WF_COLORS.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  detailCatTagText: {
-    color: WF_COLORS.primary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  detailCityTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WF_COLORS.slate100,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  detailCityTagText: {
-    color: WF_COLORS.slate700,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  detailRatingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 'auto',
-  },
-  detailRatingPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F59E0B',
-  },
-  detailMainName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: WF_COLORS.slate900,
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoRowText: {
-    fontSize: 13,
-    color: WF_COLORS.slate700,
-    flex: 1,
-  },
-  detailSectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  amenityRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-  },
-  amenityChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WF_COLORS.slate100,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  amenityChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WF_COLORS.slate700,
-  },
-  detailBodyText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: WF_COLORS.slate600,
-    marginBottom: 20,
-  },
-  mainAddToPlanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WF_COLORS.primary,
-    height: 48,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  mainAddToPlanBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  // Sub-modal styles
+  // Sub-modal chọn lịch trình
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -1147,44 +687,63 @@ const styles = StyleSheet.create({
   },
   daySelectionLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: WF_COLORS.slate700,
+    marginRight: 2,
   },
   dayCircleBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: WF_COLORS.slate100,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: WF_COLORS.slate100,
   },
   dayCircleBtnActive: {
     backgroundColor: WF_COLORS.primary,
   },
   dayCircleText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: WF_COLORS.slate700,
   },
   dayCircleTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+  },
+  noItineraryBox: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noItineraryText: {
+    color: WF_COLORS.slate500,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  itineraryList: {
+    maxHeight: 220,
   },
   itineraryChoiceItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: WF_COLORS.slate100,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: WF_COLORS.slate50,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    marginBottom: 8,
+  },
+  itineraryChoiceInfo: {
+    flex: 1,
   },
   itineraryChoiceTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: WF_COLORS.slate900,
-    marginBottom: 2,
   },
   itineraryChoiceDest: {
-    fontSize: 12,
+    fontSize: 11,
     color: WF_COLORS.slate500,
+    marginTop: 2,
   },
 });

@@ -305,14 +305,8 @@ export default function CommunityScreen() {
         const found = displayPosts.find((p) => p.id === postId);
         return found && !prev.some((p) => p.id === postId) ? [found, ...prev] : prev;
       });
-      showToast({
-        kind: 'success',
-        title: res.isBookmarked ? 'Đã lưu bài viết' : 'Đã bỏ lưu',
-        message: res.isBookmarked
-          ? 'Bài viết đã nằm trong bộ sưu tập của bạn.'
-          : 'Bài viết đã được gỡ khỏi bộ sưu tập.',
-        icon: 'bookmark',
-      });
+      // Không thông báo: trạng thái lưu đã hiện ngay trên icon bookmark và
+      // trong danh sách "Đã lưu" nên người dùng tự thấy kết quả.
     } catch (err: any) {
       setBookmarkedPosts((prev) => ({ ...prev, [postId]: isSaved }));
       showToast({

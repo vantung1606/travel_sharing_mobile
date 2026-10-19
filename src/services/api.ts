@@ -69,6 +69,58 @@ export interface PlaceItem {
   reviewsCount?: number;
   priceLevel?: string;
   openingHours?: string;
+  /** Tiện ích đã tách sẵn (CSDL lưu 1 chuỗi ngăn cách bằng dấu phẩy). */
+  amenities?: string[];
+  phoneNumber?: string;
+  ticketPrice?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isVerifiedHost?: boolean;
+  ownerName?: string;
+}
+
+/**
+ * Chuyển dữ liệu thô từ API /places sang PlaceItem dùng trong app.
+ *
+ * API trả về tên trường theo CSDL (coverImageUrl, averageRating, categoryName,
+ * priceRange, openHours, amenities, ticketPrice, latitude/longitude...) trong khi
+ * app trước đây đọc thẳng tên trường PlaceItem. Hệ quả: ảnh luôn rơi vào ảnh dự
+ * phòng, đánh giá/danh mục/giá/giờ mở cửa đều trống. Hàm này bù lại khoảng cách
+ * đó. Vẫn đọc được cả 2 kiểu tên để không vỡ khi backend đổi cách đặt tên.
+ */
+function mapPlace(raw: any): PlaceItem {
+  const amenitiesRaw = raw?.amenities;
+  let amenities: string[] | undefined;
+  if (Array.isArray(amenitiesRaw)) {
+    amenities = amenitiesRaw.map((a: any) => String(a).trim()).filter(Boolean);
+  } else if (typeof amenitiesRaw === 'string') {
+    amenities = amenitiesRaw.split(',').map((a) => a.trim()).filter(Boolean);
+  }
+
+  const ratingRaw = raw?.averageRating ?? raw?.rating;
+  const reviewsRaw = raw?.reviewCount ?? raw?.reviewsCount;
+  const ticketRaw = raw?.ticketPrice;
+
+  return {
+    id: raw?.id,
+    name: raw?.name,
+    description: raw?.description,
+    city: raw?.city,
+    category: raw?.categoryName ?? raw?.category ?? '',
+    address: raw?.address,
+    coverImage: raw?.coverImageUrl ?? raw?.coverImage,
+    rating: ratingRaw != null ? Number(ratingRaw) : undefined,
+    reviewsCount: reviewsRaw != null ? Number(reviewsRaw) : undefined,
+    priceLevel: raw?.priceRange ?? raw?.priceLevel,
+    openingHours: raw?.openHours ?? raw?.openingHours,
+    amenities: amenities && amenities.length ? amenities : undefined,
+    phoneNumber: raw?.phoneNumber || undefined,
+    ticketPrice: ticketRaw != null ? Number(ticketRaw) : null,
+    latitude: raw?.latitude != null ? Number(raw.latitude) : null,
+    longitude: raw?.longitude != null ? Number(raw.longitude) : null,
+    isVerifiedHost: Boolean(raw?.isVerifiedHost),
+    ownerName: raw?.ownerName,
+  };
 }
 
 export interface PostItem {
@@ -198,7 +250,7 @@ export interface PagedResult<T> {
 export const placeApi = {
   async getAllPlaces(params?: { city?: string; category?: string; keyword?: string; status?: string }): Promise<PlaceItem[]> {
     const res = await apiClient.get<ApiResponse<PlaceItem[]>>('/places', { params });
-    return res.data.data || [];
+    return (res.data.data || []).map(mapPlace);
   },
 
   /**
@@ -208,7 +260,9 @@ export const placeApi = {
   async getPlacesPaged(params: { page?: number; size?: number; city?: string; category?: string; keyword?: string; status?: string } = {}): Promise<PagedResult<PlaceItem> | null> {
     try {
       const res = await apiClient.get<ApiResponse<PagedResult<PlaceItem>>>('/places', { params });
-      return res.data.data || null;
+      const data = res.data.data;
+      if (!data) return null;
+      return { ...data, items: (data.items || []).map(mapPlace) };
     } catch (err: any) {
       console.warn('API error fetching paged places:', err?.message || err);
       return null;
@@ -217,7 +271,7 @@ export const placeApi = {
 
   async getPlaceById(id: number): Promise<PlaceItem> {
     const res = await apiClient.get<ApiResponse<PlaceItem>>(`/places/${id}`);
-    return res.data.data;
+    return mapPlace(res.data.data);
   },
 };
 

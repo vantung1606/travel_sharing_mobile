@@ -10,6 +10,7 @@ import { NotificationModal } from '@/components/NotificationModal';
 import { showToast } from '@/components/Toast';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { authPrompt } from '@/src/services/authPrompt';
 import { notificationApi } from '@/src/services/api';
 import { SERIF_FONT } from '@/constants/Typography';
 
@@ -87,9 +88,18 @@ export default function TabLayout() {
       }, 340);
     });
 
+    // Màn hình nào cần người dùng đăng nhập (thêm địa điểm vào lịch trình, thả
+    // tim...) thì gọi authPrompt.open() để mở thẳng form đăng nhập toàn màn hình.
+    const unsubscribePrompt = authPrompt.subscribe(() => {
+      setIsChatOpen(false);
+      setIsNotificationOpen(false);
+      setIsAuthOpen(true);
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeUnauth();
+      unsubscribePrompt();
     };
   }, [refreshUnreadCount]);
 

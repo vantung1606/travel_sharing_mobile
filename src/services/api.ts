@@ -3,6 +3,16 @@ import { authStorage } from './authStorage';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://travelsharingbackend-production.up.railway.app/api';
 
+/**
+ * Địa chỉ web Wayfare — dùng để chia sẻ LINK THẬT (trang /places/:id, /itineraries)
+ * trong nút Share của app. Cấu hình bằng app.json extra / .env
+ * (EXPO_PUBLIC_WEB_URL); chưa cấu hình thì chia sẻ bằng text thuần như trước.
+ */
+export const WEB_ORIGIN = (process.env.EXPO_PUBLIC_WEB_URL || '').replace(/\/$/, '');
+export const webPlaceUrl = (placeId: number) => (WEB_ORIGIN ? `${WEB_ORIGIN}/places/${placeId}` : '');
+export const webItineraryUrl = (itineraryId?: number) =>
+  WEB_ORIGIN ? (itineraryId ? `${WEB_ORIGIN}/itineraries?id=${itineraryId}` : `${WEB_ORIGIN}/itineraries`) : '';
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -305,6 +315,47 @@ export const savedPlaceApi = {
 
   async removeSavedPlace(placeId: number): Promise<void> {
     await apiClient.delete(`/users/saved-places/${placeId}`);
+  },
+};
+
+export interface ReviewItem {
+  id: number;
+  authorName?: string;
+  authorHandle?: string;
+  authorAvatar?: string;
+  rating: number;
+  comment: string;
+  createdAt?: string;
+}
+
+/**
+ * Đánh giá địa điểm THẬT từ bảng reviews — cùng nguồn với web. Sau khi
+ * backend gieo 5110 review thật, trang chi tiết trên mobile không còn trống.
+ */
+export const reviewApi = {
+  async getReviews(placeId: number): Promise<ReviewItem[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<ReviewItem[]>>(`/places/${placeId}/reviews`);
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    } catch (e) {
+      console.warn(`API error fetching reviews for place #${placeId}`, e);
+      return [];
+    }
+  },
+
+  async addReview(placeId: number, payload: { rating: number; comment: string }): Promise<ReviewItem | null> {
+    try {
+      const res = await apiClient.post<ApiResponse<ReviewItem>>(`/places/${placeId}/reviews`, {
+        rating: Number(payload.rating),
+        comment: String(payload.comment || '').trim(),
+      });
+      return res.data?.data ?? null;
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Không gửi được nhận xét. Vui lòng thử lại.';
+      const err = new Error(msg);
+      console.warn(`API error adding review for place #${placeId}`, e);
+      throw err;
+    }
   },
 };
 

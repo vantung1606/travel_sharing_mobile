@@ -38,6 +38,44 @@ const PLACE_CATEGORIES = [
 
 const PAGE_SIZE = 50;
 
+// Khoảng giá — GIỐNG HẾT web (ExploreFilterDrawer.budgetOptions): lọc client-side
+// trên danh sách đã tải, dựa trên ticketPrice thật (562 địa điểm đã có giá).
+const BUDGET_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'Tất cả mức giá' },
+  { value: 'under50k', label: 'Dưới 50k' },
+  { value: '50k-200k', label: '50k – 200k' },
+  { value: '200k-1m', label: '200k – 1tr' },
+  { value: 'above1m', label: 'Trên 1tr' },
+];
+
+/** Giá tham chiếu (VND) của địa điểm — ưu tiên ticketPrice thật, đối chiếu web.parsePriceVND. */
+const parsePriceVND = (item: PlaceItem): number => {
+  if (item.ticketPrice != null) {
+    return Number(item.ticketPrice) || 0;
+  }
+  const text = String(item.priceLevel || '').replace(/\s/g, '');
+  if (!text || /mi[nN] ph/i.test(text)) return 0;
+  const numbers = (text.match(/[\d.,]+/g) || [])
+    .map((n) => Number(n.replace(/[.,]/g, '')))
+    .filter((n) => !Number.isNaN(n));
+  return numbers.length ? Math.min(...numbers) : 0;
+};
+
+const matchBudget = (priceVND: number, budget: string): boolean => {
+  switch (budget) {
+    case 'under50k':
+      return priceVND < 50000;
+    case '50k-200k':
+      return priceVND >= 50000 && priceVND <= 200000;
+    case '200k-1m':
+      return priceVND > 200000 && priceVND <= 1000000;
+    case 'above1m':
+      return priceVND > 1000000;
+    default:
+      return true;
+  }
+};
+
 export default function ExploreScreen() {
   const [places, setPlaces] = useState<PlaceItem[]>([]);
   const [placesTotal, setPlacesTotal] = useState<number>(0);
@@ -51,6 +89,10 @@ export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
   // Lọc tỉnh thành chạy TRỰC TIẾP trên server (/places?city=) — cùng chuẩn web
   const [selectedCity, setSelectedCity] = useState<string>('Tất cả');
+  // Khoảng giá (client-side, giống web) + chế độ xem "Muốn đi"
+  const [selectedBudget, setSelectedBudget] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'explore' | 'saved'>('explore');
+  const [savedDetails, setSavedDetails] = useState<Record<string, PlaceItem>>({});
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
 
   const [selectedPlace, setSelectedPlace] = useState<PlaceItem | null>(null);
@@ -246,17 +288,55 @@ export default function ExploreScreen() {
 
   // Dải "Nổi bật": lấy theo điểm đánh giá thật của danh sách đang có.
   const featured = useMemo(() => {
-    if (isFiltering) return [];
+    if (isFiltering || selectedBudget !== 'all') return [];
     return [...places]
       .filter((p) => (p.reviewsCount ?? 0) > 0 && (p.rating ?? 0) > 0)
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.reviewsCount ?? 0) - (a.reviewsCount ?? 0))
       .slice(0, 10);
-  }, [places, isFiltering]);
+  }, [places, isFiltering, selectedBudget]);
+
+  // Địa điểm hiển thị khi đang ở chế độ Khám phá (lọc giá client-side như web)
+  const displayedPlaces = useMemo(
+    () => (selectedBudget === 'all' ? places : places.filter((p) => matchBudget(parsePriceVND(p), selectedBudget))),
+    [places, selectedBudget]
+  );
+
+  // Sắp lại danh sách chi tiết "Muốn đi" đúng theo(savedIds) — hiệu quả: hủy tim -> hết khỏi list.
+  const savedList = useMemo(
+    () => savedIds.map((id) => savedDetails[String(id)]).filter(Boolean),
+    [savedIds, savedDetails]
+  );
+
+  // Khi sang chế độ "Muốn đi": nạp chi tiết địa điểm THẬT theo id đã lưu
+  // (không có dữ liệu cứng; những id đã có sẵn chi tiết thì bỏ qua).
+  // NOTE: khi bỏ tim, danh sách được lead qua savedList (map theo savedIds)
+  // nên mục vừa bỏ tự biến mất mà không cần effect dọn dẹp.
+  useEffect(() => {
+    if (viewMode !== 'saved' || savedIds.length === 0) return undefined;
+    let alive = true;
+    const missing = savedIds.filter((id) => !savedDetails[String(id)]);
+    if (missing.length > 0) {
+      Promise.all(missing.map((id) => placeApi.getPlaceById(id).catch(() => null))).then((results) => {
+        if (!alive) return;
+        setSavedDetails((prev) => {
+          const next = { ...prev };
+          missing.forEach((id, idx) => {
+            const found = results[idx];
+            if (found) next[String(id)] = found;
+          });
+          return next;
+        });
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [viewMode, savedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={places}
+        data={viewMode === 'saved' ? savedList : displayedPlaces}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <PlaceCard
@@ -273,11 +353,17 @@ export default function ExploreScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
-        onEndReached={loadMorePlaces}
+        onEndReached={viewMode === 'saved' ? undefined : loadMorePlaces}
         onEndReachedThreshold={0.4}
         ListFooterComponent={
           <View style={styles.listFooter}>
-            {loadingMorePlaces ? (
+            {viewMode === 'saved' ? (
+              savedList.length > 0 ? (
+                <Text style={styles.listFooterText}>
+                  {savedList.length} địa điểm bạn đang muốn đi · nhấn tim lại để bỏ lưu
+                </Text>
+              ) : null
+            ) : loadingMorePlaces ? (
               <ActivityIndicator size="small" color={WF_COLORS.primary} />
             ) : hasMorePlaces ? (
               <Text style={styles.listFooterText}>
@@ -302,6 +388,38 @@ export default function ExploreScreen() {
               </View>
             </View>
 
+            {/* Chế độ xem: Khám phá / Muốn đi (wishlist đã đồng bộ server) */}
+            <View style={styles.viewToggleRow}>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, viewMode === 'explore' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('explore')}>
+                <FontAwesome
+                  name="compass"
+                  size={12}
+                  color={viewMode === 'explore' ? '#FFFFFF' : WF_COLORS.slate600}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.viewToggleText, viewMode === 'explore' && styles.viewToggleTextActive]}>
+                  Khám phá
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, viewMode === 'saved' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('saved')}>
+                <FontAwesome
+                  name="heart"
+                  size={12}
+                  color={viewMode === 'saved' ? '#FFFFFF' : WF_COLORS.rose}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.viewToggleText, viewMode === 'saved' && styles.viewToggleTextActive]}>
+                  Muốn đi{savedIds.length > 0 ? ` (${savedIds.length})` : ''}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {viewMode === 'explore' ? (
+              <>
             <View style={styles.searchBox}>
               <FontAwesome name="search" size={15} color={WF_COLORS.primary} style={styles.searchIcon} />
               <TextInput
@@ -395,14 +513,65 @@ export default function ExploreScreen() {
               </View>
             ) : null}
 
+            {/* Bộ lọc KHOẢNG GIÁ — giống web (client-side trên ticketPrice thật) */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryScroll}>
+              {BUDGET_OPTIONS.map((opt) => {
+                const isSelected = selectedBudget === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => setSelectedBudget(opt.value)}
+                    style={[styles.budgetBtn, isSelected && styles.budgetBtnActive]}>
+                    <FontAwesome
+                      name="money"
+                      size={11}
+                      color={isSelected ? '#FFFFFF' : WF_COLORS.primary}
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text style={[styles.budgetBtnText, isSelected && styles.budgetBtnTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
             <View style={styles.listHeaderRow}>
-              <Text style={styles.sectionTitle}>{isFiltering ? 'Kết quả' : 'Tất cả địa điểm'}</Text>
-              {!isFiltering ? <Text style={styles.sectionHint}>Cuộn để xem thêm</Text> : null}
+              <Text style={styles.sectionTitle}>
+                {isFiltering || selectedBudget !== 'all' ? 'Kết quả lọc' : 'Tất cả địa điểm'}
+              </Text>
+              {isFiltering || selectedBudget !== 'all' ? (
+                <Text style={styles.sectionHint}>{displayedPlaces.length} địa điểm</Text>
+              ) : (
+                <Text style={styles.sectionHint}>Cuộn để xem thêm</Text>
+              )}
             </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.listHeaderRow}>
+                  <Text style={styles.sectionTitle}>Danh sách Muốn đi</Text>
+                  <Text style={styles.sectionHint}>
+                    {savedIds.length > 0 ? `${savedIds.length} địa điểm · đồng bộ cả web` : 'Trống'}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         }
         ListEmptyComponent={
-          loading ? (
+          viewMode === 'saved' ? (
+            <View style={styles.centerBox}>
+              <FontAwesome name="heart-o" size={40} color={WF_COLORS.rose} style={{ opacity: 0.5 }} />
+              <Text style={styles.emptyTitle}>Chưa có địa điểm nào được lưu</Text>
+              <Text style={styles.emptySub}>
+                Về tab Khám phá, nhấn nút tim trên địa điểm bạn thích — danh sách sẽ đồng bộ cả sang web.
+              </Text>
+            </View>
+          ) : loading ? (
             <BrandedLoading
               title="Đang tải điểm đến"
               subtitle="Wayfare đang chuẩn bị những tọa độ du lịch đẹp nhất cho bạn."
@@ -437,6 +606,7 @@ export default function ExploreScreen() {
         onClose={() => setDetailModalVisible(false)}
         onToggleSave={() => selectedPlace && handleToggleSave(selectedPlace)}
         onAddToPlan={handleOpenAddToPlan}
+        onRequireLogin={() => authPrompt.open()}
       />
 
       {/* ─── SUB-MODAL CHỌN LỊCH TRÌNH ───────────────────────── */}
@@ -651,6 +821,58 @@ const styles = StyleSheet.create({
     color: WF_COLORS.primary,
   },
   cityBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  viewToggleRow: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 8,
+  },
+  viewToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: '#FFFFFF',
+  },
+  viewToggleBtnActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  viewToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate600,
+  },
+  viewToggleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  budgetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+    backgroundColor: WF_COLORS.primarySoft,
+  },
+  budgetBtnActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  budgetBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.primary,
+  },
+  budgetBtnTextActive: {
     color: '#FFFFFF',
     fontWeight: '800',
   },

@@ -280,6 +280,34 @@ export const placeApi = {
   },
 };
 
+/**
+ * Danh sách "muốn đi" lưu TRÊN SERVER (bảng saved_places) — web & app mobile
+ * cùng người dùng chia sẻ đúng 1 danh sách thay vì chỉ lưu theo thiết bị.
+ * Cả 3 hàm yêu cầu đã đăng nhập (JWT gắn tự động trong interceptor).
+ */
+export const savedPlaceApi = {
+  /** Trả về mảng placeId đã lưu, hoặc null nếu lỗi/chưa đăng nhập. */
+  async getSavedPlaces(): Promise<number[] | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<PlaceItem[]>>('/users/saved-places');
+      const list = res.data?.data;
+      if (!Array.isArray(list)) return null;
+      return list.map((p) => Number(p.id)).filter((n) => Number.isFinite(n as number)) as number[];
+    } catch (e) {
+      console.warn('API error fetching saved places', e);
+      return null;
+    }
+  },
+
+  async addSavedPlace(placeId: number): Promise<void> {
+    await apiClient.post(`/users/saved-places/${placeId}`);
+  },
+
+  async removeSavedPlace(placeId: number): Promise<void> {
+    await apiClient.delete(`/users/saved-places/${placeId}`);
+  },
+};
+
 export interface CommentItem {
   id: number;
   postId?: number;

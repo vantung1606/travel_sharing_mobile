@@ -18,7 +18,7 @@ import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { WF_COLORS } from '@/constants/Colors';
 import { authPrompt } from '@/src/services/authPrompt';
 import { authStorage } from '@/src/services/authStorage';
-import { itineraryApi, ItineraryItem, placeApi, PlaceItem } from '@/src/services/api';
+import { itineraryApi, ItineraryItem, placeApi, PlaceItem, savedPlaceApi } from '@/src/services/api';
 import { savedPlaces } from '@/src/services/savedPlaces';
 import { showToast } from '@/components/Toast';
 
@@ -137,10 +137,25 @@ export default function ExploreScreen() {
     fetchPlaces();
   }, [fetchPlaces]);
 
-  // Danh sách "muốn đi" lưu bền trên thiết bị
+  // Danh sách "muốn đi": lưu bền trên thiết bị + HYDRATION từ SERVER khi đã
+  // đăng nhập (union theo placeId) — những gì đã lưu trên web/thiết bị khác
+  // cũng xuất hiện ở đây, hết chia rẽ danh sách giữa các nền tảng.
   useEffect(() => {
     savedPlaces.getAll().then(setSavedIds);
     return savedPlaces.subscribe(setSavedIds);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    authStorage.getSession().then((session) => {
+      if (!alive || !session) return;
+      savedPlaceApi.getSavedPlaces().then((ids) => {
+        if (alive && Array.isArray(ids) && ids.length > 0) {
+          savedPlaces.merge(ids).then(setSavedIds);
+        }
+      });
+    });
+    return () => { alive = false; };
   }, []);
 
   const onRefresh = () => {
@@ -154,7 +169,12 @@ export default function ExploreScreen() {
       authPrompt.open();
       return;
     }
-    await savedPlaces.toggle(place.id);
+    // LOCAL trước (nút tim phản hồi tức thì) rồi ghi ĐÈ lên SERVER.
+    const nowSaved = await savedPlaces.toggle(place.id);
+    const syncCall = nowSaved ? savedPlaceApi.addSavedPlace : savedPlaceApi.removeSavedPlace;
+    syncCall(place.id).catch((err: unknown) => {
+      console.warn('Wishlist server sync failed', err);
+    });
   };
 
   const handleOpenPlaceDetail = (place: PlaceItem) => {

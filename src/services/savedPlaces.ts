@@ -50,6 +50,24 @@ export const savedPlaces = {
     return next.includes(id);
   },
 
+  /**
+   * Hợp nhất danh sách từ SERVER (bảng saved_places) với danh sách local
+   * theo phép UNION — địa điểm đã lưu từ web/thiết bị khác cũng xuất hiện,
+   * những gì đã lưu offline trên máy này không bị mất.
+   */
+  async merge(ids: number[]): Promise<number[]> {
+    const current = await savedPlaces.getAll();
+    const next = [...current, ...ids.filter((n) => typeof n === 'number' && !current.includes(n))];
+    if (next.length === current.length) return next;
+    emit(next);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('Could not persist merged saved places', e);
+    }
+    return next;
+  },
+
   subscribe(cb: Listener): () => void {
     listeners.add(cb);
     return () => {

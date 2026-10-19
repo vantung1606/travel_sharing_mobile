@@ -32,6 +32,7 @@ import {
   itineraryApi,
   ItineraryItem,
   ItineraryDetailItem,
+  webItineraryUrl,
 } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
@@ -331,8 +332,9 @@ export default function ItineraryScreen() {
 
   const handleShareTrip = async (itin: ItineraryItem) => {
     try {
+      const link = webItineraryUrl(itin.id);
       await Share.share({
-        message: `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination} trên Wayfare Travel! 🌟`,
+        message: `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination} trên Wayfare Travel! 🌟${link ? `\n${link}` : ''}`,
         title: itin.title,
       });
     } catch {

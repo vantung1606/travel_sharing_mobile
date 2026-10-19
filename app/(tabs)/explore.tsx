@@ -49,6 +49,8 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+  // Lọc tỉnh thành chạy TRỰC TIẾP trên server (/places?city=) — cùng chuẩn web
+  const [selectedCity, setSelectedCity] = useState<string>('Tất cả');
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
 
   const [selectedPlace, setSelectedPlace] = useState<PlaceItem | null>(null);
@@ -66,11 +68,13 @@ export default function ExploreScreen() {
     try {
       setHasConnectionError(false);
       const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
+      const cityParam = selectedCity === 'Tất cả' ? undefined : selectedCity;
       const result = await placeApi.getPlacesPaged({
         page: 0,
         size: PAGE_SIZE,
         keyword: searchQuery.trim() || undefined,
         category: categoryParam,
+        city: cityParam,
       });
 
       if (result && Array.isArray(result.items)) {
@@ -83,6 +87,7 @@ export default function ExploreScreen() {
         const data = await placeApi.getAllPlaces({
           keyword: searchQuery.trim() || undefined,
           category: categoryParam,
+          city: cityParam,
         });
         setPlaces(data || []);
         setPlacesTotal((data || []).length);
@@ -97,7 +102,7 @@ export default function ExploreScreen() {
       setFetching(false);
       setRefreshing(false);
     }
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, selectedCity]);
 
   const loadMorePlaces = useCallback(async () => {
     if (loadingMorePlaces || !hasMorePlaces) return;
@@ -110,6 +115,7 @@ export default function ExploreScreen() {
         size: PAGE_SIZE,
         keyword: searchQuery.trim() || undefined,
         category: categoryParam,
+        city: selectedCity === 'Tất cả' ? undefined : selectedCity,
       });
       if (result && Array.isArray(result.items)) {
         setPlaces((prev) => {
@@ -125,7 +131,7 @@ export default function ExploreScreen() {
     } finally {
       setLoadingMorePlaces(false);
     }
-  }, [loadingMorePlaces, hasMorePlaces, placesPage, searchQuery, selectedCategory]);
+  }, [loadingMorePlaces, hasMorePlaces, placesPage, searchQuery, selectedCategory, selectedCity]);
 
   useEffect(() => {
     fetchPlaces();
@@ -207,7 +213,16 @@ export default function ExploreScreen() {
     }
   };
 
-  const isFiltering = searchQuery.trim().length > 0 || selectedCategory !== 'Tất cả';
+  const isFiltering = searchQuery.trim().length > 0 || selectedCategory !== 'Tất cả' || selectedCity !== 'Tất cả';
+
+  // Danh sách tỉnh THẬT từ dữ liệu đã tải (xếp theo số địa điểm giảm dần)
+  const cityOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    places.forEach((p) => {
+      if (p.city) counts.set(p.city, (counts.get(p.city) || 0) + 1);
+    });
+    return ['Tất cả', ...[...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)];
+  }, [places]);
 
   // Dải "Nổi bật": lấy theo điểm đánh giá thật của danh sách đang có.
   const featured = useMemo(() => {
@@ -311,6 +326,33 @@ export default function ExploreScreen() {
                 );
               })}
             </ScrollView>
+
+            {cityOptions.length > 2 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryScroll}>
+                {cityOptions.map((city) => {
+                  const isSelected = selectedCity === city;
+                  return (
+                    <TouchableOpacity
+                      key={city}
+                      onPress={() => setSelectedCity(city)}
+                      style={[styles.cityBtn, isSelected && styles.cityBtnActive]}>
+                      <FontAwesome
+                        name="map-marker"
+                        size={11}
+                        color={isSelected ? '#FFFFFF' : WF_COLORS.primary}
+                        style={{ marginRight: 5 }}
+                      />
+                      <Text style={[styles.cityBtnText, isSelected && styles.cityBtnTextActive]}>
+                        {city}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
 
             {featured.length > 0 ? (
               <View style={styles.featuredBlock}>
@@ -565,6 +607,30 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate700,
   },
   categoryBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  cityBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: WF_COLORS.primaryLight,
+    backgroundColor: WF_COLORS.primarySoft,
+  },
+  cityBtnActive: {
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
+  },
+  cityBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.primary,
+  },
+  cityBtnTextActive: {
     color: '#FFFFFF',
     fontWeight: '800',
   },

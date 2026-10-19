@@ -28,13 +28,16 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.4",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start --port 8085",
     "android": "expo start --android --port 8085",
     "ios": "expo start --ios --port 8085",
-    "web": "expo start --web --port 8085"
+    "web": "expo start --web --port 8085",
+    "lint": "expo lint"
   },
   "private": true
 }

@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
-import { Linking, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { showToast } from '@/components/Toast';
@@ -144,6 +144,28 @@ export function PlaceDetailModal({
                 <Text style={styles.description}>
                   {place.description || 'Chưa có mô tả chi tiết cho địa điểm này.'}
                 </Text>
+
+                {place.ownerName || place.isVerifiedHost ? (
+                  <View style={styles.ownerRow}>
+                    <Image
+                      source={
+                        place.ownerAvatar
+                          ? { uri: place.ownerAvatar }
+                          : require('../../assets/images/icon.png')
+                      }
+                      style={styles.ownerAvatar}
+                    />
+                    <View style={styles.ownerTextWrap}>
+                      <Text style={styles.ownerText} numberOfLines={1}>
+                        Được chia sẻ bởi{' '}
+                        <Text style={styles.ownerName}>
+                          {place.ownerName || 'cộng đồng Wayfare'}
+                          {place.ownerHandle ? ` (${place.ownerHandle})` : ''}
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 <TouchableOpacity style={styles.mapBtn} activeOpacity={0.85} onPress={handleOpenMap}>
                   <FontAwesome name="location-arrow" size={13} color={WF_COLORS.primary} style={{ marginRight: 7 }} />
@@ -349,6 +371,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 21,
     color: WF_COLORS.slate600,
+  },
+  ownerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: WF_COLORS.slate100,
+  },
+  ownerAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    marginRight: 8,
+    backgroundColor: WF_COLORS.slate200,
+  },
+  ownerTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  ownerText: {
+    fontSize: 11,
+    color: WF_COLORS.slate600,
+  },
+  ownerName: {
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
   },
   mapBtn: {
     flexDirection: 'row',

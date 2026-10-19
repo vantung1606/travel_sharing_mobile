@@ -77,6 +77,9 @@ export interface PlaceItem {
   longitude?: number | null;
   isVerifiedHost?: boolean;
   ownerName?: string;
+  /** Thông tin người đăng (server trả sẵn) — dùng cho dòng "Được chia sẻ bởi". */
+  ownerHandle?: string;
+  ownerAvatar?: string;
 }
 
 /**
@@ -120,6 +123,8 @@ function mapPlace(raw: any): PlaceItem {
     longitude: raw?.longitude != null ? Number(raw.longitude) : null,
     isVerifiedHost: Boolean(raw?.isVerifiedHost),
     ownerName: raw?.ownerName,
+    ownerHandle: raw?.ownerHandle,
+    ownerAvatar: raw?.ownerAvatar,
   };
 }
 

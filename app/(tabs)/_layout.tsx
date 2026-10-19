@@ -57,11 +57,15 @@ export default function TabLayout() {
       if (session) {
         refreshUnreadCount();
       } else {
-        // Đăng xuất: đóng mọi lớp phủ đang mở (Chat / Thông báo) để người dùng
-        // quay thẳng về form đăng nhập ban đầu, không phải bấm đóng thủ công.
+        // ĐĂNG XUẤT: ẩn hết mọi lớp phủ đang mở (Chat / Thông báo), đưa app về tab
+        // khởi đầu (Cộng đồng) và mở ngay form đăng nhập TOÀN MÀN HÌNH — trên màn
+        // hình chỉ còn duy nhất form đăng nhập, người dùng không phải bấm qua bấm
+        // lại các dịch vụ để tìm lại chỗ đăng nhập.
         setIsChatOpen(false);
         setIsNotificationOpen(false);
         setUnreadNotifCount(0);
+        setIsAuthOpen(true);
+        router.replace('/(tabs)/community');
       }
     });
 

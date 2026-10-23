@@ -910,15 +910,21 @@ export default function CommunityScreen() {
             setScope('all');
             resetFilters();
             if (post?.status === 'PENDING_REVIEW') {
+              const isDebt = (post.category && post.category.includes('Đòi nợ')) || (post.aiFlagReason && post.aiFlagReason.toLowerCase().includes('đòi nợ'));
+              const isOffTopic = (post.category && post.category.includes('Lạc đề')) || (post.aiFlagReason && post.aiFlagReason.toLowerCase().includes('du lịch'));
               showToast({
-                kind: 'info',
-                title: 'Bài viết đang chờ duyệt',
-                message: post?.aiFlagReason || 'Bài viết đã được gửi và chuyển vào hàng đợi kiểm duyệt của Quản trị viên.',
+                kind: isDebt ? 'error' : 'info',
+                title: isDebt 
+                  ? 'Vi phạm chính sách: Đòi nợ / Tài chính 🚫'
+                  : isOffTopic
+                  ? 'Nội dung chưa rõ chủ đề Du lịch 📍'
+                  : 'Bài viết đang chờ Admin duyệt 🛡️',
+                message: post?.aiFlagReason || 'Bài viết đã được chuyển vào hàng đợi kiểm duyệt thủ công của Quản trị viên.',
               });
             } else {
               showToast({
                 kind: 'success',
-                title: 'Đã đăng bài viết',
+                title: 'Đã đăng bài viết 🎉',
                 message: 'Bài viết của bạn đã xuất hiện trên bảng tin cộng đồng.',
               });
             }

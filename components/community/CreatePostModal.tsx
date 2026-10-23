@@ -37,7 +37,8 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [location, setLocation] = useState('');
-  const [category, setCategory] = useState<string>('');
+  const [category, setCategory] = useState<string>('Ẩm thực & Check-in');
+  const [videoUrl, setVideoUrl] = useState('');
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [images, setImages] = useState<string[]>([]);
   const [itineraryId, setItineraryId] = useState<number | null>(null);
@@ -51,15 +52,17 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
       setTitle(editingPost.title || '');
       setContent(editingPost.content || '');
       setLocation(editingPost.locationTag || editingPost.locationName || '');
-      setCategory(editingPost.category || '');
+      setCategory(editingPost.category || 'Ẩm thực & Check-in');
+      setVideoUrl(editingPost.videoUrl || '');
       setVisibility((editingPost.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
       setImages(editingPost.images?.length ? editingPost.images : editingPost.imageUrl ? [editingPost.imageUrl] : []);
       setItineraryId(editingPost.itineraryId ?? null);
     } else {
       setTitle('');
       setContent('');
-      setLocation('');
-      setCategory('');
+      setLocation('Việt Nam');
+      setCategory('Ẩm thực & Check-in');
+      setVideoUrl('');
       setVisibility('PUBLIC');
       setImages([]);
       setItineraryId(null);
@@ -120,6 +123,14 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
   };
 
   const handleSubmit = async () => {
+    if (!title.trim()) {
+      showToast({
+        kind: 'error',
+        title: 'Thiếu tiêu đề',
+        message: 'Vui lòng nhập tiêu đề bài viết trước khi đăng.',
+      });
+      return;
+    }
     if (!content.trim()) {
       showToast({
         kind: 'error',
@@ -139,11 +150,12 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
     try {
       setSubmitting(true);
       const payload = {
-        title: title.trim() || undefined,
+        title: title.trim(),
         content: content.trim(),
-        category: category || undefined,
-        locationTag: location.trim() || undefined,
+        category: category || 'Ẩm thực & Check-in',
+        locationTag: location.trim() || 'Việt Nam',
         images,
+        videoUrl: videoUrl.trim() || undefined,
         visibility,
         itineraryId: itineraryId ?? undefined,
       };
@@ -252,6 +264,16 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
                 placeholderTextColor={WF_COLORS.slate400}
                 value={location}
                 onChangeText={setLocation}
+              />
+
+              <Text style={styles.label}>Video (tùy chọn)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Link video YouTube hoặc MP4..."
+                placeholderTextColor={WF_COLORS.slate400}
+                value={videoUrl}
+                onChangeText={setVideoUrl}
+                autoCapitalize="none"
               />
 
               {/* Images */}

@@ -909,11 +909,19 @@ export default function CommunityScreen() {
             setSavedPosts(null);
             setScope('all');
             resetFilters();
-            showToast({
-              kind: 'success',
-              title: 'Đã đăng bài viết',
-              message: 'Bài viết của bạn đã xuất hiện trên bảng tin cộng đồng.',
-            });
+            if (post?.status === 'PENDING_REVIEW') {
+              showToast({
+                kind: 'info',
+                title: 'Bài viết đang chờ duyệt',
+                message: post?.aiFlagReason || 'Bài viết đã được gửi và chuyển vào hàng đợi kiểm duyệt của Quản trị viên.',
+              });
+            } else {
+              showToast({
+                kind: 'success',
+                title: 'Đã đăng bài viết',
+                message: 'Bài viết của bạn đã xuất hiện trên bảng tin cộng đồng.',
+              });
+            }
             loadInitial();
           }
         }}

@@ -184,6 +184,28 @@ export interface PostItem {
   sharedPost?: PostItem;
 }
 
+export function normalizeMediaUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  if (/^http:\/\/localhost(:\d+)?\/uploads\//i.test(url)) {
+    const backendBase = API_BASE_URL.replace(/\/api\/?$/, '');
+    return url.replace(/^http:\/\/localhost(:\d+)?/i, backendBase);
+  }
+  return url;
+}
+
+export function normalizePost(post: PostItem): PostItem {
+  if (!post || typeof post !== 'object') return post;
+  return {
+    ...post,
+    imageUrl: post.imageUrl ? normalizeMediaUrl(post.imageUrl) : post.imageUrl,
+    coverImage: post.coverImage ? normalizeMediaUrl(post.coverImage) : post.coverImage,
+    images: Array.isArray(post.images) ? post.images.map(normalizeMediaUrl) : post.images,
+    videoUrl: post.videoUrl ? normalizeMediaUrl(post.videoUrl) : post.videoUrl,
+    authorAvatar: post.authorAvatar ? normalizeMediaUrl(post.authorAvatar) : post.authorAvatar,
+    sharedPost: post.sharedPost ? normalizePost(post.sharedPost) : post.sharedPost,
+  };
+}
+
 export interface ItineraryItem {
   id: number;
   creatorId?: number;
@@ -426,7 +448,8 @@ export interface UserProfileItem {
 export const postApi = {
   async getCommunityPosts(params?: { category?: string; keyword?: string }): Promise<PostItem[]> {
     const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts', { params });
-    return res.data.data || [];
+    const items = res.data.data || [];
+    return items.map(normalizePost);
   },
 
   /**
@@ -436,7 +459,11 @@ export const postApi = {
   async getCommunityPostsPaged(params: { page?: number; size?: number; category?: string; keyword?: string } = {}): Promise<PagedResult<PostItem> | null> {
     try {
       const res = await apiClient.get<ApiResponse<PagedResult<PostItem>>>('/posts', { params });
-      return res.data.data || null;
+      if (!res.data.data) return null;
+      return {
+        ...res.data.data,
+        items: (res.data.data.items || []).map(normalizePost),
+      };
     } catch (err: any) {
       console.warn('API error fetching paged posts:', err?.message || err);
       return null;
@@ -445,7 +472,7 @@ export const postApi = {
 
   async getPostById(id: number): Promise<PostItem> {
     const res = await apiClient.get<ApiResponse<PostItem>>(`/posts/${id}`);
-    return res.data.data;
+    return normalizePost(res.data.data);
   },
 
   async toggleLike(id: number): Promise<{ isLiked: boolean; likeCount: number }> {
@@ -460,7 +487,8 @@ export const postApi = {
 
   async getBookmarkedPosts(): Promise<PostItem[]> {
     const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts/bookmarked');
-    return res.data.data || [];
+    const items = res.data.data || [];
+    return items.map(normalizePost);
   },
 
   async getComments(postId: number): Promise<CommentItem[]> {
@@ -482,7 +510,7 @@ export const postApi = {
 
   async createPost(payload: CreatePostPayload): Promise<PostItem> {
     const res = await apiClient.post<ApiResponse<PostItem>>('/posts', payload);
-    return res.data.data;
+    return normalizePost(res.data.data);
   },
 
   async cloneItineraryFromPost(postId: number): Promise<ItineraryItem> {
@@ -495,7 +523,7 @@ export const postApi = {
     const body: CreatePostPayload = { ...payload };
     delete body.sharedPostId;
     const res = await apiClient.put<ApiResponse<PostItem>>(`/posts/${id}`, body);
-    return res.data.data;
+    return normalizePost(res.data.data);
   },
 
   async updatePostVisibility(id: number, visibility: string): Promise<PostItem> {
@@ -607,7 +635,7 @@ export const uploadApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return res.data.data;
+    return normalizeMediaUrl(res.data.data);
   },
 };
 

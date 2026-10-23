@@ -5,7 +5,7 @@ import apiClient from './api';
  */
 const GEMINI_API_KEY = (process.env.EXPO_PUBLIC_GEMINI_API_KEY && process.env.EXPO_PUBLIC_GEMINI_API_KEY.trim()) || '';
 const GEMINI_API_URL = process.env.EXPO_PUBLIC_GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 export interface GenerateTextParams {
   prompt: string;
@@ -37,7 +37,7 @@ export const aiService = {
     responseMimeType = 'application/json',
   }: GenerateTextParams): Promise<string> {
     let targetModel = model || DEFAULT_MODEL;
-    if (!targetModel.startsWith('gemini-') || targetModel === 'gemini-1.5-flash' || targetModel.includes('1.5-flash')) {
+    if (!targetModel.startsWith('gemini-') || targetModel.includes('3.8')) {
       targetModel = DEFAULT_MODEL;
     }
 

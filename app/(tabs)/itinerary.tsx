@@ -686,10 +686,10 @@ Ví dụ chuẩn:
   ]
 }`;
 
-      // GỌI GOOGLE GEMINI 3.8 FLASH THỰC TẾ
+      // GỌI GOOGLE GEMINI 2.5 FLASH THỰC TẾ
       const rawAiResponse = await aiService.generateText({
         prompt,
-        model: 'gemini-3.8-flash',
+        model: 'gemini-2.5-flash',
         maxTokens: 8192,
         temperature: 0.3,
       });

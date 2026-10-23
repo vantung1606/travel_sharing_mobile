@@ -129,6 +129,67 @@ export function ItineraryDetailModal({
     }
   };
 
+  // State thêm trạm dừng mới (hoàn toàn do người dùng tự điền)
+  const [addStopVisible, setAddStopVisible] = useState<boolean>(false);
+  const [newStopDay, setNewStopDay] = useState<number>(1);
+  const [newStopTime, setNewStopTime] = useState<string>('08:30');
+  const [newStopLocation, setNewStopLocation] = useState<string>('');
+  const [newStopCategory, setNewStopCategory] = useState<string>('Tham quan');
+  const [newStopCost, setNewStopCost] = useState<string>('50,000');
+  const [newStopNote, setNewStopNote] = useState<string>('');
+  const [submittingStop, setSubmittingStop] = useState<boolean>(false);
+
+  const handleSaveStop = async () => {
+    if (!newStopLocation.trim()) {
+      showToast({
+        kind: 'info',
+        title: 'Thiếu tên địa điểm',
+        message: 'Vui lòng nhập tên trạm dừng hoặc hoạt động!',
+      });
+      return;
+    }
+
+    if (!fullItin?.id) return;
+
+    try {
+      setSubmittingStop(true);
+      const costNum = parseFloat(newStopCost.replace(/,/g, '')) || 0;
+      const startTimeFormatted = newStopTime.includes(':')
+        ? (newStopTime.length === 5 ? `${newStopTime}:00` : newStopTime)
+        : '08:30:00';
+
+      await itineraryApi.addDetail(fullItin.id, {
+        dayNumber: newStopDay,
+        startTime: startTimeFormatted,
+        locationName: newStopLocation.trim(),
+        locationAddress: fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam',
+        category: newStopCategory,
+        estimatedCost: costNum,
+        note: newStopNote.trim(),
+      });
+
+      showToast({
+        kind: 'success',
+        title: 'Đã thêm trạm dừng',
+        message: `"${newStopLocation.trim()}" đã được thêm vào Ngày ${newStopDay}.`,
+      });
+
+      setAddStopVisible(false);
+      setNewStopLocation('');
+      setNewStopNote('');
+      fetchFullDetail(fullItin.id);
+      onItineraryUpdated?.();
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Thêm trạm dừng thất bại',
+        message: e?.message || 'Không thể lưu trạm dừng.',
+      });
+    } finally {
+      setSubmittingStop(false);
+    }
+  };
+
   const coverUrl =
     fullItin?.coverImageUrl ||
     fullItin?.coverImage ||
@@ -268,118 +329,147 @@ export function ItineraryDetailModal({
                   <Text style={styles.emptyBoxSub}>
                     Lịch trình ngày này hiện chưa có hoạt động nào.
                   </Text>
+                  {canEdit && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.addFirstStopBtn}
+                      onPress={() => {
+                        setNewStopDay(selectedDay === 'all' ? 1 : selectedDay);
+                        setAddStopVisible(true);
+                      }}>
+                      <FontAwesome name="plus" size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.addFirstStopBtnText}>+ Thêm trạm dừng đầu tiên</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
-                filteredDetails.map((detail, index) => {
-                  // Cắt bỏ phần giây :00 nếu có
-                  const formattedTime = (detail.startTime || '08:30').slice(0, 5);
+                <>
+                  {filteredDetails.map((detail, index) => {
+                    // Cắt bỏ phần giây :00 nếu có
+                    const formattedTime = (detail.startTime || '08:30').slice(0, 5);
 
-                  return (
-                    <View key={detail.id || index} style={styles.timelineItem}>
-                      {/* Left Time Column */}
-                      <View style={styles.timeCol}>
-                        <Text style={styles.timeText}>{formattedTime}</Text>
-                        <View style={styles.timeDot} />
-                        {index < filteredDetails.length - 1 && <View style={styles.timeLine} />}
-                      </View>
-
-                      {/* Right Detail Card */}
-                      <View style={styles.stopCard}>
-                        {/* Header: Category Badge & Delete */}
-                        <View style={styles.stopHeader}>
-                          <View style={styles.categoryBadge}>
-                            <Text style={styles.categoryBadgeText}>{detail.category || 'Tham quan'}</Text>
-                          </View>
-                          {canEdit && detail.id ? (
-                            <TouchableOpacity
-                              onPress={() => handleDeleteStop(detail.id)}
-                              style={styles.deleteTouch}>
-                              <FontAwesome name="trash-o" size={13} color="#EF4444" />
-                            </TouchableOpacity>
-                          ) : null}
+                    return (
+                      <View key={detail.id || index} style={styles.timelineItem}>
+                        {/* Left Time Column */}
+                        <View style={styles.timeCol}>
+                          <Text style={styles.timeText}>{formattedTime}</Text>
+                          <View style={styles.timeDot} />
+                          {index < filteredDetails.length - 1 && <View style={styles.timeLine} />}
                         </View>
 
-                        {/* Title */}
-                        <Text style={styles.stopTitle}>{detail.locationName}</Text>
+                        {/* Right Detail Card */}
+                        <View style={styles.stopCard}>
+                          {/* Header: Category Badge & Delete */}
+                          <View style={styles.stopHeader}>
+                            <View style={styles.categoryBadge}>
+                              <Text style={styles.categoryBadgeText}>{detail.category || 'Tham quan'}</Text>
+                            </View>
+                            {canEdit && detail.id ? (
+                              <TouchableOpacity
+                                onPress={() => handleDeleteStop(detail.id)}
+                                style={styles.deleteTouch}>
+                                <FontAwesome name="trash-o" size={13} color="#EF4444" />
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
 
-                        {/* Specific Address Box & Google Maps Link (Match Web 100%) */}
-                        <View style={styles.addressBox}>
-                          <View style={styles.addressLeft}>
-                            <FontAwesome
-                              name="map-marker"
-                              size={13}
-                              color="#0284C7"
-                              style={{ marginTop: 2, marginRight: 6 }}
-                            />
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.addressText} numberOfLines={2}>
-                                {detail.locationAddress ||
-                                  (fullItin?.destination
-                                    ? `${fullItin.destination}, Việt Nam`
-                                    : 'Việt Nam')}
+                          {/* Title */}
+                          <Text style={styles.stopTitle}>{detail.locationName}</Text>
+
+                          {/* Specific Address Box & Google Maps Link (Match Web 100%) */}
+                          <View style={styles.addressBox}>
+                            <View style={styles.addressLeft}>
+                              <FontAwesome
+                                name="map-marker"
+                                size={13}
+                                color="#0284C7"
+                                style={{ marginTop: 2, marginRight: 6 }}
+                              />
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.addressText} numberOfLines={2}>
+                                  {detail.locationAddress ||
+                                    (fullItin?.destination
+                                      ? `${fullItin.destination}, Việt Nam`
+                                      : 'Việt Nam')}
+                                </Text>
+                              </View>
+                            </View>
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              style={styles.mapBtn}
+                              onPress={() => {
+                                const q = encodeURIComponent(
+                                  `${detail.locationName}, ${detail.locationAddress || fullItin?.destination || ''}`
+                                );
+                                Linking.openURL(
+                                  `https://www.google.com/maps/search/?api=1&query=${q}`
+                                ).catch(() => {
+                                  showToast({
+                                    kind: 'error',
+                                    title: 'Không mở được bản đồ',
+                                    message: 'Vui lòng thử lại sau.',
+                                  });
+                                });
+                              }}>
+                              <Text style={styles.mapBtnText}>Bản đồ</Text>
+                              <FontAwesome name="external-link" size={9} color="#0284C7" style={{ marginLeft: 3 }} />
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Note / Tip */}
+                          {detail.note ? (
+                            <View style={styles.noteBox}>
+                              <Text style={styles.noteText}>💡 {detail.note}</Text>
+                            </View>
+                          ) : null}
+
+                          {/* Bottom Row: Cost & Transit */}
+                          <View style={styles.stopBottomRow}>
+                            <View style={styles.costRow}>
+                              <FontAwesome
+                                name="money"
+                                size={11}
+                                color={detail.estimatedCost ? '#D97706' : '#64748B'}
+                                style={{ marginRight: 4 }}
+                              />
+                              <Text
+                                style={[
+                                  styles.costText,
+                                  !detail.estimatedCost && { color: '#64748B', fontWeight: '500' },
+                                ]}>
+                                {detail.estimatedCost
+                                  ? `~${detail.estimatedCost.toLocaleString('vi-VN')} đ`
+                                  : 'Theo thực tế'}
                               </Text>
                             </View>
-                          </View>
-                          <TouchableOpacity
-                            activeOpacity={0.8}
-                            style={styles.mapBtn}
-                            onPress={() => {
-                              const q = encodeURIComponent(
-                                `${detail.locationName}, ${detail.locationAddress || fullItin?.destination || ''}`
-                              );
-                              Linking.openURL(
-                                `https://www.google.com/maps/search/?api=1&query=${q}`
-                              ).catch(() => {
-                                showToast({
-                                  kind: 'error',
-                                  title: 'Không mở được bản đồ',
-                                  message: 'Vui lòng thử lại sau.',
-                                });
-                              });
-                            }}>
-                            <Text style={styles.mapBtnText}>Bản đồ</Text>
-                            <FontAwesome name="external-link" size={9} color="#0284C7" style={{ marginLeft: 3 }} />
-                          </TouchableOpacity>
-                        </View>
 
-                        {/* Note / Tip */}
-                        {detail.note ? (
-                          <View style={styles.noteBox}>
-                            <Text style={styles.noteText}>💡 {detail.note}</Text>
+                            {detail.transitInfo ? (
+                              <View style={styles.transitRow}>
+                                <FontAwesome name="car" size={11} color="#64748B" style={{ marginRight: 4 }} />
+                                <Text style={styles.transitText}>{detail.transitInfo}</Text>
+                              </View>
+                            ) : null}
                           </View>
-                        ) : null}
-
-                        {/* Bottom Row: Cost & Transit */}
-                        <View style={styles.stopBottomRow}>
-                          <View style={styles.costRow}>
-                            <FontAwesome
-                              name="money"
-                              size={11}
-                              color={detail.estimatedCost ? '#D97706' : '#64748B'}
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text
-                              style={[
-                                styles.costText,
-                                !detail.estimatedCost && { color: '#64748B', fontWeight: '500' },
-                              ]}>
-                              {detail.estimatedCost
-                                ? `~${detail.estimatedCost.toLocaleString('vi-VN')} đ`
-                                : 'Theo thực tế'}
-                            </Text>
-                          </View>
-
-                          {detail.transitInfo ? (
-                            <View style={styles.transitRow}>
-                              <FontAwesome name="car" size={11} color="#64748B" style={{ marginRight: 4 }} />
-                              <Text style={styles.transitText}>{detail.transitInfo}</Text>
-                            </View>
-                          ) : null}
                         </View>
                       </View>
-                    </View>
-                  );
-                })
+                    );
+                  })}
+
+                  {canEdit && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.addMoreStopBtn}
+                      onPress={() => {
+                        setNewStopDay(selectedDay === 'all' ? 1 : selectedDay);
+                        setAddStopVisible(true);
+                      }}>
+                      <FontAwesome name="plus" size={12} color="#0284C7" style={{ marginRight: 6 }} />
+                      <Text style={styles.addMoreStopBtnText}>
+                        + Thêm trạm dừng vào Ngày {selectedDay === 'all' ? 1 : selectedDay}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
 
@@ -411,6 +501,123 @@ export function ItineraryDetailModal({
             </View>
           </ScrollView>
         )}
+
+        {/* Modal Thêm trạm dừng mới */}
+        <Modal
+          visible={addStopVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setAddStopVisible(false)}>
+          <View style={styles.addModalOverlay}>
+            <View style={styles.addModalCard}>
+              <View style={styles.addModalHeader}>
+                <Text style={styles.addModalTitle}>Thêm trạm dừng mới</Text>
+                <TouchableOpacity onPress={() => setAddStopVisible(false)}>
+                  <FontAwesome name="times" size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
+                {/* Ngày */}
+                <Text style={styles.fieldLabel}>Chọn ngày (Ngày 1 - {maxDay})</Text>
+                <View style={styles.dayPickRow}>
+                  {Array.from({ length: maxDay }).map((_, i) => {
+                    const d = i + 1;
+                    const isSel = newStopDay === d;
+                    return (
+                      <TouchableOpacity
+                        key={d}
+                        style={[styles.dayPickBtn, isSel && styles.dayPickBtnActive]}
+                        onPress={() => setNewStopDay(d)}>
+                        <Text style={[styles.dayPickText, isSel && styles.dayPickTextActive]}>
+                          N{d}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Giờ */}
+                <Text style={styles.fieldLabel}>Thời gian (VD: 08:30)</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={newStopTime}
+                  onChangeText={setNewStopTime}
+                  placeholder="08:30"
+                  placeholderTextColor="#94A3B8"
+                />
+
+                {/* Tên hoạt động / Địa điểm */}
+                <Text style={styles.fieldLabel}>Tên hoạt động / Điểm đến *</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={newStopLocation}
+                  onChangeText={setNewStopLocation}
+                  placeholder="VD: Cà phê sáng, Tham quan Bảo tàng..."
+                  placeholderTextColor="#94A3B8"
+                />
+
+                {/* Thể loại */}
+                <Text style={styles.fieldLabel}>Thể loại</Text>
+                <View style={styles.categoryPickerRow}>
+                  {['Tham quan', 'Ăn uống', 'Nghỉ ngơi', 'Di chuyển', 'Khám phá'].map((cat) => {
+                    const isSelected = newStopCategory === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[styles.categoryChoice, isSelected && styles.categoryChoiceActive]}
+                        onPress={() => setNewStopCategory(cat)}>
+                        <Text style={[styles.categoryChoiceText, isSelected && styles.categoryChoiceTextActive]}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Chi phí ước tính */}
+                <Text style={styles.fieldLabel}>Dự toán chi phí (VNĐ)</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={newStopCost}
+                  onChangeText={setNewStopCost}
+                  keyboardType="numeric"
+                  placeholder="VD: 150000 (để trống nếu miễn phí)"
+                  placeholderTextColor="#94A3B8"
+                />
+
+                {/* Ghi chú */}
+                <Text style={styles.fieldLabel}>Ghi chú / Mẹo nhỏ</Text>
+                <TextInput
+                  style={[styles.fieldInput, { height: 60, textAlignVertical: 'top' }]}
+                  value={newStopNote}
+                  onChangeText={setNewStopNote}
+                  multiline
+                  placeholder="Mang theo nón, đặt bàn trước..."
+                  placeholderTextColor="#94A3B8"
+                />
+              </ScrollView>
+
+              <View style={styles.addModalActions}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setAddStopVisible(false)}>
+                  <Text style={styles.cancelModalBtnText}>Hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitModalBtn, submittingStop && { opacity: 0.6 }]}
+                  disabled={submittingStop}
+                  onPress={handleSaveStop}>
+                  {submittingStop ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitModalBtnText}>Thêm vào lịch trình</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Thông báo & hộp xác nhận trong chính modal */}
         <ConfirmHost enabled={visible} />
@@ -814,5 +1021,173 @@ const styles = StyleSheet.create({
   checkTextDone: {
     textDecorationLine: 'line-through',
     color: '#94A3B8',
+  },
+  addFirstStopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0284C7',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  addFirstStopBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
+  },
+  addMoreStopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderStyle: 'dashed',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  addMoreStopBtnText: {
+    color: '#0284C7',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: SERIF_FONT,
+  },
+  addModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  addModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  addModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  addModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    fontFamily: SERIF_FONT,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 10,
+    marginBottom: 4,
+    fontFamily: SERIF_FONT,
+  },
+  fieldInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  dayPickRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  dayPickBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  dayPickBtnActive: {
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
+  },
+  dayPickText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  dayPickTextActive: {
+    color: '#FFFFFF',
+  },
+  categoryPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  categoryChoice: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  categoryChoiceActive: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#0284C7',
+  },
+  categoryChoiceText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  categoryChoiceTextActive: {
+    color: '#0284C7',
+    fontWeight: '700',
+  },
+  addModalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  cancelModalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelModalBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  submitModalBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#0284C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitModalBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

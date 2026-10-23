@@ -509,28 +509,8 @@ export default function ItineraryScreen() {
       const days = Number(manualDays) || 3;
       const rawBudget = parseFloat(manualBudgetFormatted.replace(/,/g, '')) || 4000000;
 
-      const sampleActivities: ItineraryDetailItem[] = [];
-      const times = ['08:30', '11:30', '14:30', '18:30'];
-      const actTitles = [
-        `Khởi hành tham quan ${manualDest}`,
-        `Ăn trưa & Thưởng thức đặc sản ${manualDest}`,
-        `Check-in điểm danh lam nổi bật`,
-        `Dạo phố đêm & Thư giãn chill`,
-      ];
-      const categories = ['Tham quan', 'Ẩm thực', 'Check-in', 'Chill'];
-
-      for (let d = 1; d <= days; d++) {
-        for (let t = 0; t < 4; t++) {
-          sampleActivities.push({
-            dayNumber: d,
-            startTime: times[t],
-            locationName: `${manualDest} - ${actTitles[t]}`,
-            category: categories[t],
-            estimatedCost: t === 1 ? 150000 : 50000,
-            note: t === 0 ? 'Khởi hành ngày mới' : 'Trải nghiệm tự do',
-          });
-        }
-      }
+      // Tạo chuyến đi thủ công: hoàn toàn để trống để người dùng tự điền mốc giờ và hoạt động
+      const manualActivities: ItineraryDetailItem[] = [];
 
       const created = await itineraryApi.createItinerary({
         title: manualTitle.trim(),
@@ -542,7 +522,7 @@ export default function ItineraryScreen() {
         status: 'UPCOMING',
         isAiGenerated: false,
         groupType: manualGroup,
-        details: sampleActivities,
+        details: manualActivities,
       });
 
       showToast({

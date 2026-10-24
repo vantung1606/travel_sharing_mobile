@@ -90,6 +90,8 @@ export interface PlaceItem {
   /** Thông tin người đăng (server trả sẵn) — dùng cho dòng "Được chia sẻ bởi". */
   ownerHandle?: string;
   ownerAvatar?: string;
+  aiModerationStatus?: string;
+  aiModerationNote?: string;
 }
 
 /**
@@ -135,6 +137,8 @@ function mapPlace(raw: any): PlaceItem {
     ownerName: raw?.ownerName,
     ownerHandle: raw?.ownerHandle,
     ownerAvatar: raw?.ownerAvatar,
+    aiModerationStatus: raw?.aiModerationStatus,
+    aiModerationNote: raw?.aiModerationNote,
   };
 }
 

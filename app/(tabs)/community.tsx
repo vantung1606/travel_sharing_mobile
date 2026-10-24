@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -394,6 +395,28 @@ export default function CommunityScreen() {
     });
   };
 
+  const openVideo = async (post: PostItem) => {
+    if (!post.videoUrl) return;
+    try {
+      const canOpen = await Linking.canOpenURL(post.videoUrl);
+      if (canOpen) {
+        await Linking.openURL(post.videoUrl);
+      } else {
+        showToast({
+          kind: 'info',
+          title: 'Không thể mở video',
+          message: 'Đường dẫn video không hợp lệ.',
+        });
+      }
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi phát video',
+        message: 'Không thể phát video này.',
+      });
+    }
+  };
+
   const openCreate = () => {
     if (!session) return requireLogin('chia sẻ bài viết');
     setEditingPost(null);
@@ -636,7 +659,7 @@ export default function CommunityScreen() {
         onOpenDetail={() => setDetailPost(postWithCount)}
         onOpenMenu={() => setMenuPost(item)}
         onPressImage={(index) => openLightbox(item, index)}
-        onPressVideo={() => handleShare(item)}
+        onPressVideo={() => openVideo(item)}
         onViewItinerary={() => openItineraryFor(item)}
         onCloneItinerary={() => cloneItinerary(item)}
       />

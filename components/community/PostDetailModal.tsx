@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -134,6 +135,28 @@ export function PostDetailModal({
     const mine = comment.authorId != null && session.id != null && comment.authorId === session.id;
     const admin = (session.role || '').toUpperCase().includes('ADMIN');
     return mine || admin || isOwner;
+  };
+
+  const handleOpenVideo = async () => {
+    if (!post?.videoUrl) return;
+    try {
+      const can = await Linking.canOpenURL(post.videoUrl);
+      if (can) {
+        await Linking.openURL(post.videoUrl);
+      } else {
+        showToast({
+          kind: 'info',
+          title: 'Không thể mở video',
+          message: 'Đường dẫn video không hợp lệ.',
+        });
+      }
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi phát video',
+        message: 'Không thể phát video này.',
+      });
+    }
   };
 
   const handleSend = async () => {
@@ -359,7 +382,7 @@ export function PostDetailModal({
                     images={images}
                     videoUrl={post.videoUrl}
                     onPressImage={(index) => setLightboxIndex(index)}
-                    onPressVideo={onShare}
+                    onPressVideo={handleOpenVideo}
                   />
                 </View>
               ) : null}

@@ -637,9 +637,9 @@ ${aiCustomNote ? `- Yêu cầu thêm: ${aiCustomNote}` : ''}
 QUY TẮC BẮT BUỘC:
 1. Nghiên cứu chính xác các địa điểm, quán ăn có thật 100% tại "${aiDest}". Tuyệt đối không dùng văn mẫu chung chung.
 2. Mỗi ngày có 3-4 hoạt động sắp xếp từ sáng đến tối.
-3. BẮT BUỘC VỀ ĐỊA CHỈ ("address"): Tra cứu và ghi ĐỊA CHỈ CỤ THỂ CHI TIẾT CÓ THẬT của từng quán ăn, địa danh (gồm Số nhà/Tên đường, Phường/Xã, Quận/Huyện/Thị xã tại "${aiDest}"). TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ ghi tên tỉnh thành chung chung như "${aiDest}" hay "Việt Nam".
+3. BẮT BUỘC VỀ ĐỊA CHỈ ("address"): Tra cứu và ghi ĐỊA CHỈ CỤ THỂ CHI TIẾT CÓ THẬT của từng quán ăn, địa danh (gồm Số nhà/Tên đường - Phường/Xã/Quận/Huyện - Tỉnh/Thành phố tại "${aiDest}"). TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ ghi tên đường cộc lốc (như "202 Chương Dương") hay chỉ ghi tên tỉnh thành chung chung như "${aiDest}" hay "Việt Nam".
 Ví dụ chuẩn:
-- Quán ăn: "Số 48 Ngô Đức Kế, P. Hồng Sơn, TP. Vinh, Nghệ An"
+- Quán ăn: "202 Chương Dương - Sơn Trà - Đà Nẵng" hoặc "Số 48 Ngô Đức Kế, P. Hồng Sơn, TP. Vinh, Nghệ An"
 - Danh lam/Di tích: "Làng Sen & Hoàng Trù, xã Kim Liên, huyện Nam Đàn, Nghệ An"
 - Trải nghiệm: "Đập Cầu Cau, xã Thanh An, huyện Thanh Chương, Nghệ An"
 4. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:

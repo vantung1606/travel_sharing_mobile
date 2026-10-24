@@ -39,13 +39,14 @@ export const SORT_OPTIONS: { key: PostSortKey; label: string; hint: string }[] =
   { key: 'has_itinerary', label: 'Có lịch trình', hint: 'Kèm tour chi tiết' },
 ];
 
-export type TopicKey = 'all' | 'video' | 'itinerary' | 'food' | 'adventure' | 'beach';
+export type TopicKey = 'all' | 'video' | 'itinerary' | 'checkin' | 'food' | 'adventure' | 'beach';
 
 export const TOPIC_FILTERS: { key: TopicKey; label: string; badge?: string }[] = [
   { key: 'all', label: 'Tất cả chủ đề' },
   { key: 'video', label: 'Thước phim', badge: 'Video' },
   { key: 'itinerary', label: 'Có lịch trình', badge: 'Tour' },
-  { key: 'food', label: 'Ẩm thực & Check-in' },
+  { key: 'checkin', label: 'Địa điểm check-in', badge: '📍' },
+  { key: 'food', label: 'Ẩm thực & Món ngon' },
   { key: 'adventure', label: 'Phượt & Khám phá' },
   { key: 'beach', label: 'Biển đảo & Nghỉ dưỡng' },
 ];
@@ -93,7 +94,7 @@ const HASHTAG_KEYWORDS: Record<string, string[]> = {
   tietkiem: ['tiet kiem', 'chi phi', 'budget', 'gia re', 'tiet kiem'],
 };
 
-const TOPIC_KEYWORDS: Record<Exclude<TopicKey, 'all' | 'video' | 'itinerary'>, string[]> = {
+const TOPIC_KEYWORDS: Record<Exclude<TopicKey, 'all' | 'video' | 'itinerary' | 'checkin'>, string[]> = {
   food: ['am thuc', 'an uong', 'quan an', 'dac san', 'food', 'check-in', 'checkin'],
   adventure: ['phuot', 'trekking', 'leo nui', 'kham pha', 'mao hiem', 'xe may'],
   beach: ['bien', 'dao', 'nghi duong', 'resort', 'beach', 'bai bien'],
@@ -109,6 +110,9 @@ export function matchesSearch(post: PostItem, keyword: string): boolean {
       post.content,
       post.locationTag,
       post.locationName,
+      post.placeName,
+      post.placeAddress,
+      post.placeCity,
       post.category,
       post.authorName,
       post.authorHandle,
@@ -124,9 +128,10 @@ export function matchesTopic(post: PostItem, topic: TopicKey): boolean {
   if (topic === 'all') return true;
   if (topic === 'video') return !!post.videoUrl;
   if (topic === 'itinerary') return hasItinerary(post);
+  if (topic === 'checkin') return !!post.placeId || !!post.placeName || !!post.sharedPost?.placeId;
   const words = TOPIC_KEYWORDS[topic];
   const haystack = normalizeVi(
-    [post.title, post.content, post.category, post.locationTag, post.locationName].filter(Boolean).join(' ')
+    [post.title, post.content, post.category, post.locationTag, post.locationName, post.placeName].filter(Boolean).join(' ')
   );
   return words.some((w) => haystack.includes(w));
 }

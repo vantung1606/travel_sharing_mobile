@@ -1,4 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -77,6 +78,7 @@ const matchBudget = (priceVND: number, budget: string): boolean => {
 };
 
 export default function ExploreScreen() {
+  const router = useRouter();
   const [places, setPlaces] = useState<PlaceItem[]>([]);
   const [placesTotal, setPlacesTotal] = useState<number>(0);
   const [hasMorePlaces, setHasMorePlaces] = useState<boolean>(false);
@@ -607,6 +609,13 @@ export default function ExploreScreen() {
         onToggleSave={() => selectedPlace && handleToggleSave(selectedPlace)}
         onAddToPlan={handleOpenAddToPlan}
         onRequireLogin={() => authPrompt.open()}
+        onWriteCheckinPost={(place) => {
+          setDetailModalVisible(false);
+          router.push({
+            pathname: '/(tabs)/community',
+            params: { checkinPlaceId: String(place.id) },
+          });
+        }}
       />
 
       {/* ─── SUB-MODAL CHỌN LỊCH TRÌNH ───────────────────────── */}

@@ -18,6 +18,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { ActionSheet, ActionSheetOption } from '@/components/community/ActionSheet';
 import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
+import { PlaceAttachCard } from '@/components/community/PlaceAttachCard';
 import { PostMedia } from '@/components/community/PostMedia';
 import { ReportPostSheet } from '@/components/community/ReportPostSheet';
 import {
@@ -53,6 +54,7 @@ interface PostDetailModalProps {
   onShare: () => void;
   onViewItinerary: () => void;
   onCloneItinerary: () => void;
+  onPressPlace?: (placeId: number) => void;
   onSubmitReport: (post: PostItem, reason: string, details: string) => Promise<void>;
   onCommentCountChange?: (postId: number, count: number) => void;
 }
@@ -75,6 +77,7 @@ export function PostDetailModal({
   menuOptions,
   onViewItinerary,
   onCloneItinerary,
+  onPressPlace,
   onSubmitReport,
   onCommentCountChange,
 }: PostDetailModalProps) {
@@ -394,6 +397,13 @@ export function PostDetailModal({
                   cloning={cloningItinerary}
                   onView={onViewItinerary}
                   onClone={onCloneItinerary}
+                />
+              ) : null}
+
+              {post.placeId || post.sharedPost?.placeId ? (
+                <PlaceAttachCard
+                  post={post}
+                  onPress={onPressPlace}
                 />
               ) : null}
 

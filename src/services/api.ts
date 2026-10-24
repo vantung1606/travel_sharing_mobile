@@ -179,6 +179,17 @@ export interface PostItem {
   itineraryBudget?: number;
   itineraryPlacesCount?: number;
   itineraryIsAi?: boolean;
+  /** Địa điểm check-in đính kèm */
+  placeId?: number;
+  placeName?: string;
+  placeAddress?: string;
+  placeCity?: string;
+  placeCoverImageUrl?: string;
+  placeAverageRating?: number;
+  placeReviewCount?: number;
+  placeCategoryName?: string;
+  placeTicketPrice?: string;
+  placeOpenHours?: string;
   /** Bài viết gốc khi đây là bài chia sẻ lại */
   sharedPostId?: number;
   sharedPost?: PostItem;
@@ -202,6 +213,7 @@ export function normalizePost(post: PostItem): PostItem {
     images: Array.isArray(post.images) ? post.images.map(normalizeMediaUrl) : post.images,
     videoUrl: post.videoUrl ? normalizeMediaUrl(post.videoUrl) : post.videoUrl,
     authorAvatar: post.authorAvatar ? normalizeMediaUrl(post.authorAvatar) : post.authorAvatar,
+    placeCoverImageUrl: post.placeCoverImageUrl ? normalizeMediaUrl(post.placeCoverImageUrl) : post.placeCoverImageUrl,
     sharedPost: post.sharedPost ? normalizePost(post.sharedPost) : post.sharedPost,
   };
 }
@@ -411,6 +423,7 @@ export interface CreatePostPayload {
   videoUrl?: string;
   visibility?: string;
   itineraryId?: number;
+  placeId?: number;
   sharedPostId?: number;
 }
 
@@ -446,7 +459,7 @@ export interface UserProfileItem {
 
 // ─── COMMUNITY POSTS API ───────────────────────────────────
 export const postApi = {
-  async getCommunityPosts(params?: { category?: string; keyword?: string }): Promise<PostItem[]> {
+  async getCommunityPosts(params?: { category?: string; keyword?: string; placeId?: number }): Promise<PostItem[]> {
     const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts', { params });
     const items = res.data.data || [];
     return items.map(normalizePost);
@@ -456,7 +469,7 @@ export const postApi = {
    * Lấy bài viết cộng đồng có phân trang phía server.
    * Trả về null nếu API chưa hỗ trợ, caller có thể fallback sang getCommunityPosts.
    */
-  async getCommunityPostsPaged(params: { page?: number; size?: number; category?: string; keyword?: string } = {}): Promise<PagedResult<PostItem> | null> {
+  async getCommunityPostsPaged(params: { page?: number; size?: number; category?: string; keyword?: string; placeId?: number } = {}): Promise<PagedResult<PostItem> | null> {
     try {
       const res = await apiClient.get<ApiResponse<PagedResult<PostItem>>>('/posts', { params });
       if (!res.data.data) return null;

@@ -19,18 +19,19 @@ import { POST_CATEGORIES } from '@/components/community/communityUtils';
 import { WF_COLORS } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { ToastHost, showToast } from '@/components/Toast';
-import { itineraryApi, ItineraryItem, postApi, PostItem, uploadApi } from '@/src/services/api';
+import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, uploadApi } from '@/src/services/api';
 
 interface CreatePostModalProps {
   visible: boolean;
   editingPost?: PostItem | null;
+  initialPlaceId?: number | null;
   onClose: () => void;
   onSubmitted: (post?: PostItem) => void;
 }
 
 const MAX_IMAGES = 9;
 
-export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: CreatePostModalProps) {
+export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose, onSubmitted }: CreatePostModalProps) {
   const insets = useSafeAreaInsets();
   const isEdit = !!editingPost;
 
@@ -43,6 +44,8 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
   const [images, setImages] = useState<string[]>([]);
   const [itineraryId, setItineraryId] = useState<number | null>(null);
   const [myItineraries, setMyItineraries] = useState<ItineraryItem[]>([]);
+  const [placeId, setPlaceId] = useState<number | null>(null);
+  const [availablePlaces, setAvailablePlaces] = useState<PlaceItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,6 +60,7 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
       setVisibility((editingPost.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
       setImages(editingPost.images?.length ? editingPost.images : editingPost.imageUrl ? [editingPost.imageUrl] : []);
       setItineraryId(editingPost.itineraryId ?? null);
+      setPlaceId(editingPost.placeId ?? null);
     } else {
       setTitle('');
       setContent('');
@@ -66,13 +70,19 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
       setVisibility('PUBLIC');
       setImages([]);
       setItineraryId(null);
+      setPlaceId(initialPlaceId ?? null);
     }
 
     itineraryApi
       .getMyItineraries()
       .then((list) => setMyItineraries(list || []))
       .catch(() => setMyItineraries([]));
-  }, [visible, editingPost]);
+
+    placeApi
+      .getAllPlaces({ status: 'APPROVED' })
+      .then((list) => setAvailablePlaces(list || []))
+      .catch(() => setAvailablePlaces([]));
+  }, [visible, editingPost, initialPlaceId]);
 
   const handlePickImages = async () => {
     try {
@@ -158,6 +168,7 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
         videoUrl: videoUrl.trim() || undefined,
         visibility,
         itineraryId: itineraryId ?? undefined,
+        placeId: placeId ?? undefined,
       };
       const result = isEdit && editingPost
         ? await postApi.updatePost(editingPost.id, payload)
@@ -326,6 +337,35 @@ export function CreatePostModal({ visible, editingPost, onClose, onSubmitted }: 
                             style={[styles.itineraryChipText, active && styles.itineraryChipTextActive]}
                             numberOfLines={1}>
                             {it.title}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              ) : null}
+
+              {/* Place check-in attach */}
+              {availablePlaces.length > 0 ? (
+                <>
+                  <Text style={styles.label}>Gắn vị trí check-in địa điểm (không bắt buộc)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                    {availablePlaces.slice(0, 30).map((pl) => {
+                      const active = placeId === pl.id;
+                      return (
+                        <TouchableOpacity
+                          key={pl.id}
+                          style={[styles.placeChip, active && styles.placeChipActive]}
+                          onPress={() => setPlaceId(active ? null : pl.id)}>
+                          <FontAwesome
+                            name={active ? 'check-circle' : 'map-marker'}
+                            size={12}
+                            color={active ? '#FFFFFF' : '#059669'}
+                          />
+                          <Text
+                            style={[styles.placeChipText, active && styles.placeChipTextActive]}
+                            numberOfLines={1}>
+                            {pl.name}
                           </Text>
                         </TouchableOpacity>
                       );
@@ -556,6 +596,31 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   itineraryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  placeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 38,
+    maxWidth: 220,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+  },
+  placeChipActive: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  placeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+    flexShrink: 1,
+  },
+  placeChipTextActive: {
     color: '#FFFFFF',
   },
   footer: {

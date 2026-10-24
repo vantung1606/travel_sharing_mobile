@@ -8,7 +8,8 @@ import { Text } from '@/components/Themed';
 import { PlaceImage } from '@/components/explore/PlaceImage';
 import { WF_COLORS } from '@/constants/Colors';
 import { authStorage } from '@/src/services/authStorage';
-import { PlaceItem, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
+import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
+import { getPostImages } from '@/components/community/communityUtils';
 import { fetchLiveWeather } from '@/src/utils/weather';
 
 interface PlaceDetailModalProps {
@@ -20,6 +21,10 @@ interface PlaceDetailModalProps {
   onAddToPlan: () => void;
   /** Mở form đăng nhập khi người dùng muốn đánh giá mà chưa đăng nhập. */
   onRequireLogin?: () => void;
+  /** Callback khi người dùng nhấn 'Viết bài check-in tại đây' */
+  onWriteCheckinPost?: (place: PlaceItem) => void;
+  /** Callback khi người dùng nhấn vào 1 bài viết check-in */
+  onOpenPostDetail?: (post: PostItem) => void;
 }
 
 export function PlaceDetailModal({
@@ -30,6 +35,8 @@ export function PlaceDetailModal({
   onToggleSave,
   onAddToPlan,
   onRequireLogin,
+  onWriteCheckinPost,
+  onOpenPostDetail,
 }: PlaceDetailModalProps) {
   // reviewsState/weatherState gắn dấu "forKey" = placeId đã tải → loading là
   // state suy diễn (reviewsState.forKey !== placeId), KHÔNG cần setState
@@ -46,11 +53,16 @@ export function PlaceDetailModal({
     forKey: number | null;
     data: { temp: number; label: string; icon: string; vibe: string } | null;
   }>({ forKey: null, data: null });
+  const [checkinState, setCheckinState] = useState<{
+    forKey: number | null;
+    list: PostItem[];
+  }>({ forKey: null, list: [] });
 
   const handleModalClose = () => {
     // Dọn dẹp khi đóng modal (setState trong event handler — hợp lệ về quy tắc)
     setReviewsState({ forKey: null, list: [], canReview: false });
     setWeatherState({ forKey: null, data: null });
+    setCheckinState({ forKey: null, list: [] });
     setReviewStars(0);
     setReviewComment('');
     onClose();
@@ -61,8 +73,10 @@ export function PlaceDetailModal({
   const hasCoords = place?.latitude != null && place?.longitude != null;
   const loadingReviews = reviewsState.forKey !== placeId;
   const weatherLoading = hasCoords && weatherState.forKey !== placeId;
+  const loadingCheckin = checkinState.forKey !== placeId;
   const liveWeather = weatherState.forKey === placeId ? weatherState.data : null;
   const liveReviews = reviewsState.forKey === placeId ? reviewsState.list : [];
+  const liveCheckinPosts = checkinState.forKey === placeId ? checkinState.list : [];
   const canReview = reviewsState.canReview;
 
   useEffect(() => {
@@ -82,6 +96,18 @@ export function PlaceDetailModal({
       .catch(() => {
         if (alive) {
           setReviewsState((prev) => ({ forKey: placeId, list: [], canReview: prev.canReview }));
+        }
+      });
+    postApi
+      .getCommunityPosts({ placeId })
+      .then((posts) => {
+        if (alive) {
+          setCheckinState({ forKey: placeId, list: posts || [] });
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setCheckinState({ forKey: placeId, list: [] });
         }
       });
     authStorage.getSession().then((session) => {
@@ -412,6 +438,115 @@ export function PlaceDetailModal({
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* ═══════════ BÀI VIẾT CHECK-IN TỪ CỘNG ĐỒNG ═══════════ */}
+                <View style={styles.checkinSection}>
+                  <View style={styles.checkinSectionHeader}>
+                    <View style={styles.checkinTitleWrap}>
+                      <Text style={styles.sectionTitle}>
+                        Bài viết check-in ({loadingCheckin ? '...' : liveCheckinPosts.length})
+                      </Text>
+                      <View style={styles.checkinBadge}>
+                        <Text style={styles.checkinBadgeText}>Mới</Text>
+                      </View>
+                    </View>
+                    {onWriteCheckinPost ? (
+                      <TouchableOpacity
+                        style={styles.writeCheckinMiniBtn}
+                        activeOpacity={0.8}
+                        onPress={() => onWriteCheckinPost(place)}>
+                        <FontAwesome name="camera" size={11} color="#059669" style={{ marginRight: 4 }} />
+                        <Text style={styles.writeCheckinMiniText}>Viết bài</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {loadingCheckin ? (
+                    <ActivityIndicator size="small" color="#059669" style={{ marginVertical: 12 }} />
+                  ) : liveCheckinPosts.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.checkinScroll}>
+                      {liveCheckinPosts.map((cp) => {
+                        const postImages = getPostImages(cp);
+                        return (
+                          <TouchableOpacity
+                            key={cp.id}
+                            style={styles.checkinCard}
+                            activeOpacity={0.88}
+                            onPress={() => onOpenPostDetail?.(cp)}>
+                            {postImages.length > 0 ? (
+                              <Image source={{ uri: postImages[0] }} style={styles.checkinCardThumb} />
+                            ) : (
+                              <View style={[styles.checkinCardThumb, styles.checkinCardThumbFallback]}>
+                                <FontAwesome name="camera" size={24} color="#CBD5E1" />
+                              </View>
+                            )}
+                            <View style={styles.checkinCardBody}>
+                            <View style={styles.checkinCardAuthorRow}>
+                              {cp.authorAvatar ? (
+                                <Image source={{ uri: cp.authorAvatar }} style={styles.checkinCardAvatar} />
+                              ) : (
+                                <View style={styles.checkinCardAvatarFallback}>
+                                  <Text style={styles.checkinCardAvatarText}>{(cp.authorName || 'W')[0]}</Text>
+                                </View>
+                              )}
+                              <Text style={styles.checkinCardAuthorName} numberOfLines={1}>
+                                {cp.authorName || 'Thành viên'}
+                              </Text>
+                            </View>
+                            <Text style={styles.checkinCardTitle} numberOfLines={2}>
+                              {cp.title || cp.content || 'Khoảnh khắc check-in'}
+                            </Text>
+                            <View style={styles.checkinCardMeta}>
+                              <View style={styles.checkinMetaItem}>
+                                <FontAwesome name="heart" size={10} color="#EF4444" style={{ marginRight: 3 }} />
+                                <Text style={styles.checkinMetaText}>{cp.likeCount ?? cp.likesCount ?? 0}</Text>
+                              </View>
+                              {cp.commentCount != null && cp.commentCount > 0 ? (
+                                <View style={styles.checkinMetaItem}>
+                                  <FontAwesome name="comment-o" size={10} color="#64748B" style={{ marginRight: 3 }} />
+                                  <Text style={styles.checkinMetaText}>{cp.commentCount}</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.emptyCheckinBox}>
+                      <View style={styles.emptyCheckinCircle}>
+                        <FontAwesome name="camera" size={20} color="#059669" />
+                      </View>
+                      <Text style={styles.emptyCheckinTitle}>Chưa có bài viết check-in nào</Text>
+                      <Text style={styles.emptyCheckinSub}>
+                        Hãy là người đầu tiên chia sẻ ảnh check-in và kinh nghiệm du lịch tại {place.name}!
+                      </Text>
+                      {onWriteCheckinPost ? (
+                        <TouchableOpacity
+                          style={styles.emptyCheckinBtn}
+                          activeOpacity={0.85}
+                          onPress={() => onWriteCheckinPost(place)}>
+                          <FontAwesome name="pencil-square-o" size={12} color="#FFFFFF" style={{ marginRight: 6 }} />
+                          <Text style={styles.emptyCheckinBtnText}>Viết bài check-in đầu tiên</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+
+                {onWriteCheckinPost ? (
+                  <TouchableOpacity
+                    style={styles.checkinActionBtn}
+                    activeOpacity={0.88}
+                    onPress={() => onWriteCheckinPost(place)}>
+                    <FontAwesome name="camera" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.checkinActionBtnText}>📸 Viết bài check-in tại đây</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 <View style={styles.mapActionsRow}>
                   <TouchableOpacity style={[styles.mapBtn, styles.mapBtnHalf]} activeOpacity={0.85} onPress={handleOpenMap}>
@@ -852,6 +987,199 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  // Check-in section styles
+  checkinSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  checkinSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  checkinTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkinBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  checkinBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  writeCheckinMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  writeCheckinMiniText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  checkinScroll: {
+    paddingRight: 16,
+    gap: 12,
+  },
+  checkinCard: {
+    width: 170,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  checkinCardThumb: {
+    width: '100%',
+    height: 100,
+    backgroundColor: '#F1F5F9',
+  },
+  checkinCardThumbFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkinCardBody: {
+    padding: 10,
+  },
+  checkinCardAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  checkinCardAvatar: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    marginRight: 6,
+  },
+  checkinCardAvatarFallback: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  checkinCardAvatarText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  checkinCardAuthorName: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  checkinCardTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0F172A',
+    lineHeight: 15,
+    marginBottom: 8,
+    height: 30,
+  },
+  checkinCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkinMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkinMetaText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  emptyCheckinBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    padding: 18,
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  emptyCheckinCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  emptyCheckinTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptyCheckinSub: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  emptyCheckinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  emptyCheckinBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  checkinActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: '#059669',
+    marginTop: 16,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  checkinActionBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',

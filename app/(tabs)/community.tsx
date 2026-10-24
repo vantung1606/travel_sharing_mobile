@@ -32,12 +32,14 @@ import {
   TopicKey,
   filterAndSortPosts,
 } from '@/components/community/communityUtils';
+import { useLocalSearchParams } from 'expo-router';
+import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { WF_COLORS } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
-import { itineraryApi, ItineraryItem, postApi, PostItem, userApi } from '@/src/services/api';
+import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, userApi } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -112,6 +114,39 @@ export default function CommunityScreen() {
   const [itineraryDetail, setItineraryDetail] = useState<ItineraryItem | null>(null);
   const [itineraryVisible, setItineraryVisible] = useState(false);
   const [cloningPostId, setCloningPostId] = useState<number | null>(null);
+
+  // ── Place Check-in integration ─────────────────────────────
+  const routeParams = useLocalSearchParams<{ checkinPlaceId?: string }>();
+  const [checkinPlaceId, setCheckinPlaceId] = useState<number | null>(null);
+  const [activePlace, setActivePlace] = useState<PlaceItem | null>(null);
+  const [placeDetailVisible, setPlaceDetailVisible] = useState(false);
+
+  useEffect(() => {
+    if (routeParams?.checkinPlaceId) {
+      const pid = Number(routeParams.checkinPlaceId);
+      if (pid) {
+        setCheckinPlaceId(pid);
+        setComposerVisible(true);
+      }
+    }
+  }, [routeParams?.checkinPlaceId]);
+
+  const handleOpenPlace = useCallback(async (placeId: number) => {
+    try {
+      const data = await placeApi.getPlaceById(placeId);
+      if (data) {
+        setActivePlace(data);
+        setPlaceDetailVisible(true);
+      }
+    } catch (e) {
+      console.warn('Lỗi xem chi tiết địa điểm:', e);
+      showToast({
+        kind: 'error',
+        title: 'Không thể mở địa điểm',
+        message: 'Có lỗi xảy ra khi tải thông tin địa điểm.',
+      });
+    }
+  }, []);
 
   const clientFiltering = scope !== 'all' || topic !== 'all' || hashtag !== 'all' || !!search.trim() || sort !== 'newest';
 
@@ -662,6 +697,7 @@ export default function CommunityScreen() {
         onPressVideo={() => openVideo(item)}
         onViewItinerary={() => openItineraryFor(item)}
         onCloneItinerary={() => cloneItinerary(item)}
+        onPressPlace={handleOpenPlace}
       />
     );
   };
@@ -938,6 +974,7 @@ export default function CommunityScreen() {
         onShare={() => detailPost && handleShare(detailPost)}
         onViewItinerary={() => detailPost && openItineraryFor(detailPost)}
         onCloneItinerary={() => detailPost && cloneItinerary(detailPost)}
+        onPressPlace={handleOpenPlace}
         onSubmitReport={submitReport}
         onCommentCountChange={handleCommentCountChange}
       />
@@ -946,12 +983,15 @@ export default function CommunityScreen() {
       <CreatePostModal
         visible={composerVisible}
         editingPost={editingPost}
+        initialPlaceId={checkinPlaceId}
         onClose={() => {
           setComposerVisible(false);
           setEditingPost(null);
+          setCheckinPlaceId(null);
         }}
         onSubmitted={(post) => {
           setComposerVisible(false);
+          setCheckinPlaceId(null);
           if (editingPost && post) {
             patchPost(editingPost.id, post);
             setEditingPost(null);
@@ -1045,6 +1085,21 @@ export default function CommunityScreen() {
         itinerary={itineraryDetail}
         onClose={() => setItineraryVisible(false)}
         canEdit={false}
+      />
+
+      {/* ─── Overlay: chi tiết địa điểm check-in ───────────────── */}
+      <PlaceDetailModal
+        visible={placeDetailVisible}
+        place={activePlace}
+        saved={false}
+        onClose={() => setPlaceDetailVisible(false)}
+        onToggleSave={() => {}}
+        onAddToPlan={() => {}}
+        onWriteCheckinPost={(place) => {
+          setPlaceDetailVisible(false);
+          setCheckinPlaceId(place.id);
+          setComposerVisible(true);
+        }}
       />
     </View>
   );

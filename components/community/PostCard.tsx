@@ -4,6 +4,7 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
+import { PlaceAttachCard } from '@/components/community/PlaceAttachCard';
 import { PostMedia } from '@/components/community/PostMedia';
 import {
   getPostCommentCount,
@@ -40,6 +41,7 @@ interface PostCardProps {
   onPressVideo: () => void;
   onViewItinerary: () => void;
   onCloneItinerary: () => void;
+  onPressPlace?: (placeId: number) => void;
 }
 
 /** Tô màu @mention trong nội dung bài viết. */
@@ -78,6 +80,7 @@ export function PostCard({
   onPressVideo,
   onViewItinerary,
   onCloneItinerary,
+  onPressPlace,
 }: PostCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -233,6 +236,16 @@ export function PostCard({
             cloning={cloningItinerary}
             onView={onViewItinerary}
             onClone={onCloneItinerary}
+          />
+        </View>
+      )}
+
+      {/* Attached check-in place */}
+      {(post.placeId || post.sharedPost?.placeId) && (
+        <View style={styles.itineraryWrap}>
+          <PlaceAttachCard
+            post={post}
+            onPress={onPressPlace}
           />
         </View>
       )}

@@ -103,7 +103,15 @@ export default function ExploreScreen() {
   const [addToPlanModalVisible, setAddToPlanModalVisible] = useState<boolean>(false);
   const [myItineraries, setMyItineraries] = useState<ItineraryItem[]>([]);
   const [loadingItineraries, setLoadingItineraries] = useState<boolean>(false);
+  const [selectedPlanTrip, setSelectedPlanTrip] = useState<ItineraryItem | null>(null);
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
+  const [customDaysCount, setCustomDaysCount] = useState<number | null>(null);
+  const [planTimeSlot, setPlanTimeSlot] = useState<'morning' | 'afternoon' | 'evening' | 'custom'>('morning');
+  const [planCustomTime, setPlanCustomTime] = useState<string>('09:00');
+  const [planCategory, setPlanCategory] = useState<string>('Tham quan');
+  const [planCost, setPlanCost] = useState<string>('0');
+  const [planNote, setPlanNote] = useState<string>('');
+  const [submittingPlan, setSubmittingPlan] = useState<boolean>(false);
 
   const [savedIds, setSavedIds] = useState<number[]>([]);
 
@@ -226,6 +234,35 @@ export default function ExploreScreen() {
     setDetailModalVisible(true);
   };
 
+  const getTripDaysCount = (trip: ItineraryItem | null) => {
+    if (!trip) return 1;
+    if (customDaysCount && customDaysCount > 0) return customDaysCount;
+    if (trip.startDate && trip.endDate) {
+      const s = new Date(trip.startDate);
+      const e = new Date(trip.endDate);
+      const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      if (diff > 0 && diff <= 30) return diff;
+    }
+    if (trip.daysCount && trip.daysCount > 0) return trip.daysCount;
+    if (Array.isArray(trip.days) && trip.days.length > 0) {
+      const maxDay = Math.max(...trip.days.map((d: any) => Number(d.dayNumber) || 1));
+      return Math.max(trip.days.length, maxDay);
+    }
+    if (Array.isArray(trip.details) && trip.details.length > 0) {
+      return Math.max(1, ...trip.details.map((d) => Number(d.dayNumber) || 1));
+    }
+    return 1;
+  };
+
+  const formatTripDayDate = (trip: ItineraryItem | null, dayIndex: number) => {
+    if (!trip?.startDate) return null;
+    const baseDate = new Date(trip.startDate);
+    baseDate.setDate(baseDate.getDate() + (dayIndex - 1));
+    const dayName = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][baseDate.getDay()];
+    const dateStr = `${baseDate.getDate().toString().padStart(2, '0')}/${(baseDate.getMonth() + 1).toString().padStart(2, '0')}`;
+    return `${dayName}, ${dateStr}`;
+  };
+
   const handleOpenAddToPlan = async () => {
     const session = await authStorage.getSession();
     if (!session) {
@@ -233,6 +270,15 @@ export default function ExploreScreen() {
       authPrompt.open();
       return;
     }
+
+    setSelectedPlanTrip(null);
+    setSelectedDayNumber(1);
+    setCustomDaysCount(null);
+    setPlanTimeSlot('morning');
+    setPlanCustomTime('09:00');
+    setPlanCategory(selectedPlace?.category || 'Tham quan');
+    setPlanCost(selectedPlace?.ticketPrice ? String(selectedPlace.ticketPrice) : '0');
+    setPlanNote(`Tham quan, chụp ảnh và trải nghiệm tại ${selectedPlace?.name || 'địa điểm'}`);
 
     setAddToPlanModalVisible(true);
     setLoadingItineraries(true);
@@ -246,25 +292,59 @@ export default function ExploreScreen() {
     }
   };
 
-  const handleConfirmAddPlaceToItinerary = async (itinerary: ItineraryItem) => {
-    if (!selectedPlace) return;
+  const handleSelectItineraryForPlan = (trip: ItineraryItem) => {
+    setSelectedPlanTrip(trip);
+    setSelectedDayNumber(1);
+    const count = getTripDaysCount(trip);
+    setCustomDaysCount(count);
+  };
 
+  const handleAddExtraDay = () => {
+    const current = selectedPlanTrip ? getTripDaysCount(selectedPlanTrip) : 1;
+    const next = current + 1;
+    setCustomDaysCount(next);
+    setSelectedDayNumber(next);
+  };
+
+  const handleConfirmAddPlaceToItinerary = async () => {
+    if (!selectedPlace || !selectedPlanTrip) return;
+
+    let finalStartTime = '09:00:00';
+    let timeSlotLabel = 'Buổi sáng (08:30)';
+
+    if (planTimeSlot === 'custom') {
+      finalStartTime = `${planCustomTime}:00`;
+      timeSlotLabel = `${planCustomTime}`;
+    } else if (planTimeSlot === 'afternoon') {
+      finalStartTime = '14:00:00';
+      timeSlotLabel = 'Buổi chiều (14:00)';
+    } else if (planTimeSlot === 'evening') {
+      finalStartTime = '18:30:00';
+      timeSlotLabel = 'Buổi tối (18:30)';
+    } else {
+      finalStartTime = '08:30:00';
+      timeSlotLabel = 'Buổi sáng (08:30)';
+    }
+
+    setSubmittingPlan(true);
     try {
-      await itineraryApi.addDetail(itinerary.id, {
-        itineraryId: itinerary.id,
+      await itineraryApi.addDetail(selectedPlanTrip.id, {
+        itineraryId: selectedPlanTrip.id,
         placeId: selectedPlace.id,
         locationName: selectedPlace.name,
         locationAddress: selectedPlace.address || selectedPlace.city,
-        category: selectedPlace.category,
+        category: planCategory || selectedPlace.category || 'Tham quan',
         dayNumber: selectedDayNumber,
-        note: `Thêm từ Địa điểm: ${selectedPlace.name}`,
+        startTime: finalStartTime,
+        estimatedCost: Number(planCost) || undefined,
+        note: (planNote || '').trim() || undefined,
       });
 
       showToast({
         kind: 'success',
-        title: 'Đã thêm vào lịch trình',
-        message: `"${selectedPlace.name}" đã được đưa vào Ngày ${selectedDayNumber} của chuyến đi "${itinerary.title}".`,
-        icon: 'map-marker',
+        title: 'Đã thêm vào lịch trình! 🚀',
+        message: `"${selectedPlace.name}" đã được xếp vào Ngày ${selectedDayNumber} (${timeSlotLabel}) của chuyến đi "${selectedPlanTrip.title}".`,
+        icon: 'calendar',
       });
       setAddToPlanModalVisible(false);
       setDetailModalVisible(false);
@@ -274,6 +354,8 @@ export default function ExploreScreen() {
         title: 'Thêm vào lịch trình thất bại',
         message: err.response?.data?.message || 'Không thể thêm địa điểm này vào lịch trình.',
       });
+    } finally {
+      setSubmittingPlan(false);
     }
   };
 
@@ -626,51 +708,229 @@ export default function ExploreScreen() {
         onRequestClose={() => setAddToPlanModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardBox}>
+            {/* Header */}
             <View style={styles.modalCardHeader}>
-              <Text style={styles.modalCardTitle}>Chọn Lịch Trình Của Bạn</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {selectedPlanTrip && (
+                  <TouchableOpacity
+                    onPress={() => setSelectedPlanTrip(null)}
+                    style={styles.backTripBtn}>
+                    <FontAwesome name="arrow-left" size={14} color={WF_COLORS.slate700} />
+                  </TouchableOpacity>
+                )}
+                <View>
+                  <Text style={styles.modalCardTitle}>
+                    {selectedPlanTrip ? 'Lên lịch trình chi tiết' : 'Thêm vào Lịch trình'}
+                  </Text>
+                  <Text style={styles.modalCardSub}>
+                    {selectedPlanTrip
+                      ? `Chọn ngày & giờ cho "${selectedPlace?.name}"`
+                      : `Chọn chuyến đi để thêm "${selectedPlace?.name}"`}
+                  </Text>
+                </View>
+              </View>
               <TouchableOpacity onPress={() => setAddToPlanModalVisible(false)}>
                 <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalCardSub}>Thêm "{selectedPlace?.name}" vào:</Text>
-
-            <View style={styles.daySelectionRow}>
-              <Text style={styles.daySelectionLabel}>Chọn ngày:</Text>
-              {[1, 2, 3, 4, 5].map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.dayCircleBtn, selectedDayNumber === d && styles.dayCircleBtnActive]}
-                  onPress={() => setSelectedDayNumber(d)}>
-                  <Text style={[styles.dayCircleText, selectedDayNumber === d && styles.dayCircleTextActive]}>
-                    N{d}
+            {/* BƯỚC 1: CHỌN CHUYẾN ĐI */}
+            {!selectedPlanTrip ? (
+              loadingItineraries ? (
+                <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 30 }} />
+              ) : myItineraries.length === 0 ? (
+                <View style={styles.noItineraryBox}>
+                  <FontAwesome name="calendar-o" size={36} color={WF_COLORS.slate400} style={{ marginBottom: 10 }} />
+                  <Text style={styles.noItineraryText}>
+                    Bạn chưa có chuyến đi nào được lưu trên tài khoản này.
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {loadingItineraries ? (
-              <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 20 }} />
-            ) : myItineraries.length === 0 ? (
-              <View style={styles.noItineraryBox}>
-                <Text style={styles.noItineraryText}>
-                  Bạn chưa có lịch trình nào. Hãy vào tab "Lịch trình" tạo chuyến đi trước nhé!
-                </Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.itineraryList} showsVerticalScrollIndicator={false}>
-                {myItineraries.map((itinerary) => (
                   <TouchableOpacity
-                    key={itinerary.id}
-                    style={styles.itineraryChoiceItem}
-                    onPress={() => handleConfirmAddPlaceToItinerary(itinerary)}>
-                    <View style={styles.itineraryChoiceInfo}>
-                      <Text style={styles.itineraryChoiceTitle}>{itinerary.title}</Text>
-                      <Text style={styles.itineraryChoiceDest}>📍 {itinerary.destination}</Text>
-                    </View>
-                    <FontAwesome name="chevron-right" size={13} color={WF_COLORS.primary} />
+                    style={styles.createTripBtn}
+                    onPress={() => {
+                      setAddToPlanModalVisible(false);
+                      setDetailModalVisible(false);
+                      router.push('/(tabs)/itinerary');
+                    }}>
+                    <Text style={styles.createTripBtnText}>+ Tạo lịch trình mới</Text>
                   </TouchableOpacity>
-                ))}
+                </View>
+              ) : (
+                <ScrollView style={styles.itineraryList} showsVerticalScrollIndicator={false}>
+                  {myItineraries.map((itinerary) => {
+                    const daysTotal = getTripDaysCount(itinerary);
+                    const stops = Array.isArray(itinerary.details)
+                      ? itinerary.details.length
+                      : itinerary.placesCount || 0;
+
+                    return (
+                      <TouchableOpacity
+                        key={itinerary.id}
+                        style={styles.itineraryChoiceItem}
+                        onPress={() => handleSelectItineraryForPlan(itinerary)}>
+                        <View style={styles.itineraryChoiceInfo}>
+                          <Text style={styles.itineraryChoiceTitle} numberOfLines={1}>
+                            {itinerary.title}
+                          </Text>
+                          <Text style={styles.itineraryChoiceDest}>
+                            📍 {itinerary.destination} • {daysTotal} ngày • {stops} điểm
+                          </Text>
+                        </View>
+                        <FontAwesome name="chevron-right" size={13} color={WF_COLORS.primary} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )
+            ) : (
+              /* BƯỚC 2: CHỌN NGÀY, GIỜ, GHI CHÚ */
+              <ScrollView style={styles.planDetailScroll} showsVerticalScrollIndicator={false}>
+                {/* Trip Banner */}
+                <View style={styles.planTripBanner}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.planTripBannerLabel}>Chuyến đi đã chọn</Text>
+                    <Text style={styles.planTripBannerTitle} numberOfLines={1}>
+                      {selectedPlanTrip.title}
+                    </Text>
+                    <Text style={styles.planTripBannerSub}>
+                      📍 {selectedPlanTrip.destination} • Thời lượng: {getTripDaysCount(selectedPlanTrip)} ngày
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setSelectedPlanTrip(null)}
+                    style={styles.changeTripBtn}>
+                    <Text style={styles.changeTripBtnText}>Đổi</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 1. Chọn Ngày */}
+                <Text style={styles.planSectionLabel}>1. Ghé thăm vào ngày thứ mấy?</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.planDayRow}>
+                  {Array.from({ length: getTripDaysCount(selectedPlanTrip) }).map((_, i) => {
+                    const dayNum = i + 1;
+                    const isSelected = selectedDayNumber === dayNum;
+                    const dateStr = formatTripDayDate(selectedPlanTrip, dayNum);
+
+                    return (
+                      <TouchableOpacity
+                        key={dayNum}
+                        style={[styles.planDayChip, isSelected && styles.planDayChipActive]}
+                        onPress={() => setSelectedDayNumber(dayNum)}>
+                        <Text style={[styles.planDayChipTitle, isSelected && styles.planDayChipTitleActive]}>
+                          Ngày {dayNum}
+                        </Text>
+                        {dateStr && (
+                          <Text style={[styles.planDayChipDate, isSelected && styles.planDayChipDateActive]}>
+                            {dateStr}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={styles.planDayAddBtn}
+                    onPress={handleAddExtraDay}>
+                    <Text style={styles.planDayAddBtnText}>+ Ngày {getTripDaysCount(selectedPlanTrip) + 1}</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+
+                {/* 2. Chọn Khung giờ */}
+                <Text style={styles.planSectionLabel}>2. Khung giờ dự kiến</Text>
+                <View style={styles.timeSlotGrid}>
+                  {[
+                    { id: 'morning', label: '🌅 Buổi sáng', sub: '08:30 - 11:30' },
+                    { id: 'afternoon', label: '☀️ Buổi chiều', sub: '14:00 - 17:00' },
+                    { id: 'evening', label: '🌙 Buổi tối', sub: '18:30 - 21:00' },
+                    { id: 'custom', label: '⏱️ Giờ tự chọn', sub: 'Cụ thể' },
+                  ].map((slot) => {
+                    const isSelected = planTimeSlot === slot.id;
+                    return (
+                      <TouchableOpacity
+                        key={slot.id}
+                        style={[styles.timeSlotBtn, isSelected && styles.timeSlotBtnActive]}
+                        onPress={() => setPlanTimeSlot(slot.id as any)}>
+                        <Text style={[styles.timeSlotBtnLabel, isSelected && styles.timeSlotBtnLabelActive]}>
+                          {slot.label}
+                        </Text>
+                        <Text style={[styles.timeSlotBtnSub, isSelected && styles.timeSlotBtnSubActive]}>
+                          {slot.sub}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {planTimeSlot === 'custom' && (
+                  <View style={styles.customTimeRow}>
+                    <Text style={styles.inputSubLabel}>Nhập giờ bắt đầu (HH:mm):</Text>
+                    <TextInput
+                      style={styles.customTimeInput}
+                      value={planCustomTime}
+                      onChangeText={setPlanCustomTime}
+                      placeholder="09:00"
+                    />
+                  </View>
+                )}
+
+                {/* 3. Phân loại hoạt động */}
+                <Text style={styles.planSectionLabel}>3. Loại hoạt động</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+                  {['Tham quan', 'Ăn uống', 'Check-in', 'Vui chơi', 'Thư giãn'].map((cat) => {
+                    const isSelected = planCategory === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                        onPress={() => setPlanCategory(cat)}>
+                        <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* 4. Chi phí dự kiến */}
+                <Text style={styles.planSectionLabel}>4. Chi phí dự kiến (VNĐ)</Text>
+                <TextInput
+                  style={styles.costInput}
+                  keyboardType="numeric"
+                  value={planCost}
+                  onChangeText={setPlanCost}
+                  placeholder="0 (Miễn phí)"
+                />
+
+                {/* 5. Ghi chú hoạt động */}
+                <Text style={styles.planSectionLabel}>5. Ghi chú kế hoạch</Text>
+                <TextInput
+                  style={styles.noteInput}
+                  multiline
+                  numberOfLines={2}
+                  value={planNote}
+                  onChangeText={setPlanNote}
+                  placeholder="VD: Chụp ảnh góc đẹp, thưởng thức cà phê..."
+                />
+
+                {/* Action Buttons */}
+                <View style={styles.planActionRow}>
+                  <TouchableOpacity
+                    style={styles.planBackBtn}
+                    onPress={() => setSelectedPlanTrip(null)}>
+                    <Text style={styles.planBackBtnText}>Quay lại</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.planConfirmBtn, submittingPlan && { opacity: 0.6 }]}
+                    disabled={submittingPlan}
+                    onPress={handleConfirmAddPlaceToItinerary}>
+                    {submittingPlan ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.planConfirmBtnText}>
+                        Xác nhận thêm (Ngày {selectedDayNumber})
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
             )}
           </View>
@@ -996,55 +1256,45 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate500,
     marginBottom: 12,
   },
-  daySelectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
-  },
-  daySelectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate700,
-    marginRight: 2,
-  },
-  dayCircleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  backTripBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: WF_COLORS.slate100,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: WF_COLORS.slate100,
   },
-  dayCircleBtnActive: {
+  createTripBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     backgroundColor: WF_COLORS.primary,
+    marginTop: 8,
   },
-  dayCircleText: {
+  createTripBtnText: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    color: WF_COLORS.slate700,
-  },
-  dayCircleTextActive: {
-    color: '#FFFFFF',
   },
   noItineraryBox: {
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
   },
   noItineraryText: {
     color: WF_COLORS.slate500,
     textAlign: 'center',
-    marginBottom: 12,
+    fontSize: 12,
+    marginBottom: 8,
   },
   itineraryList: {
-    maxHeight: 220,
+    maxHeight: 280,
   },
   itineraryChoiceItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     backgroundColor: WF_COLORS.slate50,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
@@ -1062,5 +1312,251 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: WF_COLORS.slate500,
     marginTop: 2,
+  },
+  // Step 2 styles
+  planDetailScroll: {
+    maxHeight: 460,
+  },
+  planTripBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    marginBottom: 14,
+  },
+  planTripBannerLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: WF_COLORS.primary,
+    textTransform: 'uppercase',
+  },
+  planTripBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+    marginTop: 1,
+  },
+  planTripBannerSub: {
+    fontSize: 11,
+    color: WF_COLORS.slate600,
+    marginTop: 2,
+  },
+  changeTripBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  changeTripBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WF_COLORS.primary,
+  },
+  planSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate700,
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  planDayRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  planDayChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.white,
+    alignItems: 'center',
+    marginRight: 8,
+    minWidth: 70,
+  },
+  planDayChipActive: {
+    borderColor: WF_COLORS.primary,
+    backgroundColor: WF_COLORS.primary,
+  },
+  planDayChipTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  planDayChipTitleActive: {
+    color: '#FFFFFF',
+  },
+  planDayChipDate: {
+    fontSize: 9,
+    color: WF_COLORS.slate400,
+    marginTop: 2,
+  },
+  planDayChipDateActive: {
+    color: '#E0F2FE',
+  },
+  planDayAddBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#7DD3FC',
+    backgroundColor: '#F0F9FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planDayAddBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WF_COLORS.primary,
+  },
+  timeSlotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  timeSlotBtn: {
+    width: '48%',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.slate50,
+  },
+  timeSlotBtnActive: {
+    borderColor: WF_COLORS.primary,
+    backgroundColor: '#F0F9FF',
+  },
+  timeSlotBtnLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  timeSlotBtnLabelActive: {
+    color: WF_COLORS.primary,
+  },
+  timeSlotBtnSub: {
+    fontSize: 10,
+    color: WF_COLORS.slate500,
+    marginTop: 2,
+  },
+  timeSlotBtnSubActive: {
+    color: WF_COLORS.primary,
+  },
+  customTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: WF_COLORS.slate50,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+  },
+  inputSubLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+  },
+  customTimeInput: {
+    flex: 1,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate400,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  categoryChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.slate50,
+    marginRight: 6,
+  },
+  categoryChipActive: {
+    borderColor: WF_COLORS.primary,
+    backgroundColor: WF_COLORS.primary,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: WF_COLORS.slate700,
+  },
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  costInput: {
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate400,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    fontSize: 12,
+    fontWeight: '600',
+    color: WF_COLORS.slate900,
+    marginBottom: 8,
+  },
+  noteInput: {
+    height: 58,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate400,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: WF_COLORS.slate900,
+    marginBottom: 14,
+    textAlignVertical: 'top',
+  },
+  planActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  planBackBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: WF_COLORS.slate100,
+  },
+  planBackBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_COLORS.slate700,
+  },
+  planConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: WF_COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planConfirmBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

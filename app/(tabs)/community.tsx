@@ -38,6 +38,9 @@ import { WF_COLORS } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { itineraryApi, ItineraryItem, postApi, PostItem, userApi } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const HIDDEN_POSTS_STORAGE_KEY = 'wayfare_hidden_post_ids';
 
 const FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
@@ -216,6 +219,20 @@ export default function CommunityScreen() {
     let mounted = true;
     authStorage.getSession().then((s) => mounted && setSession(s));
     const unsubscribe = authStorage.subscribe((s) => setSession(s));
+
+    // Nạp danh sách bài viết đã ẩn từ AsyncStorage
+    AsyncStorage.getItem(HIDDEN_POSTS_STORAGE_KEY)
+      .then((raw) => {
+        if (!mounted || !raw) return;
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setHiddenIds(new Set(parsed.map(Number)));
+          }
+        } catch {}
+      })
+      .catch(() => {});
+
     return () => {
       mounted = false;
       unsubscribe();
@@ -360,6 +377,21 @@ export default function CommunityScreen() {
     } catch {
       // Người dùng huỷ chia sẻ
     }
+  };
+
+  const hidePost = (postId: number) => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(postId);
+      AsyncStorage.setItem(HIDDEN_POSTS_STORAGE_KEY, JSON.stringify(Array.from(next))).catch(() => {});
+      return next;
+    });
+    showToast({
+      kind: 'info',
+      title: 'Đã ẩn bài viết',
+      message: 'Bài viết đã được ẩn khỏi bảng tin của bạn.',
+      icon: 'eye-slash',
+    });
   };
 
   const openCreate = () => {
@@ -515,19 +547,21 @@ export default function CommunityScreen() {
         icon: isPrivate ? 'globe' : 'lock',
         onPress: () => changeVisibility(post),
       });
-    } else if (session && post.authorId != null) {
-      const isFollowing = followingIds.has(Number(post.authorId));
-      options.push({
-        key: 'follow',
-        label: isFollowing ? 'Bỏ theo dõi tác giả' : 'Theo dõi tác giả',
-        icon: 'user-plus',
-        onPress: () => toggleFollowAuthor(post.authorId),
-      });
+    } else {
+      if (session && post.authorId != null) {
+        const isFollowing = followingIds.has(Number(post.authorId));
+        options.push({
+          key: 'follow',
+          label: isFollowing ? 'Bỏ theo dõi tác giả' : 'Theo dõi tác giả',
+          icon: 'user-plus',
+          onPress: () => toggleFollowAuthor(post.authorId),
+        });
+      }
       options.push({
         key: 'hide',
         label: 'Ẩn bài viết này',
         icon: 'eye-slash',
-        onPress: () => setHiddenIds((prev) => new Set(prev).add(post.id)),
+        onPress: () => hidePost(post.id),
       });
     }
 

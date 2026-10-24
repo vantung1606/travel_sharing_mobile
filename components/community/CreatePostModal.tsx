@@ -79,7 +79,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
       .catch(() => setMyItineraries([]));
 
     placeApi
-      .getAllPlaces({ status: 'APPROVED' })
+      .getAllPlaces({ status: 'ACTIVE' })
       .then((list) => setAvailablePlaces(list || []))
       .catch(() => setAvailablePlaces([]));
   }, [visible, editingPost, initialPlaceId]);

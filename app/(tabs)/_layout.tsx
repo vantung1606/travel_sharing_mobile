@@ -22,7 +22,7 @@ function TabBarIcon(props: {
 }
 
 export const unstable_settings = {
-  initialRouteName: 'community',
+  anchor: 'community',
 };
 
 export default function TabLayout() {
@@ -115,6 +115,7 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        backBehavior="initialRoute"
         screenOptions={{
           tabBarActiveTintColor: WF_COLORS.primary,
           tabBarInactiveTintColor: WF_COLORS.slate400,

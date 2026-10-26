@@ -12,11 +12,11 @@ import {
   Share,
   Dimensions,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Linking,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Text, TextInput } from '@/components/Themed';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -935,11 +935,7 @@ Ví dụ chuẩn:
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle={isScrolled ? 'dark-content' : 'light-content'}
-      />
+      <StatusBar style={isScrolled ? 'dark' : 'light'} />
 
       {/* ─── DYNAMIC FLOATING NAVBAR (TRONG SUỐT Ở TRÊN CÙNG, TRƯỢT XUỐNG ĐỔI THÀNH NỀN TRẮNG) ─── */}
       <View
@@ -1206,7 +1202,9 @@ Ví dụ chuẩn:
       <Modal
         visible={aiModalVisible}
         animationType="slide"
-        onRequestClose={() => !isAiGenerating && setAiModalVisible(false)}>
+        onRequestClose={() => {
+          if (!isAiGenerating) setAiModalVisible(false);
+        }}>
         <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalHeaderTitle}>Lập Tour AI</Text>

@@ -115,7 +115,6 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
-        initialRouteName="community"
         screenOptions={{
           tabBarActiveTintColor: WF_COLORS.primary,
           tabBarInactiveTintColor: WF_COLORS.slate400,

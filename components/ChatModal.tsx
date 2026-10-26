@@ -1771,7 +1771,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                           <Text style={styles.typingLabel}>Đang soạn...</Text>
                         </View>
                       </View>
-                    ) : null
+                    ) : undefined
                   }
                   ListEmptyComponent={
                     <View style={styles.threadEmpty}>

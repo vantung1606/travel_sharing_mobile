@@ -24,6 +24,23 @@ export const WF_COLORS = {
   white: '#FFFFFF',
 };
 
+// Paper - Ink - Clay Editorial Palette (Đồng bộ 100% với Web Community & Travel Journal)
+export const WF_PAPER = {
+  bg: '#F8F4EC',                    // Nền trang giấy ngà ấm áp
+  card: '#FFFDF8',                  // Nền thẻ card bài viết trắng ngà cao cấp
+  cardBorder: 'rgba(30, 26, 21, 0.09)', // Viền mảnh tự nhiên
+  inkPrimary: '#1E1A15',            // Mực đen đậm cho tiêu đề & tên
+  inkSecondary: '#6B6154',          // Mực ghi trung tính cho nội dung
+  inkMuted: '#8A7F70',              // Mực xám phụ cho thời gian & meta
+  pillBg: '#F3EDE2',                // Nền pill chip chủ đề & hashtag
+  pillBorder: 'rgba(30, 26, 21, 0.08)',
+  clay: '#964F30',                  // Màu đất nung terracotta ấm áp
+  clayDark: '#7A3C22',
+  clayLight: '#FBECE5',             // Nền đất nung nhạt
+  sky: '#0284C7',                   // Xanh da trời Wayfare
+  skyLight: '#E0F2FE',
+};
+
 export default {
   light: {
     text: WF_COLORS.slate900,

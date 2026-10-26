@@ -27,10 +27,10 @@ export function formatCount(value?: number | null): string {
 export type FeedScope = 'all' | 'following' | 'saved';
 export type PostSortKey = 'newest' | 'popular' | 'has_itinerary';
 
-export const FEED_SCOPES: { key: FeedScope; label: string }[] = [
-  { key: 'all', label: 'Dành cho bạn' },
-  { key: 'following', label: 'Đang theo dõi' },
-  { key: 'saved', label: 'Đã lưu' },
+export const FEED_SCOPES: { key: FeedScope; label: string; icon: string }[] = [
+  { key: 'all', label: 'Khám phá dành cho bạn', icon: 'compass' },
+  { key: 'following', label: 'Đang theo dõi', icon: 'user-o' },
+  { key: 'saved', label: 'Bài viết đã lưu', icon: 'bookmark-o' },
 ];
 
 export const SORT_OPTIONS: { key: PostSortKey; label: string; hint: string }[] = [
@@ -41,14 +41,14 @@ export const SORT_OPTIONS: { key: PostSortKey; label: string; hint: string }[] =
 
 export type TopicKey = 'all' | 'video' | 'itinerary' | 'checkin' | 'food' | 'adventure' | 'beach';
 
-export const TOPIC_FILTERS: { key: TopicKey; label: string; badge?: string }[] = [
-  { key: 'all', label: 'Tất cả chủ đề' },
-  { key: 'video', label: 'Thước phim', badge: 'Video' },
-  { key: 'itinerary', label: 'Có lịch trình', badge: 'Tour' },
-  { key: 'checkin', label: 'Địa điểm check-in', badge: '📍' },
-  { key: 'food', label: 'Ẩm thực & Món ngon' },
-  { key: 'adventure', label: 'Phượt & Khám phá' },
-  { key: 'beach', label: 'Biển đảo & Nghỉ dưỡng' },
+export const TOPIC_FILTERS: { key: TopicKey; label: string; icon: string; badge?: string }[] = [
+  { key: 'all', label: 'Tất cả', icon: 'compass' },
+  { key: 'checkin', label: 'Check-in', icon: 'map-marker', badge: '📍' },
+  { key: 'itinerary', label: 'Lịch trình', icon: 'map-o', badge: 'Tour' },
+  { key: 'video', label: 'Video', icon: 'play-circle-o', badge: 'Video' },
+  { key: 'food', label: 'Ẩm thực', icon: 'cutlery' },
+  { key: 'adventure', label: 'Phượt', icon: 'fire' },
+  { key: 'beach', label: 'Biển đảo', icon: 'sun-o' },
 ];
 
 export const TRAVEL_HASHTAGS: { key: string; label: string }[] = [

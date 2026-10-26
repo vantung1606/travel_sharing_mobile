@@ -37,10 +37,11 @@ import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, userApi } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { authPrompt } from '@/src/services/authPrompt';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HIDDEN_POSTS_STORAGE_KEY = 'wayfare_hidden_post_ids';
@@ -54,6 +55,7 @@ const COMMUNITY_STORIES = [
   { id: 'phuquoc', location: 'Phú Quốc', badge: '🏖️', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80' },
   { id: 'hagiang', location: 'Hà Giang', badge: '🏍️', image: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=300&q=80' },
   { id: 'sapa', location: 'Sa Pa', badge: '🌾', image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=300&q=80' },
+  { id: 'ninhbinh', location: 'Ninh Bình', badge: '🛶', image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80' },
   { id: 'hoian', location: 'Hội An', badge: '🏮', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
 ];
 
@@ -783,7 +785,13 @@ export default function CommunityScreen() {
         onEndReachedThreshold={0.4}
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
-            {/* Stories */}
+            {/* 24h Community Moments Header */}
+            <View style={styles.storyHeader}>
+              <View style={styles.storyHeaderDot} />
+              <Text style={styles.storyHeaderTitle}>Khoảnh Khắc 24h • Trải Nghiệm Thực Tế</Text>
+            </View>
+
+            {/* Stories Horizontal Carousel */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
               <TouchableOpacity
                 style={styles.storyItem}
@@ -794,84 +802,100 @@ export default function CommunityScreen() {
                 }}>
                 <View style={[styles.storyRing, styles.storyRingAll]}>
                   <View style={styles.storyAllInner}>
-                    <FontAwesome name="globe" size={20} color={WF_COLORS.primary} />
+                    <FontAwesome name="compass" size={20} color={WF_PAPER.clay} />
                   </View>
                 </View>
-                <Text style={styles.storyLabel} numberOfLines={1}>
+                <Text style={[styles.storyLabel, !search && styles.storyLabelActive]} numberOfLines={1}>
                   Tất cả
                 </Text>
               </TouchableOpacity>
-              {COMMUNITY_STORIES.map((story) => (
-                <TouchableOpacity
-                  key={story.id}
-                  style={styles.storyItem}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    setScope('all');
-                    setTopic('all');
-                    setHashtag('all');
-                    setSearch(story.location);
-                    scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
-                  }}>
-                  <View style={styles.storyRing}>
-                    <Image source={{ uri: story.image }} style={styles.storyImage} />
-                    <View style={styles.storyBadge}>
-                      <Text style={{ fontSize: 10 }}>{story.badge}</Text>
+              {COMMUNITY_STORIES.map((story) => {
+                const isSelected = search.toLowerCase().includes(story.location.toLowerCase());
+                return (
+                  <TouchableOpacity
+                    key={story.id}
+                    style={styles.storyItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setScope('all');
+                      setTopic('all');
+                      setHashtag('all');
+                      setSearch(isSelected ? '' : story.location);
+                      scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                    }}>
+                    <View style={[styles.storyRing, isSelected && styles.storyRingSelected]}>
+                      <Image source={{ uri: story.image }} style={styles.storyImage} />
+                      <View style={styles.storyBadge}>
+                        <Text style={{ fontSize: 10 }}>{story.badge}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.storyLabel} numberOfLines={1}>
-                    {story.location}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text style={[styles.storyLabel, isSelected && styles.storyLabelActive]} numberOfLines={1}>
+                      {story.location}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
-            {/* Composer */}
-            <TouchableOpacity style={styles.createPromptBox} onPress={openCreate} activeOpacity={0.88}>
+            {/* Quick Create Post Bar */}
+            <View style={styles.createPromptBox}>
               <Image source={{ uri: session?.avatarUrl || session?.avatar || FALLBACK_AVATAR }} style={styles.promptAvatar} />
-              <Text style={styles.promptPlaceholder} numberOfLines={1}>
-                {session ? 'Chia sẻ khoảnh khắc chuyến đi của bạn...' : 'Đăng nhập để chia sẻ chuyến đi...'}
-              </Text>
-              <View style={styles.promptPostBtn}>
-                <FontAwesome name="pencil" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <TouchableOpacity style={styles.promptInputFake} onPress={openCreate} activeOpacity={0.85}>
+                <Text style={styles.promptPlaceholder} numberOfLines={1}>
+                  {session ? 'Chia sẻ review, ảnh đẹp hoặc đính kèm tour...' : 'Đăng nhập để chia sẻ chuyến đi...'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.promptPostBtn} onPress={openCreate} activeOpacity={0.85}>
                 <Text style={styles.promptPostBtnText}>Đăng bài</Text>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
 
-            {/* Scope tabs */}
-            <View style={styles.scopeRow}>
+            {/* Tier 1: Underline Feed Scope Tabs (Khớp 100% Web) */}
+            <View style={styles.scopeUnderlineRow}>
               {FEED_SCOPES.map((item) => {
                 const active = scope === item.key;
                 return (
                   <TouchableOpacity
                     key={item.key}
-                    style={[styles.scopeTab, active && styles.scopeTabActive]}
+                    style={[styles.scopeUnderlineTab, active && styles.scopeUnderlineTabActive]}
                     activeOpacity={0.85}
                     onPress={() => {
+                      if ((item.key === 'following' || item.key === 'saved') && !session) {
+                        authPrompt.open();
+                        return;
+                      }
                       setScope(item.key);
                       scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
                     }}>
-                    <Text style={[styles.scopeTabText, active && styles.scopeTabTextActive]}>{item.label}</Text>
+                    <FontAwesome
+                      name={item.icon as any}
+                      size={13}
+                      color={active ? WF_PAPER.clay : WF_PAPER.inkMuted}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[styles.scopeUnderlineText, active && styles.scopeUnderlineTextActive]}>
+                      {item.label}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Search + sort */}
+            {/* Search + Sort Bar */}
             <View style={styles.searchRow}>
               <View style={styles.searchBox}>
-                <FontAwesome name="search" size={13} color={WF_COLORS.slate400} />
+                <FontAwesome name="search" size={13} color={WF_PAPER.inkMuted} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Tìm bài viết, địa điểm, tác giả..."
-                  placeholderTextColor={WF_COLORS.slate400}
+                  placeholderTextColor={WF_PAPER.inkMuted}
                   value={search}
                   onChangeText={setSearch}
                   returnKeyType="search"
                 />
                 {search ? (
                   <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <FontAwesome name="times-circle" size={14} color={WF_COLORS.slate400} />
+                    <FontAwesome name="times-circle" size={14} color={WF_PAPER.inkMuted} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -880,11 +904,11 @@ export default function CommunityScreen() {
                 activeOpacity={0.85}
                 accessibilityLabel="Sắp xếp bảng tin"
                 onPress={() => setSortSheetVisible(true)}>
-                <FontAwesome name="sort" size={14} color={WF_COLORS.primary} />
+                <FontAwesome name="sliders" size={14} color={WF_PAPER.inkPrimary} />
               </TouchableOpacity>
             </View>
 
-            {/* Topic chips */}
+            {/* Tier 2: Topic Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
               {TOPIC_FILTERS.map((item) => {
                 const active = topic === item.key;
@@ -894,18 +918,19 @@ export default function CommunityScreen() {
                     style={[styles.topicChip, active && styles.topicChipActive]}
                     activeOpacity={0.85}
                     onPress={() => setTopic(item.key)}>
-                    {item.badge ? (
-                      <View style={[styles.topicBadge, active && styles.topicBadgeActive]}>
-                        <Text style={[styles.topicBadgeText, active && { color: WF_COLORS.primary }]}>{item.badge}</Text>
-                      </View>
-                    ) : null}
+                    <FontAwesome
+                      name={item.icon as any}
+                      size={12}
+                      color={active ? '#FFFFFF' : WF_PAPER.inkSecondary}
+                      style={{ marginRight: 5 }}
+                    />
                     <Text style={[styles.topicChipText, active && styles.topicChipTextActive]}>{item.label}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
 
-            {/* Hashtag chips */}
+            {/* Trending Hashtag chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagRow}>
               {TRAVEL_HASHTAGS.map((tag) => {
                 const active = hashtag === tag.key;
@@ -1108,7 +1133,7 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: WF_COLORS.slate50,
+    backgroundColor: WF_PAPER.bg,
   },
   list: {
     paddingBottom: 28,
@@ -1120,43 +1145,66 @@ const styles = StyleSheet.create({
   },
   listFooterText: {
     fontSize: 12,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
     fontWeight: '600',
   },
   headerWrapper: {
-    paddingTop: 10,
+    paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     borderBottomWidth: 1,
-    borderBottomColor: WF_COLORS.slate200,
-    marginBottom: 12,
+    borderBottomColor: WF_PAPER.cardBorder,
+    marginBottom: 10,
+  },
+  storyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  storyHeaderDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: WF_PAPER.clay,
+  },
+  storyHeaderTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
+    letterSpacing: -0.2,
   },
   storiesScroll: {
-    gap: 14,
+    gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
   storyItem: {
     alignItems: 'center',
-    width: 62,
+    width: 64,
   },
   storyRing: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
-    borderColor: WF_COLORS.primary,
-    padding: 2,
+    borderColor: WF_PAPER.cardBorder,
+    padding: 1.5,
     position: 'relative',
-    marginBottom: 5,
+    marginBottom: 4,
+  },
+  storyRingSelected: {
+    borderColor: WF_PAPER.clay,
+    borderWidth: 2.5,
   },
   storyRingAll: {
-    borderColor: WF_COLORS.primaryLight,
+    borderColor: WF_PAPER.clayLight,
   },
   storyAllInner: {
     flex: 1,
     borderRadius: 24,
-    backgroundColor: WF_COLORS.primarySoft,
+    backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1169,88 +1217,101 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: WF_COLORS.white,
-    borderRadius: 9,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 8,
     paddingHorizontal: 2,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
   },
   storyLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: WF_COLORS.slate700,
+    fontWeight: '700',
+    color: WF_PAPER.inkSecondary,
+    textAlign: 'center',
+  },
+  storyLabelActive: {
+    color: WF_PAPER.clay,
+    fontWeight: '800',
   },
   createPromptBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WF_COLORS.slate100,
-    borderRadius: 16,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 12,
     padding: 8,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    borderColor: WF_PAPER.cardBorder,
+    marginHorizontal: 14,
+    marginBottom: 10,
   },
   promptAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    marginRight: 10,
-    backgroundColor: WF_COLORS.slate200,
+    marginRight: 8,
+    backgroundColor: '#EAE5D9',
+  },
+  promptInputFake: {
+    flex: 1,
+    backgroundColor: WF_PAPER.bg,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
   },
   promptPlaceholder: {
-    flex: 1,
-    fontSize: 12.5,
-    color: WF_COLORS.slate500,
+    fontSize: 12,
+    color: WF_PAPER.inkMuted,
   },
   promptPostBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 11,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   promptPostBtnText: {
     color: '#FFFFFF',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '800',
   },
-  scopeRow: {
+  scopeUnderlineRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: WF_PAPER.cardBorder,
+    marginHorizontal: 14,
     marginBottom: 10,
-    backgroundColor: WF_COLORS.slate100,
-    borderRadius: 14,
-    padding: 4,
   },
-  scopeTab: {
+  scopeUnderlineTab: {
     flex: 1,
-    height: 34,
-    borderRadius: 11,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -1,
   },
-  scopeTabActive: {
-    backgroundColor: WF_COLORS.white,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+  scopeUnderlineTabActive: {
+    borderBottomColor: WF_PAPER.clay,
   },
-  scopeTabText: {
-    fontSize: 12.5,
+  scopeUnderlineText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
   },
-  scopeTabTextActive: {
-    color: WF_COLORS.primary,
+  scopeUnderlineTextActive: {
+    color: WF_PAPER.clay,
+    fontWeight: '800',
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginHorizontal: 16,
+    marginHorizontal: 14,
     marginBottom: 10,
   },
   searchBox: {
@@ -1258,120 +1319,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 44,
-    borderRadius: 13,
+    height: 40,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
     paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12.5,
     lineHeight: 18,
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
   sortBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: WF_COLORS.primaryLight,
-    backgroundColor: WF_COLORS.primarySoft,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipRow: {
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
   topicChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    minHeight: 38,
-    paddingHorizontal: 13,
-    borderRadius: 999,
+    height: 32,
+    paddingHorizontal: 11,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.white,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
   },
   topicChipActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
-  },
-  topicBadge: {
-    backgroundColor: WF_COLORS.primaryLight,
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  topicBadgeActive: {
-    backgroundColor: WF_COLORS.white,
-  },
-  topicBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
+    borderColor: WF_PAPER.clay,
   },
   topicChipText: {
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: 12,
     fontWeight: '700',
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   topicChipTextActive: {
     color: '#FFFFFF',
+    fontWeight: '800',
   },
   hashtagRow: {
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: 6,
+    paddingHorizontal: 14,
     paddingBottom: 4,
   },
   hashtagChip: {
-    minHeight: 32,
-    paddingHorizontal: 11,
-    borderRadius: 999,
+    height: 27,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     justifyContent: 'center',
-    backgroundColor: WF_COLORS.slate100,
+    backgroundColor: WF_PAPER.pillBg,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
+    borderColor: WF_PAPER.pillBorder,
   },
   hashtagChipActive: {
-    backgroundColor: WF_COLORS.primaryLight,
-    borderColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clayLight,
+    borderColor: WF_PAPER.clay,
   },
   hashtagText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   hashtagTextActive: {
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
     fontWeight: '800',
   },
   filterSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 10,
+    marginHorizontal: 14,
+    marginTop: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: WF_COLORS.primarySoft,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.pillBorder,
   },
   filterSummaryText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.inkPrimary,
   },
   filterClear: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
     textDecorationLine: 'underline',
   },
   centerBox: {
@@ -1379,31 +1427,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   alertCard: {
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
+    borderColor: WF_PAPER.cardBorder,
     alignItems: 'center',
     width: '100%',
   },
   alertTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
   },
   alertDesc: {
     fontSize: 12,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkSecondary,
     marginVertical: 6,
     textAlign: 'center',
     lineHeight: 18,
   },
   retryBtn: {
-    backgroundColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
     paddingHorizontal: 16,
     paddingVertical: 9,
-    borderRadius: 10,
+    borderRadius: 8,
     marginTop: 6,
   },
   retryBtnText: {
@@ -1414,14 +1462,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     marginTop: 12,
     fontFamily: SERIF_FONT,
     textAlign: 'center',
   },
   emptySub: {
     fontSize: 12,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkSecondary,
     marginTop: 5,
     textAlign: 'center',
     lineHeight: 18,

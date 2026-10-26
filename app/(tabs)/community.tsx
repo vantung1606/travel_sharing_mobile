@@ -785,12 +785,6 @@ export default function CommunityScreen() {
         onEndReachedThreshold={0.4}
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
-            {/* 24h Community Moments Header */}
-            <View style={styles.storyHeader}>
-              <View style={styles.storyHeaderDot} />
-              <Text style={styles.storyHeaderTitle}>Khoảnh Khắc 24h • Trải Nghiệm Thực Tế</Text>
-            </View>
-
             {/* Stories Horizontal Carousel */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
               <TouchableOpacity
@@ -800,9 +794,9 @@ export default function CommunityScreen() {
                   resetFilters();
                   setScope('all');
                 }}>
-                <View style={[styles.storyRing, styles.storyRingAll]}>
+                <View style={[styles.storyRing, !search && styles.storyRingSelected]}>
                   <View style={styles.storyAllInner}>
-                    <FontAwesome name="compass" size={20} color={WF_PAPER.clay} />
+                    <FontAwesome name="compass" size={20} color={!search ? '#0284C7' : '#64748B'} />
                   </View>
                 </View>
                 <Text style={[styles.storyLabel, !search && styles.storyLabelActive]} numberOfLines={1}>
@@ -826,7 +820,7 @@ export default function CommunityScreen() {
                     <View style={[styles.storyRing, isSelected && styles.storyRingSelected]}>
                       <Image source={{ uri: story.image }} style={styles.storyImage} />
                       <View style={styles.storyBadge}>
-                        <Text style={{ fontSize: 10 }}>{story.badge}</Text>
+                        <Text style={{ fontSize: 9 }}>{story.badge}</Text>
                       </View>
                     </View>
                     <Text style={[styles.storyLabel, isSelected && styles.storyLabelActive]} numberOfLines={1}>
@@ -842,15 +836,16 @@ export default function CommunityScreen() {
               <Image source={{ uri: session?.avatarUrl || session?.avatar || FALLBACK_AVATAR }} style={styles.promptAvatar} />
               <TouchableOpacity style={styles.promptInputFake} onPress={openCreate} activeOpacity={0.85}>
                 <Text style={styles.promptPlaceholder} numberOfLines={1}>
-                  {session ? 'Chia sẻ review, ảnh đẹp hoặc đính kèm tour...' : 'Đăng nhập để chia sẻ chuyến đi...'}
+                  {session ? 'Chia sẻ trải nghiệm hoặc kinh nghiệm chuyến đi...' : 'Đăng nhập để chia sẻ chuyến đi...'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.promptPostBtn} onPress={openCreate} activeOpacity={0.85}>
-                <Text style={styles.promptPostBtnText}>Đăng bài</Text>
+                <FontAwesome name="pencil" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
+                <Text style={styles.promptPostBtnText}>Đăng</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Tier 1: Underline Feed Scope Tabs (Khớp 100% Web) */}
+            {/* Scope Tabs (Khám phá • Đang theo dõi • Đã lưu) */}
             <View style={styles.scopeUnderlineRow}>
               {FEED_SCOPES.map((item) => {
                 const active = scope === item.key;
@@ -870,7 +865,7 @@ export default function CommunityScreen() {
                     <FontAwesome
                       name={item.icon as any}
                       size={13}
-                      color={active ? WF_PAPER.clay : WF_PAPER.inkMuted}
+                      color={active ? '#0284C7' : '#64748B'}
                       style={{ marginRight: 6 }}
                     />
                     <Text style={[styles.scopeUnderlineText, active && styles.scopeUnderlineTextActive]}>
@@ -884,18 +879,18 @@ export default function CommunityScreen() {
             {/* Search + Sort Bar */}
             <View style={styles.searchRow}>
               <View style={styles.searchBox}>
-                <FontAwesome name="search" size={13} color={WF_PAPER.inkMuted} />
+                <FontAwesome name="search" size={13} color="#94A3B8" />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Tìm bài viết, địa điểm, tác giả..."
-                  placeholderTextColor={WF_PAPER.inkMuted}
+                  placeholderTextColor="#94A3B8"
                   value={search}
                   onChangeText={setSearch}
                   returnKeyType="search"
                 />
                 {search ? (
                   <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <FontAwesome name="times-circle" size={14} color={WF_PAPER.inkMuted} />
+                    <FontAwesome name="times-circle" size={14} color="#94A3B8" />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -904,11 +899,11 @@ export default function CommunityScreen() {
                 activeOpacity={0.85}
                 accessibilityLabel="Sắp xếp bảng tin"
                 onPress={() => setSortSheetVisible(true)}>
-                <FontAwesome name="sliders" size={14} color={WF_PAPER.inkPrimary} />
+                <FontAwesome name="sliders" size={14} color="#475569" />
               </TouchableOpacity>
             </View>
 
-            {/* Tier 2: Topic Chips */}
+            {/* Topic Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
               {TOPIC_FILTERS.map((item) => {
                 const active = topic === item.key;
@@ -921,26 +916,10 @@ export default function CommunityScreen() {
                     <FontAwesome
                       name={item.icon as any}
                       size={12}
-                      color={active ? '#FFFFFF' : WF_PAPER.inkSecondary}
+                      color={active ? '#FFFFFF' : '#475569'}
                       style={{ marginRight: 5 }}
                     />
                     <Text style={[styles.topicChipText, active && styles.topicChipTextActive]}>{item.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Trending Hashtag chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagRow}>
-              {TRAVEL_HASHTAGS.map((tag) => {
-                const active = hashtag === tag.key;
-                return (
-                  <TouchableOpacity
-                    key={tag.key}
-                    style={[styles.hashtagChip, active && styles.hashtagChipActive]}
-                    activeOpacity={0.85}
-                    onPress={() => setHashtag(tag.key)}>
-                    <Text style={[styles.hashtagText, active && styles.hashtagTextActive]}>{tag.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -1133,7 +1112,7 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: WF_PAPER.bg,
+    backgroundColor: '#F8FAFC',
   },
   list: {
     paddingBottom: 28,
@@ -1145,66 +1124,44 @@ const styles = StyleSheet.create({
   },
   listFooterText: {
     fontSize: 12,
-    color: WF_PAPER.inkMuted,
+    color: '#94A3B8',
     fontWeight: '600',
   },
   headerWrapper: {
     paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: WF_PAPER.card,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: WF_PAPER.cardBorder,
+    borderBottomColor: '#E2E8F0',
     marginBottom: 10,
-  },
-  storyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  storyHeaderDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: WF_PAPER.clay,
-  },
-  storyHeaderTitle: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
-    letterSpacing: -0.2,
   },
   storiesScroll: {
     gap: 12,
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
   },
   storyItem: {
     alignItems: 'center',
-    width: 64,
+    width: 60,
   },
   storyRing: {
     width: 52,
     height: 52,
     borderRadius: 26,
     borderWidth: 2,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: '#E2E8F0',
     padding: 1.5,
     position: 'relative',
     marginBottom: 4,
   },
   storyRingSelected: {
-    borderColor: WF_PAPER.clay,
-    borderWidth: 2.5,
-  },
-  storyRingAll: {
-    borderColor: WF_PAPER.clayLight,
+    borderColor: '#0284C7',
+    borderWidth: 2,
   },
   storyAllInner: {
     flex: 1,
     borderRadius: 24,
-    backgroundColor: WF_PAPER.pillBg,
+    backgroundColor: '#F0F9FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1217,30 +1174,30 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: WF_PAPER.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 2,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: '#E2E8F0',
   },
   storyLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: WF_PAPER.inkSecondary,
+    fontWeight: '600',
+    color: '#64748B',
     textAlign: 'center',
   },
   storyLabelActive: {
-    color: WF_PAPER.clay,
-    fontWeight: '800',
+    color: '#0284C7',
+    fontWeight: '700',
   },
   createPromptBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WF_PAPER.card,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     padding: 8,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: '#E2E8F0',
     marginHorizontal: 14,
     marginBottom: 10,
   },
@@ -1249,39 +1206,39 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     marginRight: 8,
-    backgroundColor: '#EAE5D9',
+    backgroundColor: '#F1F5F9',
   },
   promptInputFake: {
     flex: 1,
-    backgroundColor: WF_PAPER.bg,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: '#E2E8F0',
   },
   promptPlaceholder: {
-    fontSize: 12,
-    color: WF_PAPER.inkMuted,
+    fontSize: 12.5,
+    color: '#94A3B8',
   },
   promptPostBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WF_PAPER.clay,
-    paddingHorizontal: 12,
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 20,
   },
   promptPostBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   scopeUnderlineRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: WF_PAPER.cardBorder,
+    borderBottomColor: '#E2E8F0',
     marginHorizontal: 14,
     marginBottom: 10,
   },
@@ -1296,16 +1253,16 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   scopeUnderlineTabActive: {
-    borderBottomColor: WF_PAPER.clay,
+    borderBottomColor: '#0284C7',
   },
   scopeUnderlineText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_PAPER.inkMuted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#64748B',
   },
   scopeUnderlineTextActive: {
-    color: WF_PAPER.clay,
-    fontWeight: '800',
+    color: '#0284C7',
+    fontWeight: '700',
   },
   searchRow: {
     flexDirection: 'row',
@@ -1319,107 +1276,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 40,
-    borderRadius: 8,
+    height: 38,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
-    backgroundColor: WF_PAPER.bg,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 12.5,
     lineHeight: 18,
-    color: WF_PAPER.inkPrimary,
+    color: '#0F172A',
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
   sortBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
-    backgroundColor: WF_PAPER.pillBg,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipRow: {
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 14,
-    paddingBottom: 8,
+    paddingBottom: 6,
   },
   topicChip: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 32,
-    paddingHorizontal: 11,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
-    backgroundColor: WF_PAPER.card,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
   },
   topicChipActive: {
-    backgroundColor: WF_PAPER.clay,
-    borderColor: WF_PAPER.clay,
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
   },
   topicChipText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: WF_PAPER.inkSecondary,
+    fontWeight: '600',
+    color: '#475569',
   },
   topicChipTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  hashtagRow: {
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingBottom: 4,
-  },
-  hashtagChip: {
-    height: 27,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    justifyContent: 'center',
-    backgroundColor: WF_PAPER.pillBg,
-    borderWidth: 1,
-    borderColor: WF_PAPER.pillBorder,
-  },
-  hashtagChipActive: {
-    backgroundColor: WF_PAPER.clayLight,
-    borderColor: WF_PAPER.clay,
-  },
-  hashtagText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WF_PAPER.inkSecondary,
-  },
-  hashtagTextActive: {
-    color: WF_PAPER.clay,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   filterSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 14,
-    marginTop: 8,
+    marginTop: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
-    backgroundColor: WF_PAPER.pillBg,
+    backgroundColor: '#F0F9FF',
     borderWidth: 1,
-    borderColor: WF_PAPER.pillBorder,
+    borderColor: '#BAE6FD',
   },
   filterSummaryText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: WF_PAPER.inkPrimary,
+    color: '#0369A1',
   },
   filterClear: {
     fontSize: 11.5,
-    fontWeight: '800',
-    color: WF_PAPER.clay,
+    fontWeight: '700',
+    color: '#0284C7',
     textDecorationLine: 'underline',
   },
   centerBox: {
@@ -1427,28 +1357,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   alertCard: {
-    backgroundColor: WF_PAPER.card,
+    backgroundColor: '#FFFFFF',
     padding: 20,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     width: '100%',
   },
   alertTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: WF_PAPER.inkPrimary,
+    color: '#0F172A',
   },
   alertDesc: {
     fontSize: 12,
-    color: WF_PAPER.inkSecondary,
+    color: '#64748B',
     marginVertical: 6,
     textAlign: 'center',
     lineHeight: 18,
   },
   retryBtn: {
-    backgroundColor: WF_PAPER.clay,
+    backgroundColor: '#0284C7',
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 8,
@@ -1456,20 +1386,19 @@ const styles = StyleSheet.create({
   },
   retryBtnText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 12,
   },
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
+    fontWeight: '700',
+    color: '#0F172A',
     marginTop: 12,
-    fontFamily: SERIF_FONT,
     textAlign: 'center',
   },
   emptySub: {
     fontSize: 12,
-    color: WF_PAPER.inkSecondary,
+    color: '#64748B',
     marginTop: 5,
     textAlign: 'center',
     lineHeight: 18,

@@ -93,6 +93,10 @@ export function PostCard({
   const content = post.content || '';
   const canTruncate = content.length > READ_MORE_THRESHOLD;
   const shownContent = canTruncate && !expanded ? `${content.slice(0, READ_MORE_THRESHOLD).trimEnd()}...` : content;
+  
+  // Lọc sạch chuỗi chức danh trong ngoặc đơn (ví dụ: "Lê Tùng (Lữ Hành Bạc)" -> "Lê Tùng")
+  const rawAuthorName = post.authorName || 'Thành viên Wayfare';
+  const cleanAuthorName = rawAuthorName.replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Thành viên Wayfare';
   const authorTierObj = getUserTier({ tier: post.authorTier, role: post.authorRole });
 
   return (
@@ -102,7 +106,7 @@ export function PostCard({
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onPressAuthor}
-          style={[styles.avatarWrap, { borderColor: authorTierObj.avatarRingColor || WF_PAPER.skyLight }]}>
+          style={[styles.avatarWrap, { borderColor: authorTierObj.avatarRingColor || WF_COLORS.primaryLight }]}>
           <Image source={{ uri: post.authorAvatar || FALLBACK_AVATAR }} style={styles.avatar} />
         </TouchableOpacity>
 
@@ -110,25 +114,24 @@ export function PostCard({
           <View style={styles.nameRow}>
             <TouchableOpacity activeOpacity={0.7} onPress={onPressAuthor} style={{ flexShrink: 1 }}>
               <Text style={styles.authorName} numberOfLines={1}>
-                {post.authorName || 'Thành viên Wayfare'}
+                {cleanAuthorName}
               </Text>
             </TouchableOpacity>
 
             {isOwner ? (
               <Text style={styles.youTag}>(Bạn)</Text>
             ) : onToggleFollow ? (
-              <View style={styles.followInlineRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={onToggleFollow}
+                disabled={followLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                style={styles.followInlineRow}>
                 <Text style={styles.followDot}>·</Text>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={onToggleFollow}
-                  disabled={followLoading}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Text style={[styles.followTextInline, isFollowingAuthor && styles.followTextInlineActive]}>
-                    {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                <Text style={[styles.followTextInline, isFollowingAuthor && styles.followTextInlineActive]}>
+                  {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
+                </Text>
+              </TouchableOpacity>
             ) : null}
 
             <View style={[styles.tierPill, { backgroundColor: authorTierObj.badgeBg }]}>
@@ -143,7 +146,7 @@ export function PostCard({
             {post.locationTag || post.locationName ? (
               <>
                 <Text style={styles.metaDot}>·</Text>
-                <FontAwesome name="map-marker" size={10} color={WF_COLORS.primary} />
+                <FontAwesome name="map-marker" size={11} color="#0284C7" />
                 <Text style={styles.metaText} numberOfLines={1}>
                   {post.locationTag || post.locationName}
                 </Text>
@@ -158,8 +161,8 @@ export function PostCard({
             <Text style={styles.metaDot}>·</Text>
             <FontAwesome
               name={isPrivate ? 'lock' : 'globe'}
-              size={10}
-              color={isPrivate ? WF_COLORS.amber : WF_PAPER.inkMuted}
+              size={11}
+              color={isPrivate ? '#F59E0B' : '#94A3B8'}
             />
           </View>
         </View>
@@ -172,12 +175,12 @@ export function PostCard({
             accessibilityLabel="Lưu bài viết">
             <FontAwesome
               name={bookmarked ? 'bookmark' : 'bookmark-o'}
-              size={15}
-              color={bookmarked ? WF_COLORS.amber : WF_PAPER.inkMuted}
+              size={16}
+              color={bookmarked ? '#0284C7' : '#94A3B8'}
             />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuBtn} onPress={onOpenMenu} accessibilityLabel="Tùy chọn bài viết">
-            <FontAwesome name="ellipsis-h" size={15} color={WF_PAPER.inkMuted} />
+            <FontAwesome name="ellipsis-h" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
       </View>
@@ -186,7 +189,7 @@ export function PostCard({
         <View style={styles.pendingBanner}>
           <FontAwesome name="clock-o" size={12} color="#B45309" />
           <Text style={styles.pendingText}>
-            Đang chờ quản trị viên duyệt thủ công · Điểm kiểm duyệt {post.aiSafetyScore ?? '—'}/100
+            Đang chờ duyệt thủ công · Điểm an toàn AI {post.aiSafetyScore ?? '—'}/100
           </Text>
         </View>
       ) : null}
@@ -320,24 +323,24 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: WF_PAPER.card,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 12,
     marginBottom: 12,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
-    shadowColor: '#1E1A15',
+    shadowColor: '#64748B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 14,
-    paddingTop: 13,
+    paddingTop: 14,
     paddingBottom: 8,
   },
   avatarWrap: {
@@ -345,15 +348,15 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: WF_PAPER.skyLight,
-    padding: 1.5,
+    borderColor: '#E0F2FE',
+    padding: 1,
     marginRight: 10,
   },
   avatar: {
     width: '100%',
     height: '100%',
     borderRadius: 20,
-    backgroundColor: '#EAE5D9',
+    backgroundColor: '#F1F5F9',
   },
   headerInfo: {
     flex: 1,
@@ -363,13 +366,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 5,
+    gap: 6,
   },
   authorName: {
     fontSize: 14.5,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
-    fontFamily: SERIF_FONT,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   followInlineRow: {
     flexDirection: 'row',
@@ -378,31 +380,31 @@ const styles = StyleSheet.create({
   },
   followDot: {
     fontSize: 12,
-    fontWeight: '800',
-    color: WF_PAPER.inkMuted,
+    fontWeight: '700',
+    color: '#94A3B8',
   },
   followTextInline: {
     fontSize: 12.5,
-    fontWeight: '800',
-    color: WF_COLORS.primary,
+    fontWeight: '700',
+    color: '#0284C7',
   },
   followTextInlineActive: {
-    color: WF_PAPER.inkSecondary,
+    color: '#64748B',
     fontWeight: '600',
   },
   youTag: {
     fontSize: 11,
     fontWeight: '600',
-    color: WF_PAPER.inkMuted,
+    color: '#94A3B8',
   },
   tierPill: {
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingVertical: 1.5,
     borderRadius: 4,
   },
   tierPillText: {
     fontSize: 9.5,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   metaRow: {
     flexDirection: 'row',
@@ -412,12 +414,12 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11.5,
-    color: WF_PAPER.inkSecondary,
+    color: '#64748B',
     maxWidth: 160,
   },
   metaDot: {
     fontSize: 11,
-    color: '#B3A895',
+    color: '#CBD5E1',
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -463,41 +465,40 @@ const styles = StyleSheet.create({
   },
   categoryPill: {
     alignSelf: 'flex-start',
-    backgroundColor: WF_PAPER.pillBg,
+    backgroundColor: '#F0F9FF',
     borderWidth: 1,
-    borderColor: WF_PAPER.pillBorder,
+    borderColor: '#BAE6FD',
     paddingHorizontal: 8,
     paddingVertical: 2.5,
     borderRadius: 6,
     marginBottom: 6,
   },
   categoryPillText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#5A5146',
+    color: '#0284C7',
   },
   title: {
     fontSize: 16,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
+    fontWeight: '700',
+    color: '#0F172A',
     lineHeight: 22,
-    fontFamily: SERIF_FONT,
     marginBottom: 4,
   },
   content: {
-    fontSize: 13.5,
-    lineHeight: 20.5,
-    color: WF_PAPER.inkSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#334155',
   },
   mention: {
-    color: WF_COLORS.primary,
+    color: '#0284C7',
     fontWeight: '700',
   },
   readMore: {
     marginTop: 4,
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: WF_COLORS.primary,
+    color: '#0284C7',
   },
   sharedBox: {
     marginHorizontal: 14,
@@ -505,8 +506,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
-    backgroundColor: WF_PAPER.bg,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
   },
   sharedHeader: {
     flexDirection: 'row',
@@ -522,19 +523,18 @@ const styles = StyleSheet.create({
   sharedAuthor: {
     fontSize: 12,
     fontWeight: '700',
-    color: WF_PAPER.inkPrimary,
+    color: '#0F172A',
   },
   sharedTitle: {
     fontSize: 13,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
-    fontFamily: SERIF_FONT,
+    fontWeight: '700',
+    color: '#0F172A',
     marginBottom: 2,
   },
   sharedContent: {
     fontSize: 12,
     lineHeight: 17,
-    color: WF_PAPER.inkSecondary,
+    color: '#475569',
   },
   mediaWrap: {
     paddingHorizontal: 14,
@@ -551,8 +551,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(30, 26, 21, 0.06)',
-    backgroundColor: '#FFFDF8',
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
   },
   action: {
     flexDirection: 'row',
@@ -561,26 +561,27 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 12.5,
-    fontWeight: '700',
-    color: WF_PAPER.inkSecondary,
+    fontWeight: '600',
+    color: '#64748B',
   },
   actionTextLiked: {
     color: '#EF4444',
+    fontWeight: '700',
   },
   detailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: WF_PAPER.pillBg,
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: WF_PAPER.pillBorder,
+    borderColor: '#E2E8F0',
   },
   detailBtnText: {
     fontSize: 11.5,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
+    fontWeight: '700',
+    color: '#334155',
   },
 });

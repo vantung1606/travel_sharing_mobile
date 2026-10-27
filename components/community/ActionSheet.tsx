@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 5,
     backgroundColor: WF_PAPER.clayLight,
     alignItems: 'center',
     justifyContent: 'center',

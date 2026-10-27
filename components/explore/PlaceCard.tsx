@@ -29,7 +29,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave, onAddToPlan }: 
         <PlaceImage place={place} style={styles.image} />
 
         <View style={styles.cityPill}>
-          <FontAwesome name="map-marker" size={9} color="#FFFDF8" style={{ marginRight: 3 }} />
+          <FontAwesome name="map-marker" size={9} color={WF_COLORS.primary} style={{ marginRight: 3 }} />
           <Text style={styles.cityPillText} numberOfLines={1}>
             {place.city || 'Việt Nam'}
           </Text>
@@ -40,7 +40,11 @@ export function PlaceCard({ place, saved, onPress, onToggleSave, onAddToPlan }: 
           activeOpacity={0.7}
           onPress={onToggleSave}
           accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
-          <FontAwesome name={saved ? 'heart' : 'heart-o'} size={15} color={saved ? WF_COLORS.rose : '#FFFDF8'} />
+          <FontAwesome
+            name={saved ? 'heart' : 'heart-o'}
+            size={14}
+            color={saved ? '#FFFDF8' : WF_COLORS.slate600}
+          />
         </TouchableOpacity>
 
         <View style={styles.imageOverlay}>
@@ -144,20 +148,15 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.white,
     marginHorizontal: 16,
     marginBottom: 14,
-    borderRadius: 18,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
     overflow: 'hidden',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
   },
   imageWrap: {
     position: 'relative',
     width: '100%',
-    height: 190,
+    height: 178,
     backgroundColor: WF_COLORS.slate100,
   },
   image: {
@@ -171,13 +170,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     maxWidth: '62%',
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(30, 26, 21, 0.10)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 3,
   },
   cityPillText: {
-    color: '#FFFDF8',
+    color: WF_COLORS.slate700,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -185,15 +186,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(30, 26, 21, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   favBtnActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: WF_COLORS.primary,
+    borderColor: WF_COLORS.primary,
   },
   imageOverlay: {
     position: 'absolute',
@@ -206,10 +210,10 @@ const styles = StyleSheet.create({
   },
   categoryPill: {
     flexShrink: 1,
-    backgroundColor: 'rgba(2, 132, 199, 0.9)',
+    backgroundColor: 'rgba(176, 82, 47, 0.92)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 3,
   },
   categoryPillText: {
     color: '#FFFDF8',
@@ -220,10 +224,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.92)',
+    backgroundColor: 'rgba(79, 107, 82, 0.94)',
     paddingHorizontal: 7,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 3,
   },
   verifiedText: {
     color: '#FFFDF8',
@@ -254,7 +258,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.amberLight,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   ratingText: {
     fontSize: 11,
@@ -294,26 +298,23 @@ const styles = StyleSheet.create({
   },
   pricePill: {
     flexShrink: 1,
-    backgroundColor: WF_COLORS.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 3,
     marginRight: 8,
   },
   priceText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: WF_COLORS.primary,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 11,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 9,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: WF_COLORS.primaryLight,
-    backgroundColor: WF_COLORS.white,
+    borderColor: WF_COLORS.slate200,
+    backgroundColor: WF_COLORS.slate50,
   },
   addBtnText: {
     fontSize: 11,
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
     width: 208,
     height: 148,
     marginRight: 12,
-    borderRadius: 16,
+    borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: WF_COLORS.slate100,
   },
@@ -337,16 +338,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '55%',
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    height: '62%',
+    backgroundColor: 'rgba(30, 26, 21, 0.52)',
   },
   featuredScrimStrong: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '30%',
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    display: 'none',
   },
   featuredRating: {
     position: 'absolute',
@@ -358,7 +354,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.94)',
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   featuredRatingText: {
     fontSize: 11,

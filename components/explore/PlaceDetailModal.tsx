@@ -455,14 +455,14 @@ export function PlaceDetailModal({
                         style={styles.writeCheckinMiniBtn}
                         activeOpacity={0.8}
                         onPress={() => onWriteCheckinPost(place)}>
-                        <FontAwesome name="camera" size={11} color="#059669" style={{ marginRight: 4 }} />
+                        <FontAwesome name="camera" size={11} color="#B0522F" style={{ marginRight: 4 }} />
                         <Text style={styles.writeCheckinMiniText}>Viết bài</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
 
                   {loadingCheckin ? (
-                    <ActivityIndicator size="small" color="#059669" style={{ marginVertical: 12 }} />
+                    <ActivityIndicator size="small" color="#B0522F" style={{ marginVertical: 12 }} />
                   ) : liveCheckinPosts.length > 0 ? (
                     <ScrollView
                       horizontal
@@ -519,7 +519,7 @@ export function PlaceDetailModal({
                   ) : (
                     <View style={styles.emptyCheckinBox}>
                       <View style={styles.emptyCheckinCircle}>
-                        <FontAwesome name="camera" size={20} color="#059669" />
+                        <FontAwesome name="camera" size={20} color="#B0522F" />
                       </View>
                       <Text style={styles.emptyCheckinTitle}>Chưa có bài viết check-in nào</Text>
                       <Text style={styles.emptyCheckinSub}>
@@ -604,22 +604,22 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     height: 70,
-    backgroundColor: 'rgba(15, 23, 42, 0.16)',
+    backgroundColor: 'rgba(30, 26, 21, 0.16)',
   },
   floatingBtn: {
     position: 'absolute',
     top: 12,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.02,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 0,
   },
   floatingBtnLeft: {
     left: 12,
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.primaryLight,
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   categoryTagText: {
     color: WF_COLORS.primary,
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     borderColor: WF_COLORS.slate200,
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   cityTagText: {
     color: WF_COLORS.slate700,
@@ -669,10 +669,10 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.emeraldLight,
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   verifiedTagText: {
-    color: '#047857',
+    color: WF_COLORS.emerald,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.white,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
-    borderRadius: 14,
+    borderRadius: 6,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 14,
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     backgroundColor: WF_COLORS.white,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
     padding: 14,
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     borderColor: WF_COLORS.slate200,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   chipText: {
     fontSize: 11,
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.slate100,
   },
   ownerAvatar: {
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 6,
     backgroundColor: WF_COLORS.primarySoft,
     borderWidth: 1,
     borderColor: WF_COLORS.primaryLight,
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingVertical: 10,
     paddingHorizontal: 11,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.slate100,
   },
   starPickerRow: {
@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
   },
   reviewInput: {
     minHeight: 60,
-    borderRadius: 10,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
     backgroundColor: '#FFFDF8',
@@ -921,7 +921,7 @@ const styles = StyleSheet.create({
     marginTop: 9,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
   },
   reviewSubmitBtnDisabled: {
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: WF_COLORS.primaryLight,
     backgroundColor: WF_COLORS.primarySoft,
@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 46,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: WF_COLORS.primaryLight,
     backgroundColor: WF_COLORS.primarySoft,
@@ -977,14 +977,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 50,
-    borderRadius: 13,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
     marginTop: 12,
     shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
   },
   primaryBtnText: {
     color: '#FFFDF8',
@@ -1010,32 +1010,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkinBadge: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#F6E6DD',
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#E8D5C9',
   },
   checkinBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#059669',
+    color: '#B0522F',
   },
   writeCheckinMiniBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: '#ECFDF5',
+    borderRadius: 5,
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#E8D5C9',
   },
   writeCheckinMiniText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: '#B0522F',
   },
   checkinScroll: {
     paddingRight: 16,
@@ -1044,15 +1044,15 @@ const styles = StyleSheet.create({
   checkinCard: {
     width: 170,
     backgroundColor: '#FFFDF8',
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E4DACB',
     overflow: 'hidden',
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.02,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 0,
   },
   checkinCardThumb: {
     width: '100%',
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
   },
   emptyCheckinBox: {
     backgroundColor: '#F8F4EC',
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E4DACB',
     borderStyle: 'dashed',
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#F6E6DD',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -1155,10 +1155,10 @@ const styles = StyleSheet.create({
   emptyCheckinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: '#B0522F',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   emptyCheckinBtnText: {
     color: '#FFFDF8',
@@ -1170,14 +1170,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 48,
-    borderRadius: 13,
-    backgroundColor: '#059669',
+    borderRadius: 5,
+    backgroundColor: '#B0522F',
     marginTop: 16,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowColor: '#B0522F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
   },
   checkinActionBtnText: {
     color: '#FFFDF8',

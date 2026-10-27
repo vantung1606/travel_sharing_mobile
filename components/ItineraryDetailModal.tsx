@@ -241,7 +241,7 @@ export function ItineraryDetailModal({
                     <Text style={styles.aiBadgeText}>Tour AI</Text>
                   </View>
                 ) : (
-                  <View style={[styles.aiBadge, { backgroundColor: 'rgba(15, 23, 42, 0.65)' }]}>
+                  <View style={[styles.aiBadge, { backgroundColor: 'rgba(30, 26, 21, 0.65)' }]}>
                     <FontAwesome name="pencil" size={10} color="#FFFDF8" style={{ marginRight: 4 }} />
                     <Text style={styles.aiBadgeText}>Thủ công</Text>
                   </View>
@@ -268,8 +268,8 @@ export function ItineraryDetailModal({
               <View style={styles.statDivider} />
 
               <View style={styles.statCol}>
-                <View style={[styles.statIconBox, { backgroundColor: '#DCFCE7' }]}>
-                  <FontAwesome name="map-signs" size={13} color="#16A34A" />
+                <View style={[styles.statIconBox, { backgroundColor: '#E8EFE3' }]}>
+                  <FontAwesome name="map-signs" size={13} color="#4F6B52" />
                 </View>
                 <Text style={styles.statLabel}>Trạm dừng</Text>
                 <Text style={styles.statValue}>{detailsList.length} điểm</Text>
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   circleBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(30, 26, 21, 0.65)',
   },
   heroBadgesRow: {
     flexDirection: 'row',
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   destBadgeText: {
     color: '#FFFDF8',
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0522F',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   aiBadgeText: {
     color: '#FFFDF8',
@@ -744,15 +744,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     marginTop: -16,
-    borderRadius: 16,
+    borderRadius: 6,
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#E4DACB',
     shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
     zIndex: 10,
   },
   statCol: {
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
   statIconBox: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 3,
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
   dayPill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 16,
+    borderRadius: 5,
     backgroundColor: '#E4DACB',
   },
   dayPillActive: {
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   },
   emptyBox: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 16,
+    borderRadius: 6,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
@@ -874,15 +874,15 @@ const styles = StyleSheet.create({
   stopCard: {
     flex: 1,
     backgroundColor: '#FFFDF8',
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E4DACB',
     shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.02,
     shadowRadius: 3,
-    elevation: 1,
+    elevation: 0,
   },
   stopHeader: {
     flexDirection: 'row',
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6E6DD',
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   categoryBadgeText: {
     color: '#B0522F',
@@ -917,7 +917,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#F8F4EC',
-    borderRadius: 10,
+    borderRadius: 5,
     paddingHorizontal: 9,
     paddingVertical: 7,
     marginTop: 7,
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF8',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E8D5C9',
   },
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
   },
   noteBox: {
     backgroundColor: '#FFFBEB',
-    borderRadius: 8,
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
     marginTop: 6,
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   checklistCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 16,
+    borderRadius: 6,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -1029,7 +1029,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0522F',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 5,
     marginTop: 12,
   },
   addFirstStopBtnText: {
@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 5,
     marginTop: 10,
   },
   addMoreStopBtnText: {
@@ -1059,13 +1059,13 @@ const styles = StyleSheet.create({
   },
   addModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(30, 26, 21, 0.6)',
     justifyContent: 'center',
     padding: 16,
   },
   addModalCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     padding: 20,
     maxHeight: '85%',
   },
@@ -1096,7 +1096,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F4EC',
     borderWidth: 1,
     borderColor: '#D9CDBE',
-    borderRadius: 10,
+    borderRadius: 5,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
@@ -1111,7 +1111,7 @@ const styles = StyleSheet.create({
   dayPickBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -1137,7 +1137,7 @@ const styles = StyleSheet.create({
   categoryChoice: {
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
   cancelModalBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1180,7 +1180,7 @@ const styles = StyleSheet.create({
   submitModalBtn: {
     flex: 2,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: '#B0522F',
     alignItems: 'center',
     justifyContent: 'center',

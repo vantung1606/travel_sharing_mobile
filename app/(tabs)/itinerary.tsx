@@ -826,7 +826,7 @@ Ví dụ chuẩn:
           {/* Top Badges */}
           <View style={styles.cardTopBadgeRow}>
             <View style={styles.destinationBadge}>
-              <FontAwesome name="map-marker" size={12} color="#FFFDF8" style={{ marginRight: 4 }} />
+              <FontAwesome name="map-marker" size={12} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
               <Text style={styles.destinationBadgeText}>{item.destination}</Text>
             </View>
 
@@ -847,7 +847,7 @@ Ví dụ chuẩn:
           {/* Bottom Duration & Countdown Overlay */}
           <View style={styles.cardCoverBottomRow}>
             <View style={styles.durationPill}>
-              <FontAwesome name="clock-o" size={11} color="#FFFDF8" style={{ marginRight: 4 }} />
+              <FontAwesome name="clock-o" size={11} color={WF_COLORS.slate700} style={{ marginRight: 4 }} />
               <Text style={styles.durationPillText}>{durationText}</Text>
             </View>
             {item.startDate && (
@@ -869,7 +869,7 @@ Ví dụ chuẩn:
           {/* Budget & Meta */}
           <View style={styles.cardMetaRow}>
             <View style={styles.metaBadge}>
-              <FontAwesome name="money" size={12} color="#D97706" style={{ marginRight: 5 }} />
+              <FontAwesome name="money" size={12} color={WF_COLORS.amber} style={{ marginRight: 5 }} />
               <Text style={styles.metaBudgetText}>{budgetDisplay}</Text>
             </View>
 
@@ -935,7 +935,7 @@ Ví dụ chuẩn:
 
   return (
     <View style={styles.container}>
-      <StatusBar style={isScrolled ? 'dark' : 'light'} />
+      <StatusBar style="dark" />
 
       {/* ─── DYNAMIC FLOATING NAVBAR (TRONG SUỐT Ở TRÊN CÙNG, TRƯỢT XUỐNG ĐỔI THÀNH NỀN TRẮNG) ─── */}
       <View
@@ -944,11 +944,11 @@ Ví dụ chuẩn:
           {
             paddingTop: Math.max(insets.top, 6),
             height: 44 + Math.max(insets.top, 6),
-            backgroundColor: isScrolled ? '#FFFDF8' : 'transparent',
+            backgroundColor: isScrolled ? '#FFFDF8' : 'rgba(248, 244, 236, 0.96)',
             borderBottomWidth: isScrolled ? 1 : 0,
             borderBottomColor: '#E4DACB',
-            shadowOpacity: isScrolled ? 0.08 : 0,
-            elevation: isScrolled ? 4 : 0,
+            shadowOpacity: 0.02,
+            elevation: 0,
           },
         ]}>
         {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
@@ -957,11 +957,7 @@ Ví dụ chuẩn:
           onPress={() => router.push('/(tabs)/community')}
           style={styles.navLogoWrapper}>
           <Image
-            source={
-              isScrolled
-                ? require('@/assets/images/wayfare-logo.png')
-                : require('@/assets/images/wayfare-logo-white.png')
-            }
+            source={require('@/assets/images/wayfare-logo.png')}
             style={styles.navHeaderLogo}
             resizeMode="contain"
           />
@@ -973,27 +969,14 @@ Ví dụ chuẩn:
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setIsChatOpen(true)}
-            style={[
-              styles.navChatBtn,
-              {
-                backgroundColor: isScrolled ? '#F6E6DD' : 'rgba(255, 255, 255, 0.18)',
-                borderColor: isScrolled ? '#E8D5C9' : 'rgba(255, 255, 255, 0.35)',
-              },
-            ]}>
+            style={styles.navChatBtn}>
             <FontAwesome
               name="comments"
               size={14}
-              color={isScrolled ? WF_COLORS.primary : '#FFFDF8'}
+              color={WF_COLORS.primary}
               style={{ marginRight: 5 }}
             />
-            <Text
-              style={[
-                styles.navChatBtnText,
-                { color: isScrolled ? WF_COLORS.primary : '#FFFDF8' },
-              ]}>
-              Chat
-            </Text>
-            <View style={styles.navLiveDot} />
+            <Text style={styles.navChatBtnText}>Chat</Text>
           </TouchableOpacity>
 
           {/* Avatar Người Dùng */}
@@ -1004,17 +987,10 @@ Ví dụ chuẩn:
             {currentUser?.avatar ? (
               <Image
                 source={{ uri: currentUser.avatar }}
-                style={[
-                  styles.navAvatarImg,
-                  { borderColor: isScrolled ? WF_COLORS.primary : '#FFFDF8' },
-                ]}
+                style={styles.navAvatarImg}
               />
             ) : (
-              <FontAwesome
-                name="user-circle"
-                size={28}
-                color={isScrolled ? WF_COLORS.slate700 : '#FFFDF8'}
-              />
+              <FontAwesome name="user-circle" size={28} color={WF_COLORS.slate700} />
             )}
           </TouchableOpacity>
         </View>
@@ -1036,17 +1012,10 @@ Ví dụ chuẩn:
               style={[
                 styles.heroBox,
                 {
-                  paddingTop: Math.max(insets.top, 6) + 44,
-                  paddingBottom: 14,
+                  paddingTop: Math.max(insets.top, 6) + 50,
+                  paddingBottom: 20,
                 },
               ]}>
-              <Image
-                source={{ uri: COVER_PRESETS[0].url }}
-                style={styles.heroBackdrop}
-                resizeMode="cover"
-              />
-              <View style={styles.heroDarkScrim} />
-
               <View style={styles.heroContent}>
                 {/* Hero Title & Count Pill */}
                 <View style={styles.heroTopRow}>
@@ -1543,7 +1512,7 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
+    shadowRadius: 4,
   },
   navLogoWrapper: {
     flexDirection: 'row',
@@ -1564,20 +1533,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 5,
     borderWidth: 1,
+    backgroundColor: '#F6E6DD',
+    borderColor: '#E8D5C9',
   },
   navChatBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    color: WF_COLORS.primary,
     fontFamily: SERIF_FONT,
-  },
-  navLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10B981',
-    marginLeft: 5,
   },
   navAvatarBtn: {
     padding: 2,
@@ -1587,29 +1552,16 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: 15,
     borderWidth: 1.5,
+    borderColor: WF_COLORS.primary,
   },
 
-  // 1. Full-Bleed Transparent Hero
+  // 1. Paper Hero
   heroBox: {
     position: 'relative',
-    backgroundColor: '#031726',
+    backgroundColor: '#F8F4EC',
     paddingHorizontal: 16,
-  },
-  heroBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.85,
-  },
-  heroDarkScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(3, 23, 38, 0.75)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4DACB',
   },
   heroContent: {
     zIndex: 10,
@@ -1620,31 +1572,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroHeadline: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFDF8',
+    fontSize: 27,
+    fontWeight: '900',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
   heroCountBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: '#FFFDF8',
     paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 14,
+    paddingVertical: 4,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: '#E4DACB',
   },
   heroCountBadgeText: {
-    color: '#FFFDF8',
+    color: '#5A5146',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
   },
   heroSubtitle: {
     fontSize: 12,
-    color: '#D9CDBE',
-    marginTop: 4,
-    lineHeight: 16,
+    color: '#6B6154',
+    marginTop: 6,
+    lineHeight: 18,
     fontFamily: SERIF_FONT,
     fontWeight: '400',
   },
@@ -1652,7 +1604,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 12,
+    marginTop: 16,
   },
   aiCtaBtn: {
     flex: 1,
@@ -1660,13 +1612,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#B0522F',
-    paddingVertical: 9,
-    borderRadius: 20,
-    shadowColor: '#B0522F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingVertical: 10,
+    borderRadius: 5,
   },
   aiCtaBtnText: {
     color: '#FFFDF8',
@@ -1680,15 +1627,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFDF8',
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#E4DACB',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: '#1E1A15',
   },
   manualCtaBtnText: {
     color: '#1E1A15',
@@ -1708,15 +1650,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     paddingHorizontal: 12,
-    height: 38,
-    borderRadius: 19,
+    height: 44,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E4DACB',
-    shadowColor: '#5A5146',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   cleanSearchInput: {
     flex: 1,
@@ -1736,7 +1673,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 5,
     backgroundColor: '#FFFDF8',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -1759,7 +1696,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3EDE2',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   cleanFilterBadgeActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.28)',
@@ -1778,15 +1715,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E4DACB',
-    shadowColor: '#5A5146',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   cardCoverBox: {
     height: 175,
@@ -1803,7 +1735,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(30, 26, 21, 0.30)',
   },
   cardTopBadgeRow: {
     position: 'absolute',
@@ -1817,13 +1749,15 @@ const styles = StyleSheet.create({
   destinationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 26, 21, 0.10)',
   },
   destinationBadgeText: {
-    color: '#FFFDF8',
+    color: '#3B332A',
     fontSize: 12,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1832,7 +1766,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0522F',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 3,
   },
   aiBadgeText: {
     color: '#FFFDF8',
@@ -1843,13 +1777,13 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 3,
   },
   statusBadgeUpcoming: {
     backgroundColor: '#B0522F',
   },
   statusBadgeCompleted: {
-    backgroundColor: '#16A34A',
+    backgroundColor: '#4F6B52',
   },
   statusBadgeText: {
     color: '#FFFDF8',
@@ -1869,25 +1803,24 @@ const styles = StyleSheet.create({
   durationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 26, 21, 0.10)',
   },
   durationPillText: {
-    color: '#FFFDF8',
+    color: '#3B332A',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
   },
   coverDateText: {
-    color: '#FEF3C7',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   cardBody: {
     padding: 14,
@@ -1912,7 +1845,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F4EC',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E4DACB',
   },
@@ -1944,7 +1877,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0522F',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 5,
   },
   cardDetailBtnText: {
     color: '#FFFDF8',
@@ -1960,7 +1893,7 @@ const styles = StyleSheet.create({
   actionIconBtn: {
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2008,7 +1941,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0522F',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 5,
     marginTop: 16,
   },
   emptyActionBtnText: {
@@ -2036,7 +1969,7 @@ const styles = StyleSheet.create({
   navBackBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2073,7 +2006,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: 'rgba(30, 26, 21, 0.55)',
   },
   detailHeroBadgeRow: {
     flexDirection: 'row',
@@ -2087,7 +2020,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   detailDestText: {
     color: '#FFFDF8',
@@ -2099,7 +2032,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0522F',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   detailAiText: {
     color: '#FFFDF8',
@@ -2119,15 +2052,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     marginTop: -16,
-    borderRadius: 18,
+    borderRadius: 5,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
     shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
     justifyContent: 'space-around',
   },
   detailStatBox: {
@@ -2164,7 +2097,7 @@ const styles = StyleSheet.create({
   dayPill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 5,
     backgroundColor: '#E4DACB',
   },
   dayPillActive: {
@@ -2186,7 +2119,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 14,
     paddingVertical: 10,
-    borderRadius: 14,
+    borderRadius: 5,
     backgroundColor: '#F6E6DD',
     borderWidth: 1,
     borderColor: '#E8D5C9',
@@ -2203,7 +2136,7 @@ const styles = StyleSheet.create({
   },
   emptyTimelineBox: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 18,
+    borderRadius: 5,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
@@ -2254,15 +2187,15 @@ const styles = StyleSheet.create({
   timelineCard: {
     flex: 1,
     backgroundColor: '#FFFDF8',
-    borderRadius: 16,
+    borderRadius: 5,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E4DACB',
     shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.02,
     shadowRadius: 3,
-    elevation: 1,
+    elevation: 0,
   },
   timelineCardHeader: {
     flexDirection: 'row',
@@ -2274,7 +2207,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6E6DD',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   categoryBadgeText: {
     color: '#B0522F',
@@ -2300,7 +2233,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#F8F4EC',
-    borderRadius: 10,
+    borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 7,
     marginTop: 6,
@@ -2325,7 +2258,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF8',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E8D5C9',
   },
@@ -2369,7 +2302,7 @@ const styles = StyleSheet.create({
   },
   checklistCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 18,
+    borderRadius: 6,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2414,7 +2347,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F4EC',
     borderWidth: 1,
     borderColor: '#E4DACB',
-    borderRadius: 12,
+    borderRadius: 5,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
@@ -2439,7 +2372,7 @@ const styles = StyleSheet.create({
   hotChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
   },
   hotChipActive: {
@@ -2462,7 +2395,7 @@ const styles = StyleSheet.create({
   dayChoiceBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2488,7 +2421,7 @@ const styles = StyleSheet.create({
   choiceCard: {
     width: (SCREEN_WIDTH - 36 - 8) / 2,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: '#F8F4EC',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2512,7 +2445,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: '#F8F4EC',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2541,13 +2474,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#B0522F',
     paddingVertical: 13,
-    borderRadius: 22,
+    borderRadius: 5,
     marginTop: 20,
     shadowColor: '#B0522F',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
   },
   submitAiBtnText: {
     color: '#FFFDF8',
@@ -2562,7 +2495,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F6E6DD',
     padding: 10,
-    borderRadius: 10,
+    borderRadius: 5,
     marginTop: 8,
     borderWidth: 1,
     borderColor: '#E8D5C9',
@@ -2577,7 +2510,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
     backgroundColor: '#F6E6DD',
     borderWidth: 1,
     borderColor: '#E8D5C9',
@@ -2591,7 +2524,7 @@ const styles = StyleSheet.create({
   coverPreviewBox: {
     width: '100%',
     height: 120,
-    borderRadius: 12,
+    borderRadius: 6,
     overflow: 'hidden',
     marginTop: 6,
     borderWidth: 1,
@@ -2662,7 +2595,7 @@ const styles = StyleSheet.create({
   },
   presetCard: {
     width: 90,
-    borderRadius: 10,
+    borderRadius: 6,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -2692,7 +2625,7 @@ const styles = StyleSheet.create({
   },
   stopCardBox: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 18,
+    borderRadius: 6,
     padding: 16,
     maxHeight: '85%',
   },

@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#FFFDF8',
-    borderRadius: 999,
+    borderRadius: 4,
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderWidth: 1,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   aiPill: {
     backgroundColor: WF_PAPER.clayLight,
-    borderRadius: 999,
+    borderRadius: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },

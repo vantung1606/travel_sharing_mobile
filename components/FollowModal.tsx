@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 5,
     backgroundColor: '#F8F4EC',
     alignItems: 'center',
     justifyContent: 'center',
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   followActionBtn: {
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 18,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 95,

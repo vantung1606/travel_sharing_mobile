@@ -25,11 +25,6 @@
       "output": "server",
       "favicon": "./assets/images/favicon.png"
     },
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1E1A15"
-    },
     "plugins": [
       "expo-router",
       [

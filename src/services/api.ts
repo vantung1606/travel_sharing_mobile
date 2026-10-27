@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { create } from 'axios';
 import { authStorage } from './authStorage';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://travelsharingbackend-production.up.railway.app/api';
@@ -13,7 +13,7 @@ export const webPlaceUrl = (placeId: number) => (WEB_ORIGIN ? `${WEB_ORIGIN}/pla
 export const webItineraryUrl = (itineraryId?: number) =>
   WEB_ORIGIN ? (itineraryId ? `${WEB_ORIGIN}/itineraries?id=${itineraryId}` : `${WEB_ORIGIN}/itineraries`) : '';
 
-const apiClient = axios.create({
+const apiClient = create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
@@ -230,18 +230,23 @@ export interface ItineraryItem {
   creatorAvatar?: string;
   title: string;
   destination: string;
+  region?: string;
   startDate?: string;
   endDate?: string;
   daysCount?: number;
   budget?: number;
   budgetTotal?: number;
+  budgetPerPerson?: number;
   coverImageUrl?: string;
+  coverImage?: string;
   isAiGenerated?: boolean;
   status?: string;
   groupType?: string;
-  coverImage?: string;
   authorName?: string;
   details?: ItineraryDetailItem[];
+  placesCount?: number;
+  placesList?: string[];
+  days?: any[];
 }
 
 // ─── AUTH API ──────────────────────────────────────────────
@@ -670,30 +675,6 @@ export interface ItineraryDetailItem {
   aiTip?: string;
   transitInfo?: string;
   note?: string;
-}
-
-export interface ItineraryItem {
-  id: number;
-  title: string;
-  destination: string;
-  region?: string;
-  startDate?: string;
-  endDate?: string;
-  daysCount?: number;
-  budgetTotal?: number;
-  budgetPerPerson?: number;
-  groupType?: string;
-  isAiGenerated?: boolean;
-  status?: string;
-  coverImageUrl?: string;
-  coverImage?: string;
-  creatorName?: string;
-  creatorAvatar?: string;
-  creatorEmail?: string;
-  details?: ItineraryDetailItem[];
-  placesCount?: number;
-  placesList?: string[];
-  days?: any[];
 }
 
 export interface CreateItineraryPayload {

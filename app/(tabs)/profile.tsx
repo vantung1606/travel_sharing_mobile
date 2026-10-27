@@ -41,6 +41,7 @@ import {
 } from '@/src/utils/tierSystem';
 import { FollowModal } from '@/components/FollowModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
 
@@ -161,14 +162,7 @@ export default function ProfileScreen() {
     return unsubscribe;
   }, [loadProfile, resetAuthForm]);
 
-  // Load saved posts when switching to 'saved' tab
-  useEffect(() => {
-    if (activeTab === 'saved' && user?.token) {
-      loadSavedPosts();
-    }
-  }, [activeTab, user?.token]);
-
-  const loadSavedPosts = async () => {
+  const loadSavedPosts = useCallback(async () => {
     try {
       setLoadingSaved(true);
       const res = await postApi.getBookmarkedPosts();
@@ -178,7 +172,14 @@ export default function ProfileScreen() {
     } finally {
       setLoadingSaved(false);
     }
-  };
+  }, []);
+
+  // Load saved posts when switching to 'saved' tab
+  useEffect(() => {
+    if (activeTab === 'saved' && user?.token) {
+      loadSavedPosts();
+    }
+  }, [activeTab, user?.token, loadSavedPosts]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -1136,7 +1137,7 @@ export default function ProfileScreen() {
                           </View>
                           <View style={styles.itinDurationTag}>
                             <Text style={styles.itinDurationText}>
-                              {itin.daysCount ? `${itin.daysCount}N${Math.max(1, itin.daysCount - 1)}Đ` : '3N2Đ'}
+                              {formatItineraryDuration(getItineraryDayCount(itin))}
                             </Text>
                           </View>
                         </View>

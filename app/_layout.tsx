@@ -3,14 +3,13 @@ import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { LogBox, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { BrandSplash } from '@/components/BrandSplash';
 import { ConfirmHost } from '@/components/ConfirmDialog';
 import { ToastHost } from '@/components/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
-import { LogBox } from 'react-native';
 import { WF_PAPER } from '@/constants/Colors';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
 

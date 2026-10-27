@@ -39,6 +39,7 @@ import {
 import { authStorage } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
 import { chatSocket } from '@/src/services/chatSocket';
+import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 import { NewChatSheet } from './chat/NewChatSheet';
 import { ConfirmHost, confirmDialog } from './ConfirmDialog';
@@ -1109,9 +1110,10 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
 
     const cover = payload.coverImageUrl || '';
     const destination = payload.destination || 'Việt Nam';
+    const hasDurationInfo = payload.daysCount || (payload.startDate && payload.endDate);
     const duration =
       payload.duration ||
-      (payload.daysCount ? `${payload.daysCount} ngày` : 'Nhiều ngày');
+      (hasDurationInfo ? `${getItineraryDayCount(payload)} ngày` : 'Nhiều ngày');
     const budget = Number(payload.budgetTotal || 0);
 
     return (

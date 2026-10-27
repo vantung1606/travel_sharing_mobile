@@ -21,6 +21,7 @@ import { authPrompt } from '@/src/services/authPrompt';
 import { authStorage } from '@/src/services/authStorage';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, savedPlaceApi } from '@/src/services/api';
 import { savedPlaces } from '@/src/services/savedPlaces';
+import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
 
 /**
@@ -237,21 +238,7 @@ export default function ExploreScreen() {
   const getTripDaysCount = (trip: ItineraryItem | null) => {
     if (!trip) return 1;
     if (customDaysCount && customDaysCount > 0) return customDaysCount;
-    if (trip.startDate && trip.endDate) {
-      const s = new Date(trip.startDate);
-      const e = new Date(trip.endDate);
-      const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      if (diff > 0 && diff <= 30) return diff;
-    }
-    if (trip.daysCount && trip.daysCount > 0) return trip.daysCount;
-    if (Array.isArray(trip.days) && trip.days.length > 0) {
-      const maxDay = Math.max(...trip.days.map((d: any) => Number(d.dayNumber) || 1));
-      return Math.max(trip.days.length, maxDay);
-    }
-    if (Array.isArray(trip.details) && trip.details.length > 0) {
-      return Math.max(1, ...trip.details.map((d) => Number(d.dayNumber) || 1));
-    }
-    return 1;
+    return getItineraryDayCount(trip);
   };
 
   const formatTripDayDate = (trip: ItineraryItem | null, dayIndex: number) => {

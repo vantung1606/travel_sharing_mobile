@@ -35,13 +35,6 @@ export function FollowModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (visible) {
-      setActiveTab(initialTab);
-      loadData();
-    }
-  }, [visible, initialTab]);
-
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -57,6 +50,13 @@ export function FollowModal({
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (visible) {
+      setActiveTab(initialTab);
+      loadData();
+    }
+  }, [visible, initialTab, loadData]);
 
   const handleToggleFollow = async (targetUser: any) => {
     if (!targetUser?.id || togglingId === targetUser.id) return;

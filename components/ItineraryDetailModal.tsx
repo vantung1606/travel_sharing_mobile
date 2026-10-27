@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -19,6 +19,7 @@ import { WF_COLORS } from '@/constants/Colors';
 import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem } from '@/src/services/api';
+import { getItineraryDayCount } from '@/src/utils/itinerary';
 
 const PACKING_CHECKLIST = [
   { id: '1', label: 'Căn cước công dân / Hộ chiếu & Giấy tờ tùy thân' },
@@ -49,15 +50,7 @@ export function ItineraryDetailModal({
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
 
-  useEffect(() => {
-    if (visible && itinerary?.id) {
-      setFullItin(itinerary);
-      setSelectedDay('all');
-      fetchFullDetail(itinerary.id);
-    }
-  }, [visible, itinerary?.id]);
-
-  const fetchFullDetail = async (id: number) => {
+  const fetchFullDetail = useCallback(async (id: number) => {
     try {
       setLoading(true);
       const data = await itineraryApi.getItineraryById(id);
@@ -69,7 +62,15 @@ export function ItineraryDetailModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (visible && itinerary?.id) {
+      setFullItin(itinerary);
+      setSelectedDay('all');
+      fetchFullDetail(itinerary.id);
+    }
+  }, [visible, itinerary, fetchFullDetail]);
 
   const handleShareTrip = async () => {
     if (!fullItin) return;
@@ -89,12 +90,8 @@ export function ItineraryDetailModal({
 
   const detailsList: ItineraryDetailItem[] = fullItin?.details || [];
 
-  // Tính số ngày tối đa thực tế
-  const maxDay = Math.max(
-    fullItin?.daysCount || 1,
-    ...detailsList.map(d => d.dayNumber || 1),
-    1
-  );
+  // Số ngày thực tế: ưu tiên khoảng ngày, sau đó mới đến daysCount/trạm dừng.
+  const maxDay = getItineraryDayCount(fullItin);
 
   const filteredDetails = selectedDay === 'all'
     ? detailsList

@@ -36,6 +36,7 @@ import {
 } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
+import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
@@ -119,7 +120,7 @@ export default function ItineraryScreen() {
   // ─── MODAL DETAIL STATE ──────────────────────────────────
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
   const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
-  const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
+
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
 
@@ -253,7 +254,7 @@ export default function ItineraryScreen() {
 
     const totalBudgetMil = (totalBudgetSum / 1000000).toFixed(1);
     const nextDestination = list[0]?.destination || 'Chưa có lịch';
-    const nextDuration = list[0]?.daysCount ? `${list[0].daysCount}N${Math.max(1, list[0].daysCount - 1)}Đ` : (list[0]?.startDate ? 'Sắp đi' : 'Sẵn sàng');
+    const nextDuration = list[0] ? formatItineraryDuration(getItineraryDayCount(list[0])) : 'Sẵn sàng';
 
     return {
       totalTrips,
@@ -315,7 +316,6 @@ export default function ItineraryScreen() {
   // ─── ACTION HANDLERS ─────────────────────────────────────
   const handleOpenDetail = async (itin: ItineraryItem) => {
     setSelectedItinerary(itin);
-    setSelectedDay('all');
     setDetailModalVisible(true);
     setLoadingDetail(true);
     try {
@@ -803,7 +803,7 @@ Ví dụ chuẩn:
   // ─── RENDER CARD ITEM ────────────────────────────────────
   const renderItineraryCard = ({ item }: { item: ItineraryItem }) => {
     const imageUrl = item.coverImageUrl || item.coverImage || COVER_PRESETS[0].url;
-    const durationText = item.daysCount ? `${item.daysCount}N${Math.max(1, item.daysCount - 1)}Đ` : '3N2Đ';
+    const durationText = formatItineraryDuration(getItineraryDayCount(item));
     const budgetDisplay = item.budgetTotal
       ? `${item.budgetTotal.toLocaleString('vi-VN')} đ`
       : item.budgetPerPerson
@@ -920,18 +920,6 @@ Ví dụ chuẩn:
       </View>
     );
   };
-
-  // ─── TIMELINE DETAILS COMPUTATION ────────────────────────
-  const detailsList = selectedItinerary?.details || [];
-  const maxDay = useMemo(() => {
-    if (!detailsList.length) return selectedItinerary?.daysCount || 3;
-    return Math.max(...detailsList.map(d => d.dayNumber || 1));
-  }, [detailsList, selectedItinerary]);
-
-  const filteredDetails = useMemo(() => {
-    if (selectedDay === 'all') return detailsList;
-    return detailsList.filter(d => (d.dayNumber || 1) === selectedDay);
-  }, [detailsList, selectedDay]);
 
   return (
     <View style={styles.container}>

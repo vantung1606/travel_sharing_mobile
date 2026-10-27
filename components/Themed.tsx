@@ -33,7 +33,8 @@ export function useThemeColor(
 
 export function Text(props: TextProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
-  const color = (lightColor || darkColor) ? useThemeColor({ light: lightColor, dark: darkColor }, 'text') : undefined;
+  const themedColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const color = (lightColor || darkColor) ? themedColor : undefined;
 
   return <DefaultText style={[{ fontFamily: SERIF_FONT }, color ? { color } : null, style]} {...otherProps} />;
 }
@@ -41,7 +42,8 @@ export type TextInputProps = ThemeProps & React.ComponentProps<typeof DefaultTex
 
 export function TextInput(props: TextInputProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
-  const color = (lightColor || darkColor) ? useThemeColor({ light: lightColor, dark: darkColor }, 'text') : undefined;
+  const themedColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const color = (lightColor || darkColor) ? themedColor : undefined;
 
   return <DefaultTextInput style={[{ fontFamily: SERIF_FONT }, color ? { color } : null, style]} {...otherProps} />;
 }

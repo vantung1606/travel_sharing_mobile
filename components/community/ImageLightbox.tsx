@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(2, 6, 23, 0.97)',
+    backgroundColor: 'rgba(30, 26, 21, 0.97)',
     zIndex: 60,
   },
   topBar: {
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     top: '48%',
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',

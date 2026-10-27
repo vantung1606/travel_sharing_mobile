@@ -403,7 +403,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: 'rgba(30, 26, 21, 0.55)',
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 5,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    backgroundColor: 'rgba(30, 26, 21, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
   },

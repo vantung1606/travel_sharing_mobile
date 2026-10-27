@@ -150,15 +150,15 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: 'rgba(30, 26, 21, 0.5)',
   },
   kav: {
     width: '100%',
   },
   sheet: {
     backgroundColor: WF_PAPER.card,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
     paddingHorizontal: 16,
     paddingTop: 10,
     maxHeight: '90%',
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 32,
     height: 32,
-    borderRadius: 4,
+    borderRadius: 5,
     backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',

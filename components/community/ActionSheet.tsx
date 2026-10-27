@@ -4,7 +4,7 @@ import { Animated, Easing, Platform, StyleSheet, TouchableOpacity, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 
 export interface ActionSheetOption {
   key: string;
@@ -83,7 +83,7 @@ export function ActionSheet({ visible, title, options, onClose }: ActionSheetPro
                   <FontAwesome
                     name={option.icon}
                     size={14}
-                    color={option.destructive ? '#E11D48' : WF_COLORS.primary}
+                    color={option.destructive ? '#E11D48' : WF_PAPER.clay}
                   />
                 </View>
               ) : null}
@@ -91,7 +91,7 @@ export function ActionSheet({ visible, title, options, onClose }: ActionSheetPro
                 {option.label}
               </Text>
               {option.active ? (
-                <FontAwesome name="check" size={14} color={WF_COLORS.primary} />
+                <FontAwesome name="check" size={14} color={WF_PAPER.clay} />
               ) : null}
             </TouchableOpacity>
           ))}
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
   },
   sheet: {
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 16,
@@ -131,13 +131,13 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: WF_COLORS.slate200,
+    backgroundColor: WF_PAPER.cardBorder,
     marginBottom: 10,
   },
   title: {
     fontSize: 14,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     marginBottom: 4,
   },
   option: {
@@ -146,24 +146,24 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: WF_COLORS.slate100,
+    borderBottomColor: WF_PAPER.pillBg,
   },
   iconWrap: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: WF_COLORS.primaryLight,
+    backgroundColor: WF_PAPER.clayLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapDanger: {
-    backgroundColor: WF_COLORS.roseLight,
+    backgroundColor: WF_PAPER.clayLight,
   },
   optionLabel: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
   },
   optionLabelDanger: {
     color: '#E11D48',

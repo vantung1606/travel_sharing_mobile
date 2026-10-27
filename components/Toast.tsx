@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     letterSpacing: 0.2,
     fontFamily: SERIF_FONT,
   },

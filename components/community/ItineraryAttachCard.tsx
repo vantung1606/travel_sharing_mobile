@@ -3,7 +3,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { PostItem } from '@/src/services/api';
 
@@ -38,7 +38,7 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
       <View style={styles.body}>
         <View style={styles.topRow}>
           <View style={styles.pill}>
-            <FontAwesome name="map-o" size={11} color={WF_COLORS.primary} />
+            <FontAwesome name="map-o" size={11} color={WF_PAPER.clay} />
             <Text style={styles.pillText}>Lịch trình chi tiết</Text>
           </View>
           {isAi ? (
@@ -54,7 +54,7 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
 
         {destination ? (
           <View style={styles.metaRow}>
-            <FontAwesome name="map-marker" size={11} color={WF_COLORS.slate500} />
+            <FontAwesome name="map-marker" size={11} color={WF_PAPER.inkMuted} />
             <Text style={styles.metaText} numberOfLines={1}>
               {destination}
             </Text>
@@ -64,19 +64,19 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
         <View style={styles.statsRow}>
           {duration ? (
             <View style={styles.statChip}>
-              <FontAwesome name="clock-o" size={10} color={WF_COLORS.primaryHover} />
+              <FontAwesome name="clock-o" size={10} color={WF_PAPER.clayDark} />
               <Text style={styles.statText}>{duration}</Text>
             </View>
           ) : null}
           {places != null && places > 0 ? (
             <View style={styles.statChip}>
-              <FontAwesome name="map-pin" size={10} color={WF_COLORS.primaryHover} />
+              <FontAwesome name="map-pin" size={10} color={WF_PAPER.clayDark} />
               <Text style={styles.statText}>{places} điểm dừng</Text>
             </View>
           ) : null}
           {budget != null ? (
             <View style={styles.statChip}>
-              <FontAwesome name="money" size={10} color={WF_COLORS.primaryHover} />
+              <FontAwesome name="money" size={10} color={WF_PAPER.clayDark} />
               <Text style={styles.statText}>{formatMoney(budget)} đ</Text>
             </View>
           ) : null}
@@ -84,7 +84,7 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
 
         <View style={styles.actions}>
           <TouchableOpacity style={[styles.btn, styles.btnGhost]} activeOpacity={0.85} onPress={onView}>
-            <FontAwesome name="eye" size={12} color={WF_COLORS.primaryHover} />
+            <FontAwesome name="eye" size={12} color={WF_PAPER.clayDark} />
             <Text style={styles.btnGhostText}>Xem chi tiết</Text>
           </TouchableOpacity>
           {canClone ? (
@@ -94,10 +94,10 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
               onPress={onClone}
               disabled={cloning}>
               {cloning ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color="#FFFDF8" />
               ) : (
                 <>
-                  <FontAwesome name="copy" size={12} color="#FFFFFF" />
+                  <FontAwesome name="copy" size={12} color="#FFFDF8" />
                   <Text style={styles.btnPrimaryText}>Sao chép Tour</Text>
                 </>
               )}
@@ -112,15 +112,15 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: WF_COLORS.primarySoft,
-    borderRadius: 16,
+    backgroundColor: WF_PAPER.bg,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
     overflow: 'hidden',
   },
   accent: {
     width: 5,
-    backgroundColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
   },
   body: {
     flex: 1,
@@ -136,21 +136,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   pillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.clayDark,
     letterSpacing: 0.2,
   },
   aiPill: {
-    backgroundColor: WF_COLORS.violetLight,
+    backgroundColor: WF_PAPER.clayLight,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -158,12 +158,12 @@ const styles = StyleSheet.create({
   aiPillText: {
     fontSize: 9,
     fontWeight: '800',
-    color: WF_COLORS.violet,
+    color: WF_PAPER.clay,
   },
   title: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     fontFamily: SERIF_FONT,
   },
   metaRow: {
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   metaText: {
     flex: 1,
     fontSize: 11.5,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
   },
   statsRow: {
     flexDirection: 'row',
@@ -187,17 +187,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    backgroundColor: '#FFFDF8',
+    borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#E0F2FE',
+    borderColor: '#F6E6DD',
   },
   statText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
   },
   actions: {
     flexDirection: 'row',
@@ -211,24 +211,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   btnGhost: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   btnGhostText: {
     fontSize: 12,
     fontWeight: '700',
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.clayDark,
   },
   btnPrimary: {
-    backgroundColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
   },
   btnPrimaryText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
 });

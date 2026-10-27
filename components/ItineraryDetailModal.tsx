@@ -205,19 +205,19 @@ export function ItineraryDetailModal({
         {/* Top Navbar */}
         <View style={styles.topNavbar}>
           <TouchableOpacity style={styles.circleBtn} onPress={onClose}>
-            <FontAwesome name="chevron-left" size={14} color="#0F172A" />
+            <FontAwesome name="chevron-left" size={14} color="#1E1A15" />
           </TouchableOpacity>
           <Text style={styles.navTitle} numberOfLines={1}>
             {fullItin?.title || 'Chi tiết chuyến đi'}
           </Text>
           <TouchableOpacity style={styles.circleBtn} onPress={handleShareTrip}>
-            <FontAwesome name="share-alt" size={14} color="#0F172A" />
+            <FontAwesome name="share-alt" size={14} color="#1E1A15" />
           </TouchableOpacity>
         </View>
 
         {loading ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0284C7" />
+            <ActivityIndicator size="large" color="#B0522F" />
             <Text style={styles.loadingText}>Đang tải chi tiết hành trình & trạm dừng...</Text>
           </View>
         ) : (
@@ -230,19 +230,19 @@ export function ItineraryDetailModal({
               <View style={styles.heroBadgesRow}>
                 {fullItin?.destination ? (
                   <View style={styles.destBadge}>
-                    <FontAwesome name="map-marker" size={11} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <FontAwesome name="map-marker" size={11} color="#FFFDF8" style={{ marginRight: 4 }} />
                     <Text style={styles.destBadgeText}>{fullItin.destination}</Text>
                   </View>
                 ) : null}
 
                 {fullItin?.isAiGenerated ? (
                   <View style={styles.aiBadge}>
-                    <FontAwesome name="magic" size={10} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <FontAwesome name="magic" size={10} color="#FFFDF8" style={{ marginRight: 4 }} />
                     <Text style={styles.aiBadgeText}>Tour AI</Text>
                   </View>
                 ) : (
                   <View style={[styles.aiBadge, { backgroundColor: 'rgba(15, 23, 42, 0.65)' }]}>
-                    <FontAwesome name="pencil" size={10} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <FontAwesome name="pencil" size={10} color="#FFFDF8" style={{ marginRight: 4 }} />
                     <Text style={styles.aiBadgeText}>Thủ công</Text>
                   </View>
                 )}
@@ -256,8 +256,8 @@ export function ItineraryDetailModal({
             {/* Floating Stats Row */}
             <View style={styles.statsCard}>
               <View style={styles.statCol}>
-                <View style={[styles.statIconBox, { backgroundColor: '#E0F2FE' }]}>
-                  <FontAwesome name="calendar" size={13} color="#0284C7" />
+                <View style={[styles.statIconBox, { backgroundColor: '#F6E6DD' }]}>
+                  <FontAwesome name="calendar" size={13} color="#B0522F" />
                 </View>
                 <Text style={styles.statLabel}>Thời gian</Text>
                 <Text style={styles.statValue}>
@@ -324,7 +324,7 @@ export function ItineraryDetailModal({
             <View style={styles.timelineSection}>
               {filteredDetails.length === 0 ? (
                 <View style={styles.emptyBox}>
-                  <FontAwesome name="calendar-o" size={26} color="#94A3B8" />
+                  <FontAwesome name="calendar-o" size={26} color="#8A7F70" />
                   <Text style={styles.emptyBoxTitle}>Chưa có trạm dừng nào cho ngày này</Text>
                   <Text style={styles.emptyBoxSub}>
                     Lịch trình ngày này hiện chưa có hoạt động nào.
@@ -337,7 +337,7 @@ export function ItineraryDetailModal({
                         setNewStopDay(selectedDay === 'all' ? 1 : selectedDay);
                         setAddStopVisible(true);
                       }}>
-                      <FontAwesome name="plus" size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <FontAwesome name="plus" size={13} color="#FFFDF8" style={{ marginRight: 6 }} />
                       <Text style={styles.addFirstStopBtnText}>+ Thêm trạm dừng đầu tiên</Text>
                     </TouchableOpacity>
                   )}
@@ -382,7 +382,7 @@ export function ItineraryDetailModal({
                               <FontAwesome
                                 name="map-marker"
                                 size={13}
-                                color="#0284C7"
+                                color="#B0522F"
                                 style={{ marginTop: 2, marginRight: 6 }}
                               />
                               <View style={{ flex: 1 }}>
@@ -412,7 +412,7 @@ export function ItineraryDetailModal({
                                 });
                               }}>
                               <Text style={styles.mapBtnText}>Bản đồ</Text>
-                              <FontAwesome name="external-link" size={9} color="#0284C7" style={{ marginLeft: 3 }} />
+                              <FontAwesome name="external-link" size={9} color="#B0522F" style={{ marginLeft: 3 }} />
                             </TouchableOpacity>
                           </View>
 
@@ -429,13 +429,13 @@ export function ItineraryDetailModal({
                               <FontAwesome
                                 name="money"
                                 size={11}
-                                color={detail.estimatedCost ? '#D97706' : '#64748B'}
+                                color={detail.estimatedCost ? '#D97706' : '#5A5146'}
                                 style={{ marginRight: 4 }}
                               />
                               <Text
                                 style={[
                                   styles.costText,
-                                  !detail.estimatedCost && { color: '#64748B', fontWeight: '500' },
+                                  !detail.estimatedCost && { color: '#5A5146', fontWeight: '500' },
                                 ]}>
                                 {detail.estimatedCost
                                   ? `~${detail.estimatedCost.toLocaleString('vi-VN')} đ`
@@ -445,7 +445,7 @@ export function ItineraryDetailModal({
 
                             {detail.transitInfo ? (
                               <View style={styles.transitRow}>
-                                <FontAwesome name="car" size={11} color="#64748B" style={{ marginRight: 4 }} />
+                                <FontAwesome name="car" size={11} color="#5A5146" style={{ marginRight: 4 }} />
                                 <Text style={styles.transitText}>{detail.transitInfo}</Text>
                               </View>
                             ) : null}
@@ -463,7 +463,7 @@ export function ItineraryDetailModal({
                         setNewStopDay(selectedDay === 'all' ? 1 : selectedDay);
                         setAddStopVisible(true);
                       }}>
-                      <FontAwesome name="plus" size={12} color="#0284C7" style={{ marginRight: 6 }} />
+                      <FontAwesome name="plus" size={12} color="#B0522F" style={{ marginRight: 6 }} />
                       <Text style={styles.addMoreStopBtnText}>
                         + Thêm trạm dừng vào Ngày {selectedDay === 'all' ? 1 : selectedDay}
                       </Text>
@@ -488,7 +488,7 @@ export function ItineraryDetailModal({
                       <FontAwesome
                         name={isChecked ? 'check-square' : 'square-o'}
                         size={17}
-                        color={isChecked ? '#0284C7' : '#94A3B8'}
+                        color={isChecked ? '#B0522F' : '#8A7F70'}
                         style={{ marginRight: 10 }}
                       />
                       <Text style={[styles.checkText, isChecked && styles.checkTextDone]}>
@@ -513,7 +513,7 @@ export function ItineraryDetailModal({
               <View style={styles.addModalHeader}>
                 <Text style={styles.addModalTitle}>Thêm trạm dừng mới</Text>
                 <TouchableOpacity onPress={() => setAddStopVisible(false)}>
-                  <FontAwesome name="times" size={18} color="#64748B" />
+                  <FontAwesome name="times" size={18} color="#5A5146" />
                 </TouchableOpacity>
               </View>
 
@@ -544,7 +544,7 @@ export function ItineraryDetailModal({
                   value={newStopTime}
                   onChangeText={setNewStopTime}
                   placeholder="08:30"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                 />
 
                 {/* Tên hoạt động / Địa điểm */}
@@ -554,7 +554,7 @@ export function ItineraryDetailModal({
                   value={newStopLocation}
                   onChangeText={setNewStopLocation}
                   placeholder="VD: Cà phê sáng, Tham quan Bảo tàng..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                 />
 
                 {/* Thể loại */}
@@ -583,7 +583,7 @@ export function ItineraryDetailModal({
                   onChangeText={setNewStopCost}
                   keyboardType="numeric"
                   placeholder="VD: 150000 (để trống nếu miễn phí)"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                 />
 
                 {/* Ghi chú */}
@@ -594,7 +594,7 @@ export function ItineraryDetailModal({
                   onChangeText={setNewStopNote}
                   multiline
                   placeholder="Mang theo nón, đặt bàn trước..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                 />
               </ScrollView>
 
@@ -609,7 +609,7 @@ export function ItineraryDetailModal({
                   disabled={submittingStop}
                   onPress={handleSaveStop}>
                   {submittingStop ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color="#FFFDF8" />
                   ) : (
                     <Text style={styles.submitModalBtnText}>Thêm vào lịch trình</Text>
                   )}
@@ -630,7 +630,7 @@ export function ItineraryDetailModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
   },
   topNavbar: {
     flexDirection: 'row',
@@ -638,22 +638,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E4DACB',
   },
   circleBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   navTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
     flex: 1,
     textAlign: 'center',
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 10,
     fontFamily: SERIF_FONT,
   },
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   heroCard: {
     height: 180,
     position: 'relative',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E1A15',
     justifyContent: 'flex-end',
     padding: 16,
   },
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   destBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -719,13 +719,13 @@ const styles = StyleSheet.create({
   aiBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
   aiBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontFamily: SERIF_FONT,
     lineHeight: 26,
   },
@@ -741,14 +741,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     marginTop: -16,
     borderRadius: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: '#E4DACB',
+    shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 5,
@@ -769,21 +769,21 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
     fontFamily: SERIF_FONT,
   },
   statValue: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
     marginTop: 1,
   },
   statDivider: {
     width: 1,
     height: 32,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
   },
   daySection: {
     marginTop: 18,
@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
     marginBottom: 10,
   },
@@ -803,42 +803,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   dayPillActive: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
   },
   dayPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   dayPillTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   timelineSection: {
     marginTop: 14,
     paddingHorizontal: 16,
   },
   emptyBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   emptyBoxTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#3B332A',
     marginTop: 8,
     fontFamily: SERIF_FONT,
   },
   emptyBoxSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     marginTop: 4,
     fontFamily: SERIF_FONT,
@@ -855,30 +855,30 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#0284C7',
+    color: '#B0522F',
     fontFamily: SERIF_FONT,
   },
   timeDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     marginTop: 5,
   },
   timeLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#BAE6FD',
+    backgroundColor: '#E8D5C9',
     marginTop: 4,
   },
   stopCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: '#E4DACB',
+    shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -891,13 +891,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   categoryBadge: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
   categoryBadgeText: {
-    color: '#0284C7',
+    color: '#B0522F',
     fontSize: 10,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -908,7 +908,7 @@ const styles = StyleSheet.create({
   stopTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
     lineHeight: 19,
   },
@@ -916,13 +916,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderRadius: 10,
     paddingHorizontal: 9,
     paddingVertical: 7,
     marginTop: 7,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     gap: 8,
   },
   addressLeft: {
@@ -932,24 +932,24 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#5A5146',
     lineHeight: 15,
     fontFamily: SERIF_FONT,
   },
   mapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   mapBtnText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#B0522F',
     fontFamily: SERIF_FONT,
   },
   noteBox: {
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   costRow: {
     flexDirection: 'row',
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
   },
   transitText: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   checklistSection: {
@@ -1000,11 +1000,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   checklistCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     gap: 10,
   },
   checkRow: {
@@ -1013,27 +1013,27 @@ const styles = StyleSheet.create({
   },
   checkText: {
     fontSize: 12,
-    color: '#1E293B',
+    color: '#3B332A',
     flex: 1,
     lineHeight: 17,
     fontFamily: SERIF_FONT,
   },
   checkTextDone: {
     textDecorationLine: 'line-through',
-    color: '#94A3B8',
+    color: '#8A7F70',
   },
   addFirstStopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
     marginTop: 12,
   },
   addFirstStopBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 13,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1042,9 +1042,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
     borderStyle: 'dashed',
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   addMoreStopBtnText: {
-    color: '#0284C7',
+    color: '#B0522F',
     fontSize: 13,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   addModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     padding: 20,
     maxHeight: '85%',
@@ -1075,32 +1075,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E4DACB',
     marginBottom: 12,
   },
   addModalTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     marginTop: 10,
     marginBottom: 4,
     fontFamily: SERIF_FONT,
   },
   fieldInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D9CDBE',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   dayPickRow: {
     flexDirection: 'row',
@@ -1112,21 +1112,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   dayPickBtnActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: '#B0522F',
+    borderColor: '#B0522F',
   },
   dayPickText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
   },
   dayPickTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   categoryPickerRow: {
     flexDirection: 'row',
@@ -1138,21 +1138,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   categoryChoiceActive: {
-    backgroundColor: '#E0F2FE',
-    borderColor: '#0284C7',
+    backgroundColor: '#F6E6DD',
+    borderColor: '#B0522F',
   },
   categoryChoiceText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#5A5146',
   },
   categoryChoiceTextActive: {
-    color: '#0284C7',
+    color: '#B0522F',
     fontWeight: '700',
   },
   addModalActions: {
@@ -1162,32 +1162,32 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E4DACB',
   },
   cancelModalBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelModalBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
   },
   submitModalBtn: {
     flex: 2,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitModalBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
 });

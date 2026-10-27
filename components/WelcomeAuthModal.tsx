@@ -282,7 +282,7 @@ export function WelcomeAuthModal({
               onPress={handleSubmit}
               disabled={loading || googleLoading}>
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#FFFDF8" />
               ) : (
                 <Text style={styles.submitBtnText}>
                   {mode === 'login' ? 'Đăng nhập vào Wayfare' : 'Khởi tạo tài khoản ngay'}
@@ -337,7 +337,7 @@ export function WelcomeAuthModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
   },
   content: {
     paddingHorizontal: 20,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   },
   brandSlogan: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 290,
@@ -362,20 +362,20 @@ const styles = StyleSheet.create({
 
   card: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 24,
     padding: 22,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     elevation: 4,
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
     shadowRadius: 14,
   },
   modeTabs: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderRadius: 14,
     padding: 4,
     marginBottom: 18,
@@ -387,9 +387,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   modeTabActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     elevation: 2,
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -397,10 +397,10 @@ const styles = StyleSheet.create({
   modeTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#5A5146',
   },
   modeTabTextActive: {
-    color: '#0F172A',
+    color: '#1E1A15',
     fontWeight: '800',
   },
 
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginBottom: 6,
   },
   requiredMark: {
@@ -419,16 +419,16 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     borderRadius: 14,
     paddingHorizontal: 12,
     height: 48,
   },
   inputWrapperFocused: {
-    borderColor: '#0284C7',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#B0522F',
+    backgroundColor: '#FFFDF8',
   },
   inputIcon: {
     marginRight: 10,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1E1A15',
     paddingVertical: 0,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
@@ -445,14 +445,14 @@ const styles = StyleSheet.create({
   },
 
   submitBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     borderRadius: 14,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
     elevation: 3,
-    shadowColor: '#0284C7',
+    shadowColor: '#B0522F',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     letterSpacing: 0.3,
   },
 
@@ -475,12 +475,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   dividerText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#8A7F70',
     marginHorizontal: 10,
     letterSpacing: 0.8,
   },
@@ -489,13 +489,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     borderRadius: 14,
     height: 48,
     elevation: 2,
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -521,6 +521,6 @@ const styles = StyleSheet.create({
   guestBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#B0522F',
   },
 });

@@ -28,9 +28,9 @@ export type FeedScope = 'all' | 'following' | 'saved';
 export type PostSortKey = 'newest' | 'popular' | 'has_itinerary';
 
 export const FEED_SCOPES: { key: FeedScope; label: string; icon: string }[] = [
-  { key: 'all', label: 'Khám phá', icon: 'compass' },
+  { key: 'all', label: 'Khám phá dành cho bạn', icon: 'compass' },
   { key: 'following', label: 'Đang theo dõi', icon: 'user-o' },
-  { key: 'saved', label: 'Đã lưu', icon: 'bookmark-o' },
+  { key: 'saved', label: 'Bài viết đã lưu', icon: 'bookmark-o' },
 ];
 
 export const SORT_OPTIONS: { key: PostSortKey; label: string; hint: string }[] = [

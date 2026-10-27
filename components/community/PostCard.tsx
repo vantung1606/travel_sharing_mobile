@@ -93,10 +93,6 @@ export function PostCard({
   const content = post.content || '';
   const canTruncate = content.length > READ_MORE_THRESHOLD;
   const shownContent = canTruncate && !expanded ? `${content.slice(0, READ_MORE_THRESHOLD).trimEnd()}...` : content;
-  
-  // Lọc sạch chuỗi chức danh trong ngoặc đơn (ví dụ: "Lê Tùng (Lữ Hành Bạc)" -> "Lê Tùng")
-  const rawAuthorName = post.authorName || 'Thành viên Wayfare';
-  const cleanAuthorName = rawAuthorName.replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Thành viên Wayfare';
   const authorTierObj = getUserTier({ tier: post.authorTier, role: post.authorRole });
 
   return (
@@ -106,7 +102,7 @@ export function PostCard({
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onPressAuthor}
-          style={[styles.avatarWrap, { borderColor: authorTierObj.avatarRingColor || WF_COLORS.primaryLight }]}>
+          style={[styles.avatarWrap, { borderColor: authorTierObj.avatarRingColor || WF_PAPER.clayLight }]}>
           <Image source={{ uri: post.authorAvatar || FALLBACK_AVATAR }} style={styles.avatar} />
         </TouchableOpacity>
 
@@ -114,24 +110,25 @@ export function PostCard({
           <View style={styles.nameRow}>
             <TouchableOpacity activeOpacity={0.7} onPress={onPressAuthor} style={{ flexShrink: 1 }}>
               <Text style={styles.authorName} numberOfLines={1}>
-                {cleanAuthorName}
+                {post.authorName || 'Thành viên Wayfare'}
               </Text>
             </TouchableOpacity>
 
             {isOwner ? (
               <Text style={styles.youTag}>(Bạn)</Text>
             ) : onToggleFollow ? (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={onToggleFollow}
-                disabled={followLoading}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                style={styles.followInlineRow}>
+              <View style={styles.followInlineRow}>
                 <Text style={styles.followDot}>·</Text>
-                <Text style={[styles.followTextInline, isFollowingAuthor && styles.followTextInlineActive]}>
-                  {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={onToggleFollow}
+                  disabled={followLoading}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text style={[styles.followTextInline, isFollowingAuthor && styles.followTextInlineActive]}>
+                    {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             ) : null}
 
             <View style={[styles.tierPill, { backgroundColor: authorTierObj.badgeBg }]}>
@@ -146,7 +143,7 @@ export function PostCard({
             {post.locationTag || post.locationName ? (
               <>
                 <Text style={styles.metaDot}>·</Text>
-                <FontAwesome name="map-marker" size={11} color="#0284C7" />
+                <FontAwesome name="map-marker" size={10} color={WF_PAPER.clay} />
                 <Text style={styles.metaText} numberOfLines={1}>
                   {post.locationTag || post.locationName}
                 </Text>
@@ -161,8 +158,8 @@ export function PostCard({
             <Text style={styles.metaDot}>·</Text>
             <FontAwesome
               name={isPrivate ? 'lock' : 'globe'}
-              size={11}
-              color={isPrivate ? '#F59E0B' : '#94A3B8'}
+              size={10}
+              color={isPrivate ? WF_COLORS.amber : WF_PAPER.inkMuted}
             />
           </View>
         </View>
@@ -175,12 +172,12 @@ export function PostCard({
             accessibilityLabel="Lưu bài viết">
             <FontAwesome
               name={bookmarked ? 'bookmark' : 'bookmark-o'}
-              size={16}
-              color={bookmarked ? '#0284C7' : '#94A3B8'}
+              size={15}
+              color={bookmarked ? WF_COLORS.amber : WF_PAPER.inkMuted}
             />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuBtn} onPress={onOpenMenu} accessibilityLabel="Tùy chọn bài viết">
-            <FontAwesome name="ellipsis-h" size={16} color="#94A3B8" />
+            <FontAwesome name="ellipsis-h" size={15} color={WF_PAPER.inkMuted} />
           </TouchableOpacity>
         </View>
       </View>
@@ -189,7 +186,7 @@ export function PostCard({
         <View style={styles.pendingBanner}>
           <FontAwesome name="clock-o" size={12} color="#B45309" />
           <Text style={styles.pendingText}>
-            Đang chờ duyệt thủ công · Điểm an toàn AI {post.aiSafetyScore ?? '—'}/100
+            Đang chờ quản trị viên duyệt thủ công · Điểm kiểm duyệt {post.aiSafetyScore ?? '—'}/100
           </Text>
         </View>
       ) : null}
@@ -287,18 +284,18 @@ export function PostCard({
           <FontAwesome
             name={liked ? 'heart' : 'heart-o'}
             size={17}
-            color={liked ? '#EF4444' : WF_COLORS.slate500}
+            color={liked ? '#EF4444' : WF_PAPER.inkMuted}
           />
           <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{likeCount}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.action} onPress={onOpenComments} activeOpacity={0.7}>
-          <FontAwesome name="comment-o" size={17} color={WF_COLORS.slate500} />
+          <FontAwesome name="comment-o" size={17} color={WF_PAPER.inkMuted} />
           <Text style={styles.actionText}>{commentCount}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.action} onPress={onShare} activeOpacity={0.7}>
-          <FontAwesome name="share-alt" size={16} color={WF_COLORS.slate500} />
+          <FontAwesome name="share-alt" size={16} color={WF_PAPER.inkMuted} />
           <Text style={styles.actionText}>Chia sẻ</Text>
         </TouchableOpacity>
 
@@ -308,13 +305,13 @@ export function PostCard({
           <FontAwesome
             name={bookmarked ? 'bookmark' : 'bookmark-o'}
             size={17}
-            color={bookmarked ? WF_COLORS.primary : WF_COLORS.slate500}
+            color={bookmarked ? WF_PAPER.clay : WF_PAPER.inkMuted}
           />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.detailBtn} onPress={onOpenDetail} activeOpacity={0.85}>
           <Text style={styles.detailBtnText}>Chi tiết</Text>
-          <FontAwesome name="angle-right" size={13} color={WF_COLORS.primary} />
+          <FontAwesome name="angle-right" size={13} color={WF_PAPER.clay} />
         </TouchableOpacity>
       </View>
     </View>
@@ -323,24 +320,24 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_PAPER.card,
     marginHorizontal: 12,
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.cardBorder,
     overflow: 'hidden',
-    shadowColor: '#64748B',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
     elevation: 2,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingTop: 13,
     paddingBottom: 8,
   },
   avatarWrap: {
@@ -348,15 +345,15 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: '#E0F2FE',
-    padding: 1,
+    borderColor: WF_PAPER.clayLight,
+    padding: 1.5,
     marginRight: 10,
   },
   avatar: {
     width: '100%',
     height: '100%',
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#EAE5D9',
   },
   headerInfo: {
     flex: 1,
@@ -366,12 +363,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 5,
   },
   authorName: {
     fontSize: 14.5,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
+    fontFamily: SERIF_FONT,
   },
   followInlineRow: {
     flexDirection: 'row',
@@ -380,31 +378,31 @@ const styles = StyleSheet.create({
   },
   followDot: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#94A3B8',
+    fontWeight: '800',
+    color: WF_PAPER.inkMuted,
   },
   followTextInline: {
     fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0284C7',
+    fontWeight: '800',
+    color: WF_PAPER.clay,
   },
   followTextInlineActive: {
-    color: '#64748B',
+    color: WF_PAPER.inkSecondary,
     fontWeight: '600',
   },
   youTag: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: WF_PAPER.inkMuted,
   },
   tierPill: {
     paddingHorizontal: 6,
-    paddingVertical: 1.5,
+    paddingVertical: 1,
     borderRadius: 4,
   },
   tierPillText: {
     fontSize: 9.5,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   metaRow: {
     flexDirection: 'row',
@@ -414,12 +412,12 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11.5,
-    color: '#64748B',
+    color: WF_PAPER.inkSecondary,
     maxWidth: 160,
   },
   metaDot: {
     fontSize: 11,
-    color: '#CBD5E1',
+    color: '#B3A895',
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -429,14 +427,14 @@ const styles = StyleSheet.create({
   bookmarkHeaderBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   menuBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -451,7 +449,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   pendingText: {
     flex: 1,
@@ -465,49 +463,50 @@ const styles = StyleSheet.create({
   },
   categoryPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: WF_PAPER.pillBg,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: WF_PAPER.pillBorder,
     paddingHorizontal: 8,
     paddingVertical: 2.5,
-    borderRadius: 6,
+    borderRadius: 4,
     marginBottom: 6,
   },
   categoryPillText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#5A5146',
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
     lineHeight: 22,
+    fontFamily: SERIF_FONT,
     marginBottom: 4,
   },
   content: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#334155',
+    fontSize: 13.5,
+    lineHeight: 20.5,
+    color: WF_PAPER.inkSecondary,
   },
   mention: {
-    color: '#0284C7',
+    color: WF_PAPER.clay,
     fontWeight: '700',
   },
   readMore: {
     marginTop: 4,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#0284C7',
+    color: WF_PAPER.clay,
   },
   sharedBox: {
     marginHorizontal: 14,
     marginBottom: 10,
     padding: 10,
-    borderRadius: 10,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
   },
   sharedHeader: {
     flexDirection: 'row',
@@ -518,23 +517,24 @@ const styles = StyleSheet.create({
   sharedAvatar: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 4,
   },
   sharedAuthor: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: WF_PAPER.inkPrimary,
   },
   sharedTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
+    fontFamily: SERIF_FONT,
     marginBottom: 2,
   },
   sharedContent: {
     fontSize: 12,
     lineHeight: 17,
-    color: '#475569',
+    color: WF_PAPER.inkSecondary,
   },
   mediaWrap: {
     paddingHorizontal: 14,
@@ -551,8 +551,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: 'rgba(30, 26, 21, 0.06)',
+    backgroundColor: '#FFFDF8',
   },
   action: {
     flexDirection: 'row',
@@ -561,27 +561,26 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 12.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: WF_PAPER.inkSecondary,
   },
   actionTextLiked: {
     color: '#EF4444',
-    fontWeight: '700',
   },
   detailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: WF_PAPER.pillBg,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.pillBorder,
   },
   detailBtnText: {
     fontSize: 11.5,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
   },
 });

@@ -102,7 +102,7 @@ export function FollowModal({
             <Image source={{ uri: avatar }} style={styles.userAvatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <FontAwesome name="user" size={18} color="#64748B" />
+              <FontAwesome name="user" size={18} color="#5A5146" />
             </View>
           )}
           <View style={styles.userMeta}>
@@ -129,7 +129,7 @@ export function FollowModal({
           ]}
           onPress={() => handleToggleFollow(item)}>
           {togglingId === item.id ? (
-            <ActivityIndicator size="small" color={isCurrentlyFollowing ? '#64748B' : '#FFFFFF'} />
+            <ActivityIndicator size="small" color={isCurrentlyFollowing ? '#5A5146' : '#FFFDF8'} />
           ) : (
             <Text
               style={[
@@ -150,7 +150,7 @@ export function FollowModal({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <FontAwesome name="chevron-left" size={16} color="#0F172A" />
+            <FontAwesome name="chevron-left" size={16} color="#1E1A15" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Mạng Lưới Kết Nối</Text>
           <View style={{ width: 36 }} />
@@ -180,7 +180,7 @@ export function FollowModal({
         {/* List Content */}
         {loading ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0284C7" />
+            <ActivityIndicator size="large" color="#B0522F" />
             <Text style={styles.loadingText}>Đang tải danh sách kết nối...</Text>
           </View>
         ) : (
@@ -196,7 +196,7 @@ export function FollowModal({
                   <FontAwesome
                     name={activeTab === 'followers' ? 'users' : 'user-plus'}
                     size={32}
-                    color="#94A3B8"
+                    color="#8A7F70"
                   />
                 </View>
                 <Text style={styles.emptyTitle}>
@@ -221,7 +221,7 @@ export function FollowModal({
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
   },
   header: {
     flexDirection: 'row',
@@ -230,26 +230,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F3EDE2',
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E4DACB',
   },
   tabItem: {
     flex: 1,
@@ -259,16 +259,16 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: '#0284C7',
+    borderBottomColor: '#B0522F',
   },
   tabItemText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   tabItemTextActive: {
-    color: '#0284C7',
+    color: '#B0522F',
     fontWeight: '800',
   },
   centerBox: {
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 10,
     fontFamily: SERIF_FONT,
   },
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F8F4EC',
   },
   userInfoLeft: {
     flexDirection: 'row',
@@ -305,17 +305,17 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   avatarPlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   userMeta: {
     marginLeft: 12,
@@ -324,18 +324,18 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   userHandle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 1,
     fontFamily: SERIF_FONT,
   },
   userBio: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#8A7F70',
     marginTop: 2,
     fontFamily: SERIF_FONT,
   },
@@ -348,12 +348,12 @@ const styles = StyleSheet.create({
     minWidth: 95,
   },
   followingBtn: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D9CDBE',
   },
   notFollowingBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
   },
   followActionBtnText: {
     fontSize: 11,
@@ -361,10 +361,10 @@ const styles = StyleSheet.create({
     fontFamily: SERIF_FONT,
   },
   followingBtnText: {
-    color: '#475569',
+    color: '#5A5146',
   },
   notFollowingBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   emptyBox: {
     alignItems: 'center',
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -384,13 +384,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#3B332A',
     textAlign: 'center',
     fontFamily: SERIF_FONT,
   },
   emptySub: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,

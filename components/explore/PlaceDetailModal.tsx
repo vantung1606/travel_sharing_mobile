@@ -419,9 +419,9 @@ export function PlaceDetailModal({
                         ]}
                         onPress={handleSubmitReview}>
                         {submittingReview ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 6 }} />
+                          <ActivityIndicator size="small" color="#FFFDF8" style={{ marginRight: 6 }} />
                         ) : (
-                          <FontAwesome name="paper-plane" size={12} color="#FFFFFF" style={{ marginRight: 6 }} />
+                          <FontAwesome name="paper-plane" size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
                         )}
                         <Text style={styles.reviewSubmitText}>
                           {submittingReview ? 'Đang gửi...' : 'Gửi nhận xét'}
@@ -480,7 +480,7 @@ export function PlaceDetailModal({
                               <Image source={{ uri: postImages[0] }} style={styles.checkinCardThumb} />
                             ) : (
                               <View style={[styles.checkinCardThumb, styles.checkinCardThumbFallback]}>
-                                <FontAwesome name="camera" size={24} color="#CBD5E1" />
+                                <FontAwesome name="camera" size={24} color="#D9CDBE" />
                               </View>
                             )}
                             <View style={styles.checkinCardBody}>
@@ -506,7 +506,7 @@ export function PlaceDetailModal({
                               </View>
                               {cp.commentCount != null && cp.commentCount > 0 ? (
                                 <View style={styles.checkinMetaItem}>
-                                  <FontAwesome name="comment-o" size={10} color="#64748B" style={{ marginRight: 3 }} />
+                                  <FontAwesome name="comment-o" size={10} color="#5A5146" style={{ marginRight: 3 }} />
                                   <Text style={styles.checkinMetaText}>{cp.commentCount}</Text>
                                 </View>
                               ) : null}
@@ -530,7 +530,7 @@ export function PlaceDetailModal({
                           style={styles.emptyCheckinBtn}
                           activeOpacity={0.85}
                           onPress={() => onWriteCheckinPost(place)}>
-                          <FontAwesome name="pencil-square-o" size={12} color="#FFFFFF" style={{ marginRight: 6 }} />
+                          <FontAwesome name="pencil-square-o" size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
                           <Text style={styles.emptyCheckinBtnText}>Viết bài check-in đầu tiên</Text>
                         </TouchableOpacity>
                       ) : null}
@@ -543,7 +543,7 @@ export function PlaceDetailModal({
                     style={styles.checkinActionBtn}
                     activeOpacity={0.88}
                     onPress={() => onWriteCheckinPost(place)}>
-                    <FontAwesome name="camera" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <FontAwesome name="camera" size={14} color="#FFFDF8" style={{ marginRight: 8 }} />
                     <Text style={styles.checkinActionBtnText}>📸 Viết bài check-in tại đây</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -560,7 +560,7 @@ export function PlaceDetailModal({
                 </View>
 
                 <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.88} onPress={onAddToPlan}>
-                  <FontAwesome name="calendar-plus-o" size={15} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <FontAwesome name="calendar-plus-o" size={15} color="#FFFDF8" style={{ marginRight: 8 }} />
                   <Text style={styles.primaryBtnText}>Thêm vào Plan chuyến đi</Text>
                 </TouchableOpacity>
               </View>
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingVertical: 8,
     paddingHorizontal: 10,
     fontSize: 12,
@@ -930,7 +930,7 @@ const styles = StyleSheet.create({
   reviewSubmitText: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   reviewLoginHint: {
     flexDirection: 'row',
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   checkinSectionHeader: {
     flexDirection: 'row',
@@ -1043,12 +1043,12 @@ const styles = StyleSheet.create({
   },
   checkinCard: {
     width: 170,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1057,7 +1057,7 @@ const styles = StyleSheet.create({
   checkinCardThumb: {
     width: '100%',
     height: 100,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
   },
   checkinCardThumbFallback: {
     alignItems: 'center',
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 6,
@@ -1089,18 +1089,18 @@ const styles = StyleSheet.create({
   checkinCardAvatarText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#64748B',
+    color: '#5A5146',
   },
   checkinCardAuthorName: {
     flex: 1,
     fontSize: 11,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3B332A',
   },
   checkinCardTitle: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#1E1A15',
     lineHeight: 15,
     marginBottom: 8,
     height: 30,
@@ -1117,13 +1117,13 @@ const styles = StyleSheet.create({
   checkinMetaText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
   },
   emptyCheckinBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     borderStyle: 'dashed',
     padding: 18,
     alignItems: 'center',
@@ -1141,13 +1141,13 @@ const styles = StyleSheet.create({
   emptyCheckinTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#3B332A',
     marginBottom: 4,
     textAlign: 'center',
   },
   emptyCheckinSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     lineHeight: 16,
     marginBottom: 12,
@@ -1161,7 +1161,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   emptyCheckinBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1180,7 +1180,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   checkinActionBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 14,
     fontWeight: '800',
   },

@@ -29,7 +29,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave, onAddToPlan }: 
         <PlaceImage place={place} style={styles.image} />
 
         <View style={styles.cityPill}>
-          <FontAwesome name="map-marker" size={9} color="#FFFFFF" style={{ marginRight: 3 }} />
+          <FontAwesome name="map-marker" size={9} color="#FFFDF8" style={{ marginRight: 3 }} />
           <Text style={styles.cityPillText} numberOfLines={1}>
             {place.city || 'Việt Nam'}
           </Text>
@@ -40,7 +40,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave, onAddToPlan }: 
           activeOpacity={0.7}
           onPress={onToggleSave}
           accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
-          <FontAwesome name={saved ? 'heart' : 'heart-o'} size={15} color={saved ? WF_COLORS.rose : '#FFFFFF'} />
+          <FontAwesome name={saved ? 'heart' : 'heart-o'} size={15} color={saved ? WF_COLORS.rose : '#FFFDF8'} />
         </TouchableOpacity>
 
         <View style={styles.imageOverlay}>
@@ -55,7 +55,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave, onAddToPlan }: 
           )}
           {place.isVerifiedHost ? (
             <View style={styles.verifiedPill}>
-              <FontAwesome name="check-circle" size={9} color="#FFFFFF" style={{ marginRight: 3 }} />
+              <FontAwesome name="check-circle" size={9} color="#FFFDF8" style={{ marginRight: 3 }} />
               <Text style={styles.verifiedText}>Đã xác thực</Text>
             </View>
           ) : null}
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   cityPillText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   categoryPillText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   verifiedText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 9,
     fontWeight: '800',
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     bottom: 9,
   },
   featuredName: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 14,
     fontWeight: '800',
   },

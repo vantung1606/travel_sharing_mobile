@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
-const BLOCK = '#E8EEF5';
+const BLOCK = '#E8DFD0';
 
 /**
  * Khung xương bảng tin cộng đồng: giữ đúng nhịp layout bài viết
@@ -82,14 +82,14 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   card: {
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     marginHorizontal: 16,
     marginBottom: 14,
-    borderRadius: 18,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
+    borderColor: WF_PAPER.cardBorder,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   media: {
     height: 200,
-    backgroundColor: WF_COLORS.slate100,
+    backgroundColor: WF_PAPER.pillBg,
   },
   mediaShort: {
     height: 168,
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: WF_COLORS.slate100,
+    borderTopColor: WF_PAPER.pillBg,
   },
   action: {
     flexDirection: 'row',

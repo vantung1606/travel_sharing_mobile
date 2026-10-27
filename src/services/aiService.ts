@@ -53,7 +53,12 @@ export const aiService = {
       });
 
       if (res.data?.success && res.data.data?.text) {
-        return res.data.data.text;
+        // Nếu backend trả về kết quả live từ Gemini thật (không phải fallback), trả về ngay
+        if (!res.data.data.model?.includes('fallback')) {
+          return res.data.data.text;
+        }
+        // Nếu backend trả về fallback (do backend Railway chưa cài GEMINI_API_KEY)
+        console.warn('[WanderAI Mobile] Backend trả về dữ liệu fallback, tự động chuyển sang gọi trực tiếp bằng EXPO_PUBLIC_GEMINI_API_KEY...');
       }
     } catch (e: any) {
       if (e?.response?.status === 429) {

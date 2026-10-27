@@ -826,7 +826,7 @@ Ví dụ chuẩn:
           {/* Top Badges */}
           <View style={styles.cardTopBadgeRow}>
             <View style={styles.destinationBadge}>
-              <FontAwesome name="map-marker" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <FontAwesome name="map-marker" size={12} color="#FFFDF8" style={{ marginRight: 4 }} />
               <Text style={styles.destinationBadgeText}>{item.destination}</Text>
             </View>
 
@@ -847,7 +847,7 @@ Ví dụ chuẩn:
           {/* Bottom Duration & Countdown Overlay */}
           <View style={styles.cardCoverBottomRow}>
             <View style={styles.durationPill}>
-              <FontAwesome name="clock-o" size={11} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <FontAwesome name="clock-o" size={11} color="#FFFDF8" style={{ marginRight: 4 }} />
               <Text style={styles.durationPillText}>{durationText}</Text>
             </View>
             {item.startDate && (
@@ -888,7 +888,7 @@ Ví dụ chuẩn:
               style={styles.cardDetailBtn}
               onPress={() => handleOpenDetail(item)}>
               <Text style={styles.cardDetailBtnText}>Xem chi tiết</Text>
-              <FontAwesome name="arrow-right" size={11} color="#FFFFFF" style={{ marginLeft: 5 }} />
+              <FontAwesome name="arrow-right" size={11} color="#FFFDF8" style={{ marginLeft: 5 }} />
             </TouchableOpacity>
 
             <View style={styles.cardIconActions}>
@@ -944,9 +944,9 @@ Ví dụ chuẩn:
           {
             paddingTop: Math.max(insets.top, 6),
             height: 44 + Math.max(insets.top, 6),
-            backgroundColor: isScrolled ? '#FFFFFF' : 'transparent',
+            backgroundColor: isScrolled ? '#FFFDF8' : 'transparent',
             borderBottomWidth: isScrolled ? 1 : 0,
-            borderBottomColor: '#E2E8F0',
+            borderBottomColor: '#E4DACB',
             shadowOpacity: isScrolled ? 0.08 : 0,
             elevation: isScrolled ? 4 : 0,
           },
@@ -976,20 +976,20 @@ Ví dụ chuẩn:
             style={[
               styles.navChatBtn,
               {
-                backgroundColor: isScrolled ? '#F0F9FF' : 'rgba(255, 255, 255, 0.18)',
-                borderColor: isScrolled ? '#BAE6FD' : 'rgba(255, 255, 255, 0.35)',
+                backgroundColor: isScrolled ? '#F6E6DD' : 'rgba(255, 255, 255, 0.18)',
+                borderColor: isScrolled ? '#E8D5C9' : 'rgba(255, 255, 255, 0.35)',
               },
             ]}>
             <FontAwesome
               name="comments"
               size={14}
-              color={isScrolled ? WF_COLORS.primary : '#FFFFFF'}
+              color={isScrolled ? WF_COLORS.primary : '#FFFDF8'}
               style={{ marginRight: 5 }}
             />
             <Text
               style={[
                 styles.navChatBtnText,
-                { color: isScrolled ? WF_COLORS.primary : '#FFFFFF' },
+                { color: isScrolled ? WF_COLORS.primary : '#FFFDF8' },
               ]}>
               Chat
             </Text>
@@ -1006,14 +1006,14 @@ Ví dụ chuẩn:
                 source={{ uri: currentUser.avatar }}
                 style={[
                   styles.navAvatarImg,
-                  { borderColor: isScrolled ? WF_COLORS.primary : '#FFFFFF' },
+                  { borderColor: isScrolled ? WF_COLORS.primary : '#FFFDF8' },
                 ]}
               />
             ) : (
               <FontAwesome
                 name="user-circle"
                 size={28}
-                color={isScrolled ? WF_COLORS.slate700 : '#FFFFFF'}
+                color={isScrolled ? WF_COLORS.slate700 : '#FFFDF8'}
               />
             )}
           </TouchableOpacity>
@@ -1067,7 +1067,7 @@ Ví dụ chuẩn:
                     activeOpacity={0.88}
                     style={styles.aiCtaBtn}
                     onPress={() => setAiModalVisible(true)}>
-                    <FontAwesome name="magic" size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <FontAwesome name="magic" size={13} color="#FFFDF8" style={{ marginRight: 6 }} />
                     <Text style={styles.aiCtaBtnText}>Lập tour AI</Text>
                   </TouchableOpacity>
 
@@ -1075,7 +1075,7 @@ Ví dụ chuẩn:
                     activeOpacity={0.88}
                     style={styles.manualCtaBtn}
                     onPress={() => setManualModalVisible(true)}>
-                    <FontAwesome name="plus" size={12} color="#0F172A" style={{ marginRight: 6 }} />
+                    <FontAwesome name="plus" size={12} color="#1E1A15" style={{ marginRight: 6 }} />
                     <Text style={styles.manualCtaBtnText}>Tạo thủ công</Text>
                   </TouchableOpacity>
                 </View>
@@ -1086,17 +1086,17 @@ Ví dụ chuẩn:
             <View style={styles.cleanFilterSection}>
               {/* Search Bar Phẳng, Hiện Đại */}
               <View style={styles.cleanSearchBar}>
-                <FontAwesome name="search" size={13} color="#64748B" style={{ marginRight: 8 }} />
+                <FontAwesome name="search" size={13} color="#5A5146" style={{ marginRight: 8 }} />
                 <TextInput
                   style={styles.cleanSearchInput}
                   placeholder="Tìm chuyến đi, điểm đến, địa danh..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
                 {searchQuery.trim().length > 0 && (
                   <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <FontAwesome name="times-circle" size={14} color="#94A3B8" />
+                    <FontAwesome name="times-circle" size={14} color="#8A7F70" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1217,7 +1217,7 @@ Ví dụ chuẩn:
 
           {isAiGenerating ? (
             <View style={styles.aiLoadingContainer}>
-              <ActivityIndicator size="large" color="#0284C7" />
+              <ActivityIndicator size="large" color="#B0522F" />
               <Text style={styles.aiLoadingProgress}>{aiProgress}%</Text>
               <Text style={styles.aiLoadingTitle}>WanderAI đang kiến tạo hành trình</Text>
               <Text style={styles.aiLoadingStep}>{aiCurrentStep}</Text>
@@ -1281,9 +1281,9 @@ Ví dụ chuẩn:
 
               {/* Ô tính ngày tự động */}
               <View style={[styles.daysCalcBox, { marginTop: 8 }]}>
-                <FontAwesome name="calendar-check-o" size={14} color="#0284C7" style={{ marginRight: 6 }} />
+                <FontAwesome name="calendar-check-o" size={14} color="#B0522F" style={{ marginRight: 6 }} />
                 <Text style={styles.daysCalcText}>
-                  Thời lượng chuyến đi: <Text style={{ fontWeight: 'bold', color: '#0284C7' }}>{aiDays} Ngày {aiDays > 1 ? `(${aiDays}N${aiDays - 1}Đ)` : '(Trong ngày)'}</Text>
+                  Thời lượng chuyến đi: <Text style={{ fontWeight: 'bold', color: '#B0522F' }}>{aiDays} Ngày {aiDays > 1 ? `(${aiDays}N${aiDays - 1}Đ)` : '(Trong ngày)'}</Text>
                 </Text>
               </View>
 
@@ -1426,9 +1426,9 @@ Ví dụ chuẩn:
 
             {/* Ô tính ngày tự động giống Web */}
             <View style={styles.daysCalcBox}>
-              <FontAwesome name="calendar-check-o" size={14} color="#0284C7" style={{ marginRight: 6 }} />
+              <FontAwesome name="calendar-check-o" size={14} color="#B0522F" style={{ marginRight: 6 }} />
               <Text style={styles.daysCalcText}>
-                Thời lượng tính toán: <Text style={{ fontWeight: 'bold', color: '#0284C7' }}>{manualDays} Ngày ({manualDays}N{Math.max(1, manualDays - 1)}Đ)</Text>
+                Thời lượng tính toán: <Text style={{ fontWeight: 'bold', color: '#B0522F' }}>{manualDays} Ngày ({manualDays}N{Math.max(1, manualDays - 1)}Đ)</Text>
               </Text>
             </View>
 
@@ -1467,7 +1467,7 @@ Ví dụ chuẩn:
               <TouchableOpacity
                 onPress={handlePickCoverImage}
                 style={styles.uploadPhotoBtn}>
-                <FontAwesome name="camera" size={12} color="#0284C7" style={{ marginRight: 5 }} />
+                <FontAwesome name="camera" size={12} color="#B0522F" style={{ marginRight: 5 }} />
                 <Text style={styles.uploadPhotoBtnText}>Chọn ảnh từ máy</Text>
               </TouchableOpacity>
             </View>
@@ -1478,7 +1478,7 @@ Ví dụ chuẩn:
             </View>
 
             {/* Chọn nhanh ảnh preset */}
-            <Text style={[styles.aiInputLabel, { fontSize: 11, color: '#64748B', marginTop: 8 }]}>Hoặc chọn nhanh mẫu cảnh đẹp:</Text>
+            <Text style={[styles.aiInputLabel, { fontSize: 11, color: '#5A5146', marginTop: 8 }]}>Hoặc chọn nhanh mẫu cảnh đẹp:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
               {COVER_PRESETS.map((p, idx) => {
                 const isSelected = manualCover === p.url;
@@ -1501,7 +1501,7 @@ Ví dụ chuẩn:
               onPress={handleCreateManualTrip}
               disabled={submittingManual}>
               {submittingManual ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#FFFDF8" />
               ) : (
                 <Text style={styles.submitAiBtnText}>Tạo Lịch Trình</Text>
               )}
@@ -1520,7 +1520,7 @@ Ví dụ chuẩn:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
   },
   listContent: {
     paddingBottom: 40,
@@ -1541,7 +1541,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 6,
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
   },
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
   heroHeadline: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontFamily: SERIF_FONT,
     letterSpacing: -0.3,
   },
@@ -1635,14 +1635,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   heroCountBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
   },
   heroSubtitle: {
     fontSize: 12,
-    color: '#CBD5E1',
+    color: '#D9CDBE',
     marginTop: 4,
     lineHeight: 16,
     fontFamily: SERIF_FONT,
@@ -1659,17 +1659,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingVertical: 9,
     borderRadius: 20,
-    shadowColor: '#0284C7',
+    shadowColor: '#B0522F',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 2,
   },
   aiCtaBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 12,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1679,11 +1679,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingVertical: 9,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -1691,7 +1691,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   manualCtaBtnText: {
-    color: '#0F172A',
+    color: '#1E1A15',
     fontSize: 12,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1705,14 +1705,14 @@ const styles = StyleSheet.create({
   cleanSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     paddingHorizontal: 12,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: '#E4DACB',
+    shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -1721,7 +1721,7 @@ const styles = StyleSheet.create({
   cleanSearchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
     paddingVertical: 0,
   },
@@ -1737,26 +1737,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   cleanFilterChipActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: '#B0522F',
+    borderColor: '#B0522F',
   },
   cleanFilterChipText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   cleanFilterChipTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   cleanFilterBadge: {
     marginLeft: 5,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 10,
@@ -1767,22 +1767,22 @@ const styles = StyleSheet.create({
   cleanFilterBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#64748B',
+    color: '#5A5146',
   },
   cleanFilterBadgeTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
 
   // 4. Card List Item
   cardContainer: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: '#E4DACB',
+    shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -1791,7 +1791,7 @@ const styles = StyleSheet.create({
   cardCoverBox: {
     height: 175,
     position: 'relative',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E1A15',
   },
   cardCoverImage: {
     width: '100%',
@@ -1823,19 +1823,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   destinationBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 12,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
   },
   aiBadge: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   aiBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '800',
     fontFamily: SERIF_FONT,
@@ -1846,13 +1846,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgeUpcoming: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
   },
   statusBadgeCompleted: {
     backgroundColor: '#16A34A',
   },
   statusBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1875,7 +1875,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   durationPillText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1895,7 +1895,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     lineHeight: 22,
     fontFamily: SERIF_FONT,
   },
@@ -1909,12 +1909,12 @@ const styles = StyleSheet.create({
   metaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   metaBudgetText: {
     fontSize: 12,
@@ -1925,7 +1925,7 @@ const styles = StyleSheet.create({
   metaUserText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#5A5146',
     maxWidth: 120,
     fontFamily: SERIF_FONT,
   },
@@ -1936,18 +1936,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   cardDetailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
   },
   cardDetailBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 12,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -1961,7 +1961,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1984,7 +1984,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F6E6DD',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -1992,12 +1992,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
@@ -2005,14 +2005,14 @@ const styles = StyleSheet.create({
     fontFamily: SERIF_FONT,
   },
   emptyActionBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     marginTop: 16,
   },
   emptyActionBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 13,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -2021,7 +2021,7 @@ const styles = StyleSheet.create({
   // 6. Detail Modal
   detailContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
   },
   detailNavbar: {
     flexDirection: 'row',
@@ -2030,21 +2030,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: '#E4DACB',
+    backgroundColor: '#FFFDF8',
   },
   navBackBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   navTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     flex: 1,
     textAlign: 'center',
     marginHorizontal: 10,
@@ -2058,7 +2058,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'flex-end',
     padding: 16,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E1A15',
   },
   detailHeroImage: {
     position: 'absolute',
@@ -2090,19 +2090,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   detailDestText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
   },
   detailAiBadge: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
   },
   detailAiText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '800',
     fontFamily: SERIF_FONT,
@@ -2110,20 +2110,20 @@ const styles = StyleSheet.create({
   detailHeroTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     lineHeight: 26,
     fontFamily: SERIF_FONT,
   },
   detailStatsRow: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     marginTop: -16,
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: '#E4DACB',
+    shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -2135,7 +2135,7 @@ const styles = StyleSheet.create({
   },
   detailStatLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
     marginTop: 4,
     fontFamily: SERIF_FONT,
@@ -2143,7 +2143,7 @@ const styles = StyleSheet.create({
   detailStatValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginTop: 2,
     fontFamily: SERIF_FONT,
   },
@@ -2154,7 +2154,7 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginBottom: 10,
     fontFamily: SERIF_FONT,
   },
@@ -2165,19 +2165,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   dayPillActive: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
   },
   dayPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   dayPillTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   addStopBtn: {
     flexDirection: 'row',
@@ -2187,12 +2187,12 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   addStopBtnText: {
-    color: '#0284C7',
+    color: '#B0522F',
     fontSize: 13,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -2202,23 +2202,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   emptyTimelineBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 18,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   emptyTimelineText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginTop: 8,
     fontFamily: SERIF_FONT,
   },
   emptyTimelineSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     marginTop: 4,
     fontFamily: SERIF_FONT,
@@ -2235,30 +2235,30 @@ const styles = StyleSheet.create({
   timelineTimeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#0284C7',
+    color: '#B0522F',
     fontFamily: SERIF_FONT,
   },
   timelineDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     marginTop: 4,
   },
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#BAE6FD',
+    backgroundColor: '#E8D5C9',
     marginTop: 4,
   },
   timelineCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: '#E4DACB',
+    shadowColor: '#5A5146',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -2271,13 +2271,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   categoryBadge: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   categoryBadgeText: {
-    color: '#0284C7',
+    color: '#B0522F',
     fontSize: 10,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -2285,12 +2285,12 @@ const styles = StyleSheet.create({
   timelineCardTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   timelineCardNote: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 6,
     lineHeight: 16,
     fontFamily: SERIF_FONT,
@@ -2299,13 +2299,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 7,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     gap: 8,
   },
   timelineAddressLeft: {
@@ -2315,24 +2315,24 @@ const styles = StyleSheet.create({
   },
   timelineAddressText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#5A5146',
     lineHeight: 15,
     fontFamily: SERIF_FONT,
   },
   timelineMapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   timelineMapBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#B0522F',
     fontFamily: SERIF_FONT,
   },
   timelineBottomRow: {
@@ -2342,7 +2342,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   timelineCostRow: {
     flexDirection: 'row',
@@ -2360,7 +2360,7 @@ const styles = StyleSheet.create({
   },
   timelineTransitText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   checklistSection: {
@@ -2368,11 +2368,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   checklistCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     gap: 12,
   },
   checkItemRow: {
@@ -2381,19 +2381,19 @@ const styles = StyleSheet.create({
   },
   checkItemText: {
     fontSize: 13,
-    color: '#334155',
+    color: '#3B332A',
     fontWeight: '600',
     fontFamily: SERIF_FONT,
   },
   checkItemTextDone: {
     textDecorationLine: 'line-through',
-    color: '#94A3B8',
+    color: '#8A7F70',
   },
 
   // 7. Modals Common
   modalSafeContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2402,23 +2402,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E4DACB',
   },
   modalHeaderTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   modalInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   aiFormScroll: {
@@ -2428,7 +2428,7 @@ const styles = StyleSheet.create({
   aiInputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#3B332A',
     marginBottom: 6,
     fontFamily: SERIF_FONT,
   },
@@ -2440,19 +2440,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
   },
   hotChipActive: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
   },
   hotChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   hotChipTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   optionRow: {
     flexDirection: 'row',
@@ -2463,22 +2463,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   dayChoiceBtnActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: '#B0522F',
+    borderColor: '#B0522F',
   },
   dayChoiceText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     fontFamily: SERIF_FONT,
   },
   dayChoiceTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   grid2x2: {
     flexDirection: 'row',
@@ -2489,23 +2489,23 @@ const styles = StyleSheet.create({
     width: (SCREEN_WIDTH - 36 - 8) / 2,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     alignItems: 'flex-start',
   },
   choiceCardActive: {
-    backgroundColor: '#E0F2FE',
-    borderColor: '#0284C7',
+    backgroundColor: '#F6E6DD',
+    borderColor: '#B0522F',
   },
   choiceCardText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   choiceCardTextActive: {
-    color: '#0284C7',
+    color: '#B0522F',
   },
   budgetRow: {
     flexDirection: 'row',
@@ -2513,44 +2513,44 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   budgetRowActive: {
-    backgroundColor: '#E0F2FE',
-    borderColor: '#0284C7',
+    backgroundColor: '#F6E6DD',
+    borderColor: '#B0522F',
   },
   budgetRowTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     fontFamily: SERIF_FONT,
   },
   budgetRowTitleActive: {
-    color: '#0284C7',
+    color: '#B0522F',
   },
   budgetRowSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 1,
     fontFamily: SERIF_FONT,
   },
   submitAiBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     paddingVertical: 13,
     borderRadius: 22,
     marginTop: 20,
-    shadowColor: '#0284C7',
+    shadowColor: '#B0522F',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 3,
   },
   submitAiBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 14,
     fontWeight: '700',
     fontFamily: SERIF_FONT,
@@ -2560,16 +2560,16 @@ const styles = StyleSheet.create({
   daysCalcBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     padding: 10,
     borderRadius: 10,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   daysCalcText: {
     fontSize: 12,
-    color: '#0369A1',
+    color: '#8F3F24',
     fontFamily: SERIF_FONT,
   },
   uploadPhotoBtn: {
@@ -2578,14 +2578,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   uploadPhotoBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#B0522F',
     fontFamily: SERIF_FONT,
   },
   coverPreviewBox: {
@@ -2595,8 +2595,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F1F5F9',
+    borderColor: '#D9CDBE',
+    backgroundColor: '#F3EDE2',
   },
   coverPreviewImage: {
     width: '100%',
@@ -2613,20 +2613,20 @@ const styles = StyleSheet.create({
   aiLoadingProgress: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#0284C7',
+    color: '#B0522F',
     marginTop: 16,
     fontFamily: SERIF_FONT,
   },
   aiLoadingTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginTop: 8,
     fontFamily: SERIF_FONT,
   },
   aiLoadingStep: {
     fontSize: 13,
-    color: '#0284C7',
+    color: '#B0522F',
     fontWeight: '600',
     marginTop: 4,
     textAlign: 'center',
@@ -2635,7 +2635,7 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     width: '100%',
     height: 6,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
     borderRadius: 3,
     overflow: 'hidden',
     marginTop: 18,
@@ -2643,12 +2643,12 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     borderRadius: 3,
   },
   aiLoadingNote: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#8A7F70',
     textAlign: 'center',
     lineHeight: 16,
     maxWidth: 280,
@@ -2668,7 +2668,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   presetCardActive: {
-    borderColor: '#0284C7',
+    borderColor: '#B0522F',
   },
   presetImage: {
     width: '100%',
@@ -2677,7 +2677,7 @@ const styles = StyleSheet.create({
   presetLabel: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
     textAlign: 'center',
     marginTop: 2,
     fontFamily: SERIF_FONT,
@@ -2691,7 +2691,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   stopCardBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 18,
     padding: 16,
     maxHeight: '85%',

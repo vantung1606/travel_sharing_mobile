@@ -58,7 +58,7 @@ export function ImageLightbox({ visible, images, initialIndex = 0, authorName, o
           </Text>
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} accessibilityLabel="Đóng ảnh">
-          <FontAwesome name="times" size={18} color="#FFFFFF" />
+          <FontAwesome name="times" size={18} color="#FFFDF8" />
         </TouchableOpacity>
       </View>
 
@@ -86,12 +86,12 @@ export function ImageLightbox({ visible, images, initialIndex = 0, authorName, o
         <>
           {index > 0 ? (
             <TouchableOpacity style={[styles.navBtn, styles.navLeft]} onPress={() => go(-1)}>
-              <FontAwesome name="chevron-left" size={16} color="#FFFFFF" />
+              <FontAwesome name="chevron-left" size={16} color="#FFFDF8" />
             </TouchableOpacity>
           ) : null}
           {index < images.length - 1 ? (
             <TouchableOpacity style={[styles.navBtn, styles.navRight]} onPress={() => go(1)}>
-              <FontAwesome name="chevron-right" size={16} color="#FFFFFF" />
+              <FontAwesome name="chevron-right" size={16} color="#FFFDF8" />
             </TouchableOpacity>
           ) : null}
           <View style={[styles.dots, { bottom: Math.max(insets.bottom, 16) + 12 }]}>
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   author: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.32)',
   },
   dotActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     width: 16,
   },
 });

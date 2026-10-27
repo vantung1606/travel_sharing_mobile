@@ -480,7 +480,7 @@ export default function ExploreScreen() {
                 <FontAwesome
                   name="compass"
                   size={12}
-                  color={viewMode === 'explore' ? '#FFFFFF' : WF_COLORS.slate600}
+                  color={viewMode === 'explore' ? '#FFFDF8' : WF_COLORS.slate600}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.viewToggleText, viewMode === 'explore' && styles.viewToggleTextActive]}>
@@ -493,7 +493,7 @@ export default function ExploreScreen() {
                 <FontAwesome
                   name="heart"
                   size={12}
-                  color={viewMode === 'saved' ? '#FFFFFF' : WF_COLORS.rose}
+                  color={viewMode === 'saved' ? '#FFFDF8' : WF_COLORS.rose}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.viewToggleText, viewMode === 'saved' && styles.viewToggleTextActive]}>
@@ -538,7 +538,7 @@ export default function ExploreScreen() {
                     <FontAwesome
                       name={cat.icon as any}
                       size={12}
-                      color={isSelected ? '#FFFFFF' : WF_COLORS.slate500}
+                      color={isSelected ? '#FFFDF8' : WF_COLORS.slate500}
                       style={{ marginRight: 6 }}
                     />
                     <Text style={[styles.categoryBtnText, isSelected && styles.categoryBtnTextActive]}>
@@ -564,7 +564,7 @@ export default function ExploreScreen() {
                       <FontAwesome
                         name="map-marker"
                         size={11}
-                        color={isSelected ? '#FFFFFF' : WF_COLORS.primary}
+                        color={isSelected ? '#FFFDF8' : WF_COLORS.primary}
                         style={{ marginRight: 5 }}
                       />
                       <Text style={[styles.cityBtnText, isSelected && styles.cityBtnTextActive]}>
@@ -612,7 +612,7 @@ export default function ExploreScreen() {
                     <FontAwesome
                       name="money"
                       size={11}
-                      color={isSelected ? '#FFFFFF' : WF_COLORS.primary}
+                      color={isSelected ? '#FFFDF8' : WF_COLORS.primary}
                       style={{ marginRight: 5 }}
                     />
                     <Text style={[styles.budgetBtnText, isSelected && styles.budgetBtnTextActive]}>
@@ -923,7 +923,7 @@ export default function ExploreScreen() {
                     disabled={submittingPlan}
                     onPress={handleConfirmAddPlaceToItinerary}>
                     {submittingPlan ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color="#FFFDF8" />
                     ) : (
                       <Text style={styles.planConfirmBtnText}>
                         Xác nhận thêm (Ngày {selectedDayNumber})
@@ -1066,7 +1066,7 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate700,
   },
   categoryBtnTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
   },
   cityBtn: {
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     color: WF_COLORS.primary,
   },
   cityBtnTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
   },
   viewToggleRow: {
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
   },
   viewToggleBtnActive: {
     backgroundColor: WF_COLORS.primary,
@@ -1118,7 +1118,7 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate600,
   },
   viewToggleTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
   },
   budgetBtn: {
@@ -1142,7 +1142,7 @@ const styles = StyleSheet.create({
     color: WF_COLORS.primary,
   },
   budgetBtnTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
   },
   featuredBlock: {
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   retryBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '700',
     fontSize: 12,
   },
@@ -1272,7 +1272,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   createTripBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1323,9 +1323,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderRadius: 14,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
     marginBottom: 14,
   },
   planTripBannerLabel: {
@@ -1349,9 +1349,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   changeTripBtnText: {
     fontSize: 11,
@@ -1390,7 +1390,7 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate900,
   },
   planDayChipTitleActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   planDayChipDate: {
     fontSize: 9,
@@ -1398,7 +1398,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   planDayChipDateActive: {
-    color: '#E0F2FE',
+    color: '#F6E6DD',
   },
   planDayAddBtn: {
     paddingVertical: 8,
@@ -1407,7 +1407,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#7DD3FC',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1432,7 +1432,7 @@ const styles = StyleSheet.create({
   },
   timeSlotBtnActive: {
     borderColor: WF_COLORS.primary,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
   },
   timeSlotBtnLabel: {
     fontSize: 12,
@@ -1472,7 +1472,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: WF_COLORS.slate400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingHorizontal: 10,
     fontSize: 13,
     fontWeight: '700',
@@ -1501,14 +1501,14 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate700,
   },
   categoryChipTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   costInput: {
     height: 40,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: WF_COLORS.slate400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingHorizontal: 12,
     fontSize: 12,
     fontWeight: '600',
@@ -1520,7 +1520,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: WF_COLORS.slate400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 12,
@@ -1557,6 +1557,6 @@ const styles = StyleSheet.create({
   planConfirmBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
 });

@@ -37,7 +37,7 @@ import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
-import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, userApi } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
@@ -714,7 +714,7 @@ export default function CommunityScreen() {
       return (
         <View style={styles.centerBox}>
           <View style={styles.alertCard}>
-            <FontAwesome name="globe" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
+            <FontAwesome name="globe" size={32} color={WF_PAPER.clay} style={{ marginBottom: 10 }} />
             <Text style={styles.alertTitle}>Không thể kết nối</Text>
             <Text style={styles.alertDesc}>
               Kiểm tra kết nối mạng rồi thử lại nhé. Bảng tin cộng đồng sẽ hiện ngay khi có dữ liệu.
@@ -754,7 +754,7 @@ export default function CommunityScreen() {
 
     return (
       <View style={styles.centerBox}>
-        <FontAwesome name={msg.icon} size={42} color={WF_COLORS.slate400} style={{ opacity: 0.55 }} />
+        <FontAwesome name={msg.icon} size={42} color={WF_PAPER.inkMuted} style={{ opacity: 0.55 }} />
         <Text style={styles.emptyTitle}>{msg.title}</Text>
         <Text style={styles.emptySub}>{msg.sub}</Text>
         {hasFilter ? (
@@ -780,11 +780,17 @@ export default function CommunityScreen() {
         renderItem={renderPost}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_PAPER.clay]} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         ListHeaderComponent={
           <View style={styles.headerWrapper}>
+            {/* 24h Community Moments Header */}
+            <View style={styles.storyHeader}>
+              <View style={styles.storyHeaderDot} />
+              <Text style={styles.storyHeaderTitle}>Khoảnh Khắc 24h • Trải Nghiệm Thực Tế</Text>
+            </View>
+
             {/* Stories Horizontal Carousel */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
               <TouchableOpacity
@@ -794,9 +800,9 @@ export default function CommunityScreen() {
                   resetFilters();
                   setScope('all');
                 }}>
-                <View style={[styles.storyRing, !search && styles.storyRingSelected]}>
+                <View style={[styles.storyRing, styles.storyRingAll]}>
                   <View style={styles.storyAllInner}>
-                    <FontAwesome name="compass" size={20} color={!search ? '#0284C7' : '#64748B'} />
+                    <FontAwesome name="compass" size={20} color={WF_PAPER.clay} />
                   </View>
                 </View>
                 <Text style={[styles.storyLabel, !search && styles.storyLabelActive]} numberOfLines={1}>
@@ -820,7 +826,7 @@ export default function CommunityScreen() {
                     <View style={[styles.storyRing, isSelected && styles.storyRingSelected]}>
                       <Image source={{ uri: story.image }} style={styles.storyImage} />
                       <View style={styles.storyBadge}>
-                        <Text style={{ fontSize: 9 }}>{story.badge}</Text>
+                        <Text style={{ fontSize: 10 }}>{story.badge}</Text>
                       </View>
                     </View>
                     <Text style={[styles.storyLabel, isSelected && styles.storyLabelActive]} numberOfLines={1}>
@@ -836,16 +842,15 @@ export default function CommunityScreen() {
               <Image source={{ uri: session?.avatarUrl || session?.avatar || FALLBACK_AVATAR }} style={styles.promptAvatar} />
               <TouchableOpacity style={styles.promptInputFake} onPress={openCreate} activeOpacity={0.85}>
                 <Text style={styles.promptPlaceholder} numberOfLines={1}>
-                  {session ? 'Chia sẻ trải nghiệm hoặc kinh nghiệm chuyến đi...' : 'Đăng nhập để chia sẻ chuyến đi...'}
+                  {session ? 'Chia sẻ review, ảnh đẹp hoặc đính kèm tour...' : 'Đăng nhập để chia sẻ chuyến đi...'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.promptPostBtn} onPress={openCreate} activeOpacity={0.85}>
-                <FontAwesome name="pencil" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
-                <Text style={styles.promptPostBtnText}>Đăng</Text>
+                <Text style={styles.promptPostBtnText}>Đăng bài</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Scope Tabs (Khám phá • Đang theo dõi • Đã lưu) */}
+            {/* Tier 1: Underline Feed Scope Tabs (Khớp 100% Web) */}
             <View style={styles.scopeUnderlineRow}>
               {FEED_SCOPES.map((item) => {
                 const active = scope === item.key;
@@ -865,7 +870,7 @@ export default function CommunityScreen() {
                     <FontAwesome
                       name={item.icon as any}
                       size={13}
-                      color={active ? '#0284C7' : '#64748B'}
+                      color={active ? WF_PAPER.clay : WF_PAPER.inkMuted}
                       style={{ marginRight: 6 }}
                     />
                     <Text style={[styles.scopeUnderlineText, active && styles.scopeUnderlineTextActive]}>
@@ -879,18 +884,18 @@ export default function CommunityScreen() {
             {/* Search + Sort Bar */}
             <View style={styles.searchRow}>
               <View style={styles.searchBox}>
-                <FontAwesome name="search" size={13} color="#94A3B8" />
+                <FontAwesome name="search" size={13} color={WF_PAPER.inkMuted} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Tìm bài viết, địa điểm, tác giả..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={WF_PAPER.inkMuted}
                   value={search}
                   onChangeText={setSearch}
                   returnKeyType="search"
                 />
                 {search ? (
                   <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <FontAwesome name="times-circle" size={14} color="#94A3B8" />
+                    <FontAwesome name="times-circle" size={14} color={WF_PAPER.inkMuted} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -899,11 +904,11 @@ export default function CommunityScreen() {
                 activeOpacity={0.85}
                 accessibilityLabel="Sắp xếp bảng tin"
                 onPress={() => setSortSheetVisible(true)}>
-                <FontAwesome name="sliders" size={14} color="#475569" />
+                <FontAwesome name="sliders" size={14} color={WF_PAPER.inkPrimary} />
               </TouchableOpacity>
             </View>
 
-            {/* Topic Chips */}
+            {/* Tier 2: Topic Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
               {TOPIC_FILTERS.map((item) => {
                 const active = topic === item.key;
@@ -916,10 +921,26 @@ export default function CommunityScreen() {
                     <FontAwesome
                       name={item.icon as any}
                       size={12}
-                      color={active ? '#FFFFFF' : '#475569'}
+                      color={active ? WF_PAPER.card : WF_PAPER.inkSecondary}
                       style={{ marginRight: 5 }}
                     />
                     <Text style={[styles.topicChipText, active && styles.topicChipTextActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Trending Hashtag chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagRow}>
+              {TRAVEL_HASHTAGS.map((tag) => {
+                const active = hashtag === tag.key;
+                return (
+                  <TouchableOpacity
+                    key={tag.key}
+                    style={[styles.hashtagChip, active && styles.hashtagChipActive]}
+                    activeOpacity={0.85}
+                    onPress={() => setHashtag(tag.key)}>
+                    <Text style={[styles.hashtagText, active && styles.hashtagTextActive]}>{tag.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -940,7 +961,7 @@ export default function CommunityScreen() {
         ListFooterComponent={
           <View style={styles.listFooter}>
             {loadingMore ? (
-              <ActivityIndicator size="small" color={WF_COLORS.primary} />
+              <ActivityIndicator size="small" color={WF_PAPER.clay} />
             ) : !clientFiltering && scope === 'all' && hasMorePosts ? (
               <Text style={styles.listFooterText}>
                 Cuộn để tải thêm · {displayPosts.length}/{postsTotal} bài viết
@@ -1112,7 +1133,7 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: WF_PAPER.bg,
   },
   list: {
     paddingBottom: 28,
@@ -1124,44 +1145,66 @@ const styles = StyleSheet.create({
   },
   listFooterText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: WF_PAPER.inkMuted,
     fontWeight: '600',
   },
   headerWrapper: {
     paddingTop: 12,
-    paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 10,
+    backgroundColor: WF_PAPER.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: WF_PAPER.cardBorder,
     marginBottom: 10,
+  },
+  storyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  storyHeaderDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: WF_PAPER.clay,
+  },
+  storyHeaderTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
+    letterSpacing: -0.2,
   },
   storiesScroll: {
     gap: 12,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   storyItem: {
     alignItems: 'center',
-    width: 60,
+    width: 64,
   },
   storyRing: {
     width: 52,
     height: 52,
     borderRadius: 26,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.cardBorder,
     padding: 1.5,
     position: 'relative',
     marginBottom: 4,
   },
   storyRingSelected: {
-    borderColor: '#0284C7',
-    borderWidth: 2,
+    borderColor: WF_PAPER.clay,
+    borderWidth: 2.5,
+  },
+  storyRingAll: {
+    borderColor: WF_PAPER.clayLight,
   },
   storyAllInner: {
     flex: 1,
     borderRadius: 24,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1174,30 +1217,30 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 5,
     paddingHorizontal: 2,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.cardBorder,
   },
   storyLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: WF_PAPER.inkSecondary,
     textAlign: 'center',
   },
   storyLabelActive: {
-    color: '#0284C7',
-    fontWeight: '700',
+    color: WF_PAPER.clay,
+    fontWeight: '800',
   },
   createPromptBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 4,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.cardBorder,
     marginHorizontal: 14,
     marginBottom: 10,
   },
@@ -1206,39 +1249,39 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     marginRight: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#EAE5D9',
   },
   promptInputFake: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    backgroundColor: WF_PAPER.bg,
+    borderRadius: 5,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.cardBorder,
   },
   promptPlaceholder: {
-    fontSize: 12.5,
-    color: '#94A3B8',
+    fontSize: 12,
+    color: WF_PAPER.inkMuted,
   },
   promptPostBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 14,
+    backgroundColor: WF_PAPER.clay,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 5,
   },
   promptPostBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '700',
+    color: '#FFFDF8',
+    fontSize: 12,
+    fontWeight: '800',
   },
   scopeUnderlineRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: WF_PAPER.cardBorder,
     marginHorizontal: 14,
     marginBottom: 10,
   },
@@ -1253,16 +1296,16 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   scopeUnderlineTabActive: {
-    borderBottomColor: '#0284C7',
+    borderBottomColor: WF_PAPER.clay,
   },
   scopeUnderlineText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_PAPER.inkMuted,
   },
   scopeUnderlineTextActive: {
-    color: '#0284C7',
-    fontWeight: '700',
+    color: WF_PAPER.clay,
+    fontWeight: '800',
   },
   searchRow: {
     flexDirection: 'row',
@@ -1276,80 +1319,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 38,
-    borderRadius: 10,
+    height: 40,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
     paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#0F172A',
+    color: WF_PAPER.inkPrimary,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
   sortBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipRow: {
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 14,
-    paddingBottom: 6,
+    paddingBottom: 8,
   },
   topicChip: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingHorizontal: 11,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
   },
   topicChipActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: WF_PAPER.clay,
+    borderColor: WF_PAPER.clay,
   },
   topicChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: WF_PAPER.inkSecondary,
   },
   topicChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#FFFDF8',
+    fontWeight: '800',
+  },
+  hashtagRow: {
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingBottom: 4,
+  },
+  hashtagChip: {
+    height: 27,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    justifyContent: 'center',
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.pillBorder,
+  },
+  hashtagChipActive: {
+    backgroundColor: WF_PAPER.clayLight,
+    borderColor: WF_PAPER.clay,
+  },
+  hashtagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: WF_PAPER.inkSecondary,
+  },
+  hashtagTextActive: {
+    color: WF_PAPER.clay,
+    fontWeight: '800',
   },
   filterSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 14,
-    marginTop: 6,
+    marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#F0F9FF',
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.pillBg,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: WF_PAPER.pillBorder,
   },
   filterSummaryText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#0369A1',
+    color: WF_PAPER.inkPrimary,
   },
   filterClear: {
     fontSize: 11.5,
-    fontWeight: '700',
-    color: '#0284C7',
+    fontWeight: '800',
+    color: WF_PAPER.clay,
     textDecorationLine: 'underline',
   },
   centerBox: {
@@ -1357,48 +1427,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   alertCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_PAPER.card,
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: WF_PAPER.cardBorder,
     alignItems: 'center',
     width: '100%',
   },
   alertTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: WF_PAPER.inkPrimary,
   },
   alertDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: WF_PAPER.inkSecondary,
     marginVertical: 6,
     textAlign: 'center',
     lineHeight: 18,
   },
   retryBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: WF_PAPER.clay,
     paddingHorizontal: 16,
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 5,
     marginTop: 6,
   },
   retryBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#FFFDF8',
+    fontWeight: '800',
     fontSize: 12,
   },
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
     marginTop: 12,
+    fontFamily: SERIF_FONT,
     textAlign: 'center',
   },
   emptySub: {
     fontSize: 12,
-    color: '#64748B',
+    color: WF_PAPER.inkSecondary,
     marginTop: 5,
     textAlign: 'center',
     lineHeight: 18,

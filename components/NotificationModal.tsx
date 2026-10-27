@@ -191,11 +191,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       case 'COMMENT_REPLY':
         return {
           iconName: 'comment' as const,
-          iconColor: '#0284C7',
-          bgColor: '#E0F2FE',
-          borderColor: '#BAE6FD',
+          iconColor: '#B0522F',
+          bgColor: '#F6E6DD',
+          borderColor: '#E8D5C9',
           badgeText: 'Bình luận',
-          badgeColor: '#0284C7',
+          badgeColor: '#B0522F',
         };
       case 'CHAT_MESSAGE':
         return {
@@ -204,7 +204,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
           bgColor: '#DBEAFE',
           borderColor: '#BFDBFE',
           badgeText: 'Tin nhắn',
-          badgeColor: '#1D4ED8',
+          badgeColor: '#8F3F24',
         };
       case 'FOLLOW':
         return {
@@ -240,11 +240,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       default:
         return {
           iconName: 'bell' as const,
-          iconColor: '#0284C7',
-          bgColor: '#E0F2FE',
-          borderColor: '#BAE6FD',
+          iconColor: '#B0522F',
+          bgColor: '#F6E6DD',
+          borderColor: '#E8D5C9',
           badgeText: 'Hệ thống',
-          badgeColor: '#0369A1',
+          badgeColor: '#8F3F24',
         };
     }
   };
@@ -311,7 +311,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         <View style={styles.headerBar}>
           <View style={styles.headerTitleRow}>
             <View style={styles.headerIconBadge}>
-              <FontAwesome name="bell" size={17} color="#0284C7" />
+              <FontAwesome name="bell" size={17} color="#B0522F" />
               {unreadTotal > 0 && <View style={styles.headerDotBadge} />}
             </View>
             <View>
@@ -329,7 +329,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 activeOpacity={0.7}
                 style={styles.markAllBtn}
                 onPress={handleMarkAllAsRead}>
-                <FontAwesome name="check-circle" size={14} color="#0284C7" style={{ marginRight: 5 }} />
+                <FontAwesome name="check-circle" size={14} color="#B0522F" style={{ marginRight: 5 }} />
                 <Text style={styles.markAllBtnText}>Đã đọc hết</Text>
               </TouchableOpacity>
             )}
@@ -339,7 +339,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               activeOpacity={0.7}
               style={styles.closeBtn}
               onPress={onClose}>
-              <FontAwesome name="times" size={16} color="#64748B" />
+              <FontAwesome name="times" size={16} color="#5A5146" />
             </TouchableOpacity>
           </View>
         </View>
@@ -394,17 +394,17 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
         {/* Search Input Bar */}
         <View style={styles.searchBar}>
-          <FontAwesome name="search" size={14} color="#94A3B8" style={{ marginRight: 8 }} />
+          <FontAwesome name="search" size={14} color="#8A7F70" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Tìm kiếm nội dung thông báo..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor="#8A7F70"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <FontAwesome name="times-circle" size={14} color="#94A3B8" />
+              <FontAwesome name="times-circle" size={14} color="#8A7F70" />
             </TouchableOpacity>
           )}
         </View>
@@ -412,13 +412,13 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         {/* Notifications List */}
         {loading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#0284C7" />
+            <ActivityIndicator size="large" color="#B0522F" />
             <Text style={styles.loadingText}>Đang tải thông báo...</Text>
           </View>
         ) : filteredNotifications.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <FontAwesome name="bell-slash-o" size={42} color="#94A3B8" />
+              <FontAwesome name="bell-slash-o" size={42} color="#8A7F70" />
             </View>
             <Text style={styles.emptyTitle}>
               {searchQuery ? 'Không tìm thấy thông báo phù hợp' : 'Không có thông báo nào'}
@@ -432,7 +432,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               activeOpacity={0.8}
               style={styles.emptyRefreshBtn}
               onPress={() => loadNotifications()}>
-              <FontAwesome name="refresh" size={13} color="#0284C7" style={{ marginRight: 6 }} />
+              <FontAwesome name="refresh" size={13} color="#B0522F" style={{ marginRight: 6 }} />
               <Text style={styles.emptyRefreshBtnText}>Làm mới</Text>
             </TouchableOpacity>
           </View>
@@ -448,8 +448,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={() => loadNotifications(true)}
-                colors={['#0284C7']}
-                tintColor="#0284C7"
+                colors={['#B0522F']}
+                tintColor="#B0522F"
               />
             }
             renderItem={({ item }) => {
@@ -470,8 +470,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         <FontAwesome name="magic" size={18} color="#D97706" />
                       </View>
                     ) : (
-                      <View style={[styles.actorAvatarPlaceholder, { backgroundColor: '#F1F5F9' }]}>
-                        <FontAwesome name="user-circle" size={24} color="#64748B" />
+                      <View style={[styles.actorAvatarPlaceholder, { backgroundColor: '#F3EDE2' }]}>
+                        <FontAwesome name="user-circle" size={24} color="#5A5146" />
                       </View>
                     )}
 
@@ -509,7 +509,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                       style={styles.cardDeleteBtn}
                       onPress={() => handleDeleteNotification(item.id)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <FontAwesome name="trash-o" size={14} color="#CBD5E1" />
+                      <FontAwesome name="trash-o" size={14} color="#D9CDBE" />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -529,7 +529,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
   },
   headerBar: {
     flexDirection: 'row',
@@ -537,9 +537,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E4DACB',
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -549,9 +549,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -566,16 +566,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFFDF8',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 1,
     fontWeight: '500',
   },
@@ -587,23 +587,23 @@ const styles = StyleSheet.create({
   markAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   markAllBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#B0522F',
   },
   closeBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -611,33 +611,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F3EDE2',
     gap: 6,
   },
   filterTab: {
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
   },
   filterTabActive: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
   },
   filterTabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#5A5146',
   },
   filterTabTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '700',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 6,
@@ -645,12 +645,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#1E1A15',
     paddingVertical: 0,
   },
   listContent: {
@@ -660,21 +660,21 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 14,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: '#E4DACB',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
     elevation: 1,
   },
   notificationCardUnread: {
-    backgroundColor: '#F0F9FF',
-    borderColor: '#BAE6FD',
+    backgroundColor: '#F6E6DD',
+    borderColor: '#E8D5C9',
   },
   avatarWrapper: {
     position: 'relative',
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   actorAvatarPlaceholder: {
     width: 42,
@@ -726,21 +726,21 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#8A7F70',
   },
   actorNameText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginBottom: 2,
   },
   messageText: {
     fontSize: 13,
-    color: '#475569',
+    color: '#5A5146',
     lineHeight: 18,
   },
   messageTextUnread: {
-    color: '#0F172A',
+    color: '#1E1A15',
     fontWeight: '600',
   },
   rightActionsColumn: {
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 4.5,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#B0522F',
     marginTop: 2,
   },
   cardDeleteBtn: {
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 13,
-    color: '#64748B',
+    color: '#5A5146',
   },
   emptyContainer: {
     flex: 1,
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -790,13 +790,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#3B332A',
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     lineHeight: 19,
     marginBottom: 20,
@@ -807,13 +807,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   emptyRefreshBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#B0522F',
   },
 });

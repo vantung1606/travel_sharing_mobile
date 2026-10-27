@@ -3,7 +3,7 @@ import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 
 interface PostMediaProps {
   images?: string[];
@@ -27,10 +27,10 @@ export function PostMedia({ images = [], videoUrl, onPressImage, onPressVideo }:
       <TouchableOpacity activeOpacity={0.9} style={styles.videoCard} onPress={onPressVideo}>
         <View style={styles.videoScrim} />
         <View style={styles.playCircle}>
-          <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+          <FontAwesome name="play" size={20} color="#FFFDF8" style={{ marginLeft: 3 }} />
         </View>
         <View style={styles.videoBadge}>
-          <FontAwesome name="video-camera" size={11} color="#FFFFFF" />
+          <FontAwesome name="video-camera" size={11} color="#FFFDF8" />
           <Text style={styles.videoBadgeText}>Thước phim</Text>
         </View>
       </TouchableOpacity>
@@ -46,7 +46,7 @@ export function PostMedia({ images = [], videoUrl, onPressImage, onPressVideo }:
         {videoUrl ? (
           <View style={styles.singlePlayWrap} pointerEvents="none">
             <View style={styles.playCircle}>
-              <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+              <FontAwesome name="play" size={20} color="#FFFDF8" style={{ marginLeft: 3 }} />
             </View>
           </View>
         ) : null}
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   single: {
     width: '100%',
     height: 244,
-    backgroundColor: WF_COLORS.slate100,
+    backgroundColor: WF_PAPER.pillBg,
   },
   singlePlayWrap: {
     position: 'absolute',
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   rowImage: {
     width: '100%',
     height: 190,
-    backgroundColor: WF_COLORS.slate100,
+    backgroundColor: WF_PAPER.pillBg,
   },
   mosaic: {
     flexDirection: 'row',
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   mosaicImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: WF_COLORS.slate100,
+    backgroundColor: WF_PAPER.pillBg,
   },
   moreOverlay: {
     position: 'absolute',
@@ -168,14 +168,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   moreText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
     fontSize: 14,
   },
   videoCard: {
     height: 210,
     borderRadius: RADIUS,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E1A15',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -208,10 +208,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.7)',
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   videoBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
   },

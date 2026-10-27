@@ -26,7 +26,7 @@ import {
   getPostImages,
   getTierLabel,
 } from '@/components/community/communityUtils';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
@@ -287,14 +287,14 @@ export function PostDetailModal({
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.headerBtn} onPress={onClose} accessibilityLabel="Đóng">
-              <FontAwesome name="angle-left" size={20} color={WF_COLORS.slate900} />
+              <FontAwesome name="angle-left" size={20} color={WF_PAPER.inkPrimary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Bài viết cộng đồng</Text>
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setMenuVisible(true)}
               accessibilityLabel="Tùy chọn">
-              <FontAwesome name="ellipsis-h" size={18} color={WF_COLORS.slate700} />
+              <FontAwesome name="ellipsis-h" size={18} color={WF_PAPER.inkSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -320,7 +320,7 @@ export function PostDetailModal({
                     {post.locationTag || post.locationName ? (
                       <>
                         <Text style={styles.metaDot}>·</Text>
-                        <FontAwesome name="map-marker" size={10} color={WF_COLORS.slate400} />
+                        <FontAwesome name="map-marker" size={10} color={WF_PAPER.inkMuted} />
                         <Text style={styles.metaText} numberOfLines={1}>
                           {post.locationTag || post.locationName}
                         </Text>
@@ -330,7 +330,7 @@ export function PostDetailModal({
                       <FontAwesome
                         name={isPrivate ? 'lock' : 'globe'}
                         size={9}
-                        color={isPrivate ? '#B45309' : WF_COLORS.primary}
+                        color={isPrivate ? '#B45309' : WF_PAPER.clay}
                       />
                       <Text style={[styles.visibilityText, isPrivate && { color: '#B45309' }]}>
                         {isPrivate ? 'Chỉ mình tôi' : 'Công khai'}
@@ -413,21 +413,21 @@ export function PostDetailModal({
                   <FontAwesome
                     name={liked ? 'heart' : 'heart-o'}
                     size={18}
-                    color={liked ? '#EF4444' : WF_COLORS.slate500}
+                    color={liked ? '#EF4444' : WF_PAPER.inkMuted}
                   />
                   <Text style={[styles.actionText, liked && { color: '#EF4444' }]}>
                     {likeCount} Thích
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.action} onPress={onShare} activeOpacity={0.7}>
-                  <FontAwesome name="share-alt" size={17} color={WF_COLORS.slate500} />
+                  <FontAwesome name="share-alt" size={17} color={WF_PAPER.inkMuted} />
                   <Text style={styles.actionText}>Chia sẻ</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.action} onPress={onToggleBookmark} activeOpacity={0.7}>
                   <FontAwesome
                     name={bookmarked ? 'bookmark' : 'bookmark-o'}
                     size={18}
-                    color={bookmarked ? WF_COLORS.primary : WF_COLORS.slate500}
+                    color={bookmarked ? WF_PAPER.clay : WF_PAPER.inkMuted}
                   />
                   <Text style={styles.actionText}>{bookmarked ? 'Đã lưu' : 'Lưu'}</Text>
                 </TouchableOpacity>
@@ -435,18 +435,18 @@ export function PostDetailModal({
 
               {/* Comments */}
               <View style={styles.commentsHeader}>
-                <FontAwesome name="comments-o" size={15} color={WF_COLORS.slate700} />
+                <FontAwesome name="comments-o" size={15} color={WF_PAPER.inkSecondary} />
                 <Text style={styles.commentsTitle}>Bình luận ({commentCount})</Text>
               </View>
 
               {loadingComments ? (
                 <View style={styles.commentsLoading}>
-                  <ActivityIndicator color={WF_COLORS.primary} />
+                  <ActivityIndicator color={WF_PAPER.clay} />
                   <Text style={styles.commentsLoadingText}>Đang tải bình luận...</Text>
                 </View>
               ) : comments.length === 0 ? (
                 <View style={styles.commentsEmpty}>
-                  <FontAwesome name="comments-o" size={32} color={WF_COLORS.slate400} />
+                  <FontAwesome name="comments-o" size={32} color={WF_PAPER.inkMuted} />
                   <Text style={styles.commentsEmptyTitle}>Chưa có bình luận nào</Text>
                   <Text style={styles.commentsEmptySub}>Hãy là người đầu tiên chia sẻ cảm nghĩ! 🌟</Text>
                 </View>
@@ -470,7 +470,7 @@ export function PostDetailModal({
                     Đang trả lời {replyTarget.name}
                   </Text>
                   <TouchableOpacity onPress={() => setReplyTarget(null)}>
-                    <FontAwesome name="times" size={13} color={WF_COLORS.slate500} />
+                    <FontAwesome name="times" size={13} color={WF_PAPER.inkMuted} />
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -478,7 +478,7 @@ export function PostDetailModal({
                 <TextInput
                   style={styles.input}
                   placeholder={session ? 'Viết bình luận...' : 'Đăng nhập để bình luận'}
-                  placeholderTextColor={WF_COLORS.slate400}
+                  placeholderTextColor={WF_PAPER.inkMuted}
                   value={input}
                   onChangeText={setInput}
                   multiline
@@ -489,9 +489,9 @@ export function PostDetailModal({
                   onPress={handleSend}
                   disabled={!input.trim() || submitting}>
                   {submitting ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color="WF_PAPER.card" />
                   ) : (
-                    <FontAwesome name="paper-plane" size={14} color="#FFFFFF" />
+                    <FontAwesome name="paper-plane" size={14} color="WF_PAPER.card" />
                   )}
                 </TouchableOpacity>
               </View>
@@ -549,9 +549,9 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     marginTop: 42,
-    backgroundColor: WF_COLORS.slate50,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: WF_PAPER.bg,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
     overflow: 'hidden',
   },
   header: {
@@ -559,14 +559,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingBottom: 10,
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     borderBottomWidth: 1,
-    borderBottomColor: WF_COLORS.slate200,
+    borderBottomColor: WF_PAPER.cardBorder,
   },
   headerBtn: {
     width: 40,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     fontFamily: SERIF_FONT,
   },
   scrollContent: {
@@ -593,8 +593,8 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 23,
     borderWidth: 2,
-    borderColor: WF_COLORS.white,
-    backgroundColor: WF_COLORS.slate200,
+    borderColor: WF_PAPER.card,
+    backgroundColor: WF_PAPER.cardBorder,
   },
   nameRow: {
     flexDirection: 'row',
@@ -604,15 +604,15 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     fontFamily: SERIF_FONT,
     flexShrink: 1,
   },
   tierPill: {
-    backgroundColor: WF_COLORS.amberLight,
+    backgroundColor: WF_PAPER.pillBg,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   tierPillText: {
     fontSize: 9,
@@ -628,67 +628,67 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
     maxWidth: 160,
   },
   metaDot: {
     fontSize: 11,
-    color: WF_COLORS.slate400,
+    color: WF_PAPER.inkMuted,
   },
   visibilityPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: WF_COLORS.primaryLight,
+    backgroundColor: WF_PAPER.clayLight,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
     marginLeft: 2,
   },
   visibilityPillPrivate: {
-    backgroundColor: WF_COLORS.amberLight,
+    backgroundColor: WF_PAPER.pillBg,
   },
   visibilityText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
   },
   followBtn: {
     borderWidth: 1,
-    borderColor: WF_COLORS.primary,
-    borderRadius: 999,
+    borderColor: WF_PAPER.clay,
+    borderRadius: 5,
     paddingHorizontal: 11,
     paddingVertical: 5,
   },
   followBtnActive: {
-    backgroundColor: WF_COLORS.primaryLight,
-    borderColor: '#BAE6FD',
+    backgroundColor: WF_PAPER.clayLight,
+    borderColor: 'WF_PAPER.clayLight',
   },
   followText: {
     fontSize: 11,
     fontWeight: '800',
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
   },
   followTextActive: {
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.clayDark,
   },
   categoryPill: {
     alignSelf: 'flex-start',
-    backgroundColor: WF_COLORS.primaryLight,
+    backgroundColor: WF_PAPER.clayLight,
     paddingHorizontal: 9,
     paddingVertical: 3,
-    borderRadius: 7,
+    borderRadius: 4,
     marginBottom: 8,
   },
   categoryPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     lineHeight: 25,
     fontFamily: SERIF_FONT,
     marginBottom: 6,
@@ -696,15 +696,15 @@ const styles = StyleSheet.create({
   content: {
     fontSize: 14,
     lineHeight: 22,
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
     marginBottom: 12,
   },
   sharedBox: {
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.white,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
     marginBottom: 12,
   },
   sharedHeader: {
@@ -717,23 +717,23 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: WF_COLORS.slate200,
+    backgroundColor: WF_PAPER.cardBorder,
   },
   sharedAuthor: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
   },
   sharedTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     marginBottom: 3,
   },
   sharedContent: {
     fontSize: 12.5,
     lineHeight: 18,
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   mediaWrap: {
     marginBottom: 12,
@@ -745,9 +745,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.white,
-    borderRadius: 14,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 4,
     marginBottom: 14,
   },
   action: {
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   commentsHeader: {
     flexDirection: 'row',
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
   commentsTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     fontFamily: SERIF_FONT,
   },
   commentsLoading: {
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   commentsLoadingText: {
     marginTop: 8,
     fontSize: 12,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
   },
   commentsEmpty: {
     alignItems: 'center',
@@ -789,12 +789,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 13.5,
     fontWeight: '700',
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
   },
   commentsEmptySub: {
     marginTop: 3,
     fontSize: 11.5,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
   },
   commentItem: {
     flexDirection: 'row',
@@ -803,17 +803,17 @@ const styles = StyleSheet.create({
   },
   replyItem: {
     marginLeft: 34,
-    backgroundColor: WF_COLORS.white,
-    borderRadius: 12,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 5,
     padding: 9,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate100,
+    borderColor: WF_PAPER.pillBg,
   },
   commentAvatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: WF_COLORS.slate200,
+    backgroundColor: WF_PAPER.cardBorder,
   },
   commentHead: {
     flexDirection: 'row',
@@ -825,22 +825,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12.5,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
   },
   replyTo: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
   },
   commentTime: {
     fontSize: 10,
-    color: WF_COLORS.slate400,
+    color: WF_PAPER.inkMuted,
   },
   commentText: {
     marginTop: 2,
     fontSize: 13,
     lineHeight: 19,
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
   },
   commentActions: {
     flexDirection: 'row',
@@ -850,12 +850,12 @@ const styles = StyleSheet.create({
   commentActionText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
   },
   inputBar: {
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     borderTopWidth: 1,
-    borderTopColor: WF_COLORS.slate200,
+    borderTopColor: WF_PAPER.cardBorder,
     paddingHorizontal: 12,
     paddingTop: 9,
   },
@@ -863,8 +863,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: WF_COLORS.primarySoft,
-    borderRadius: 8,
+    backgroundColor: WF_PAPER.bg,
+    borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginBottom: 7,
@@ -873,7 +873,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11.5,
     fontWeight: '700',
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.clayDark,
   },
   inputRow: {
     flexDirection: 'row',
@@ -884,21 +884,21 @@ const styles = StyleSheet.create({
     flex: 1,
     maxHeight: 96,
     minHeight: 42,
-    borderRadius: 21,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 10,
     fontSize: 13.5,
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
   },
   sendBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: WF_COLORS.primary,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.clay,
     alignItems: 'center',
     justifyContent: 'center',
   },

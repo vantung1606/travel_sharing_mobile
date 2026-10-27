@@ -582,7 +582,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={styles.textInput}
                   placeholder="Ví dụ: Nguyễn Văn Du Lịch"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                   value={authFullName}
                   onChangeText={setAuthFullName}
                 />
@@ -594,7 +594,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="email@example.com"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#8A7F70"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={authEmail}
@@ -607,7 +607,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="••••••••"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#8A7F70"
                 secureTextEntry
                 value={authPassword}
                 onChangeText={setAuthPassword}
@@ -620,7 +620,7 @@ export default function ProfileScreen() {
               style={[styles.primaryBtn, submittingAuth && styles.btnDisabled]}
             >
               {submittingAuth ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color="#FFFDF8" size="small" />
               ) : (
                 <Text style={styles.primaryBtnText}>
                   {authMode === 'login' ? 'Đăng Nhập Ngay' : 'Tạo Tài Khoản Mới'}
@@ -686,9 +686,9 @@ export default function ProfileScreen() {
               activeOpacity={0.8}
             >
               {isUploadingCover ? (
-                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 4 }} />
+                <ActivityIndicator size="small" color="#FFFDF8" style={{ marginRight: 4 }} />
               ) : (
-                <FontAwesome name="camera" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <FontAwesome name="camera" size={12} color="#FFFDF8" style={{ marginRight: 4 }} />
               )}
               <Text style={styles.coverEditBtnText}>
                 {isUploadingCover ? 'Đang tải...' : 'Đổi ảnh bìa'}
@@ -713,11 +713,11 @@ export default function ProfileScreen() {
                 />
                 {isUploadingAvatar ? (
                   <View style={styles.avatarLoadingOverlay}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color="#FFFDF8" />
                   </View>
                 ) : (
                   <View style={styles.avatarCameraBadge}>
-                    <FontAwesome name="camera" size={10} color="#FFFFFF" />
+                    <FontAwesome name="camera" size={10} color="#FFFDF8" />
                   </View>
                 )}
                 <View style={[styles.tierCornerBadge, { backgroundColor: currentTier.cornerBgColor }]}>
@@ -732,7 +732,7 @@ export default function ProfileScreen() {
                   style={styles.editProfileBtn}
                   activeOpacity={0.8}
                 >
-                  <FontAwesome name="pencil" size={12} color="#334155" style={{ marginRight: 6 }} />
+                  <FontAwesome name="pencil" size={12} color="#3B332A" style={{ marginRight: 6 }} />
                   <Text style={styles.editProfileBtnText}>Chỉnh Sửa</Text>
                 </TouchableOpacity>
 
@@ -834,7 +834,7 @@ export default function ProfileScreen() {
                   <Text style={styles.bentoLabel}>Lịch Trình Đã Tạo</Text>
                   <View style={styles.bentoValueRow}>
                     <Text style={[styles.bentoValue, { color: WF_COLORS.primary }]}>{itinsCount}</Text>
-                    <FontAwesome name="map" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
+                    <FontAwesome name="map" size={12} color="#B0522F" style={{ marginLeft: 4 }} />
                   </View>
                   <Text style={styles.bentoHint}>Đã đồng bộ GPS</Text>
                 </TouchableOpacity>
@@ -846,8 +846,8 @@ export default function ProfileScreen() {
                 >
                   <Text style={styles.bentoLabel}>Bài Đăng Cộng Đồng</Text>
                   <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#0284C7' }]}>{postsCount}</Text>
-                    <FontAwesome name="globe" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
+                    <Text style={[styles.bentoValue, { color: '#B0522F' }]}>{postsCount}</Text>
+                    <FontAwesome name="globe" size={12} color="#B0522F" style={{ marginLeft: 4 }} />
                   </View>
                   <Text style={styles.bentoHint}>Đã đăng công khai</Text>
                 </TouchableOpacity>
@@ -865,8 +865,8 @@ export default function ProfileScreen() {
                 >
                   <Text style={styles.bentoLabel}>Người Theo Dõi</Text>
                   <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#0284C7' }]}>{activeFollowersCount}</Text>
-                    <FontAwesome name="users" size={12} color="#0284C7" style={{ marginLeft: 4 }} />
+                    <Text style={[styles.bentoValue, { color: '#B0522F' }]}>{activeFollowersCount}</Text>
+                    <FontAwesome name="users" size={12} color="#B0522F" style={{ marginLeft: 4 }} />
                   </View>
                   <Text style={styles.bentoHint}>Xem danh sách →</Text>
                 </TouchableOpacity>
@@ -919,7 +919,7 @@ export default function ProfileScreen() {
               <FontAwesome
                 name="map"
                 size={13}
-                color={activeTab === 'itineraries' ? '#FFFFFF' : '#64748B'}
+                color={activeTab === 'itineraries' ? '#FFFDF8' : '#5A5146'}
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'itineraries' && styles.subTabTextActive]}>
@@ -951,7 +951,7 @@ export default function ProfileScreen() {
               <FontAwesome
                 name="pencil-square-o"
                 size={13}
-                color={activeTab === 'posts' ? '#FFFFFF' : '#64748B'}
+                color={activeTab === 'posts' ? '#FFFDF8' : '#5A5146'}
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'posts' && styles.subTabTextActive]}>
@@ -983,7 +983,7 @@ export default function ProfileScreen() {
               <FontAwesome
                 name="magic"
                 size={13}
-                color={activeTab === 'ai-dna' ? '#FFFFFF' : '#D97706'}
+                color={activeTab === 'ai-dna' ? '#FFFDF8' : '#D97706'}
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'ai-dna' && styles.subTabTextActive]}>
@@ -1015,7 +1015,7 @@ export default function ProfileScreen() {
               <FontAwesome
                 name="bookmark"
                 size={13}
-                color={activeTab === 'saved' ? '#FFFFFF' : '#64748B'}
+                color={activeTab === 'saved' ? '#FFFDF8' : '#5A5146'}
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'saved' && styles.subTabTextActive]}>
@@ -1047,7 +1047,7 @@ export default function ProfileScreen() {
               <FontAwesome
                 name="trophy"
                 size={13}
-                color={activeTab === 'badges' ? '#FFFFFF' : '#64748B'}
+                color={activeTab === 'badges' ? '#FFFDF8' : '#5A5146'}
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.subTabText, activeTab === 'badges' && styles.subTabTextActive]}>
@@ -1087,7 +1087,7 @@ export default function ProfileScreen() {
 
             {displayItineraries.length === 0 ? (
               <View style={styles.emptyCard}>
-                <FontAwesome name="compass" size={40} color="#CBD5E1" />
+                <FontAwesome name="compass" size={40} color="#D9CDBE" />
                 <Text style={styles.emptyTitle}>Bạn chưa có lịch trình nào trong kho</Text>
                 <Text style={styles.emptyDesc}>
                   Hãy khám phá hoặc sử dụng tính năng tạo lịch trình bằng AI để bắt đầu chuyến phiêu lưu!
@@ -1127,7 +1127,7 @@ export default function ProfileScreen() {
                             <FontAwesome
                               name={isAi ? 'magic' : 'pencil'}
                               size={10}
-                              color={isAi ? '#FDE047' : '#FFFFFF'}
+                              color={isAi ? '#FDE047' : '#FFFDF8'}
                               style={{ marginRight: 4 }}
                             />
                             <Text style={isAi ? styles.itinAiTagText : styles.itinManualTagText}>
@@ -1198,7 +1198,7 @@ export default function ProfileScreen() {
 
             {displayPosts.length === 0 ? (
               <View style={styles.emptyCard}>
-                <FontAwesome name="pencil-square-o" size={40} color="#CBD5E1" />
+                <FontAwesome name="pencil-square-o" size={40} color="#D9CDBE" />
                 <Text style={styles.emptyTitle}>Bạn chưa có bài viết nào trên cộng đồng</Text>
                 <Text style={styles.emptyDesc}>
                   Chia sẻ những bức ảnh và trải nghiệm chuyến đi thực tế của bạn để nhận thêm điểm XP!
@@ -1245,7 +1245,7 @@ export default function ProfileScreen() {
                           <Text style={styles.postStatText}>{likes} thích</Text>
                         </View>
                         <View style={styles.postStatItem}>
-                          <FontAwesome name="comment-o" size={14} color="#64748B" style={{ marginRight: 6 }} />
+                          <FontAwesome name="comment-o" size={14} color="#5A5146" style={{ marginRight: 6 }} />
                           <Text style={styles.postStatText}>{comments} bình luận</Text>
                         </View>
                       </View>
@@ -1286,8 +1286,8 @@ export default function ProfileScreen() {
             {/* 4 DNA Cards 2x2 Grid */}
             <View style={styles.dnaGrid}>
               {/* Card 1 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#0369A1' }]}>PHONG CÁCH DU LỊCH</Text>
+              <View style={[styles.dnaCard, { backgroundColor: '#F6E6DD', borderColor: '#E8D5C9' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#8F3F24' }]}>PHONG CÁCH DU LỊCH</Text>
                 <Text style={styles.dnaCardValue}>🧭 {displayTravelStyle}</Text>
                 <Text style={styles.dnaCardDesc}>Khẩu vị di chuyển & trải nghiệm điểm đến</Text>
               </View>
@@ -1352,7 +1352,7 @@ export default function ProfileScreen() {
               </View>
             ) : savedPosts.length === 0 ? (
               <View style={styles.emptyCard}>
-                <FontAwesome name="bookmark-o" size={40} color="#CBD5E1" />
+                <FontAwesome name="bookmark-o" size={40} color="#D9CDBE" />
                 <Text style={styles.emptyTitle}>Chưa có bài viết nào được lưu</Text>
                 <Text style={styles.emptyDesc}>
                   Khi lướt cộng đồng, bấm vào biểu tượng Bookmark để lưu lại những địa điểm và bí kíp hay ho!
@@ -1539,7 +1539,7 @@ export default function ProfileScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chỉnh Sửa Hồ Sơ Cá Nhân</Text>
               <TouchableOpacity onPress={() => setIsEditModalOpen(false)} style={styles.modalCloseBtn}>
-                <FontAwesome name="times" size={16} color="#64748B" />
+                <FontAwesome name="times" size={16} color="#5A5146" />
               </TouchableOpacity>
             </View>
 
@@ -1558,7 +1558,7 @@ export default function ProfileScreen() {
                   />
                   {isUploadingAvatar && (
                     <View style={styles.modalAvatarLoadingOverlay}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color="#FFFDF8" />
                     </View>
                   )}
                 </View>
@@ -1591,7 +1591,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={styles.textInput}
                   placeholder="Nhập họ và tên..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                   value={editFullName}
                   onChangeText={setEditFullName}
                 />
@@ -1604,7 +1604,7 @@ export default function ProfileScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="@wanderer"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor="#8A7F70"
                     value={editHandle}
                     onChangeText={setEditHandle}
                   />
@@ -1614,7 +1614,7 @@ export default function ProfileScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="0912345678"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor="#8A7F70"
                     keyboardType="phone-pad"
                     value={editPhone}
                     onChangeText={setEditPhone}
@@ -1670,7 +1670,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={[styles.textInput, styles.textArea]}
                   placeholder="Chia sẻ đôi điều về gu du lịch của bạn..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8A7F70"
                   multiline
                   numberOfLines={3}
                   value={editBio}
@@ -1693,7 +1693,7 @@ export default function ProfileScreen() {
                 disabled={isSavingProfile}
               >
                 {isSavingProfile ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color="#FFFDF8" />
                 ) : (
                   <Text style={styles.modalSaveBtnText}>Lưu Thay Đổi</Text>
                 )}
@@ -1729,19 +1729,19 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     padding: 20,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
   },
   scrollContainer: {
@@ -1751,14 +1751,14 @@ const styles = StyleSheet.create({
 
   // Hero Card
   heroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -1768,7 +1768,7 @@ const styles = StyleSheet.create({
     height: 140,
     width: '100%',
     position: 'relative',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E1A15',
   },
   coverImage: {
     width: '100%',
@@ -1797,7 +1797,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   coverEditBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 5,
@@ -1824,7 +1824,7 @@ const styles = StyleSheet.create({
     height: 86,
     borderRadius: 43,
     borderWidth: 3.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
   },
   tierCornerBadge: {
     position: 'absolute',
@@ -1836,7 +1836,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFFDF8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -1854,17 +1854,17 @@ const styles = StyleSheet.create({
   editProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   editProfileBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3B332A',
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -1897,7 +1897,7 @@ const styles = StyleSheet.create({
   fullNameText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   tierBadgePill: {
     paddingHorizontal: 8,
@@ -1909,7 +1909,7 @@ const styles = StyleSheet.create({
   tierBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   metaRow: {
     flexDirection: 'row',
@@ -1921,10 +1921,10 @@ const styles = StyleSheet.create({
   handleText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
   },
   metaDot: {
-    color: '#CBD5E1',
+    color: '#D9CDBE',
     fontWeight: '700',
   },
   metaLocation: {
@@ -1933,7 +1933,7 @@ const styles = StyleSheet.create({
   },
   metaLocationText: {
     fontSize: 12,
-    color: '#475569',
+    color: '#5A5146',
     fontWeight: '600',
   },
   budgetPill: {
@@ -1947,17 +1947,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   travelStyleBadge: {
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F6E6DD',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   travelStyleText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0369A1',
+    color: '#8F3F24',
   },
   followBar: {
     flexDirection: 'row',
@@ -1973,17 +1973,17 @@ const styles = StyleSheet.create({
   followCount: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0284C7',
+    color: '#B0522F',
   },
   followLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#5A5146',
   },
   bioText: {
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#475569',
+    color: '#5A5146',
   },
 
   avatarLoadingOverlay: {
@@ -2008,15 +2008,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFFDF8',
   },
 
   // Key Travel Metrics Bento Bar (6 items grid)
   bentoContainer: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     marginTop: 6,
     overflow: 'hidden',
   },
@@ -2025,7 +2025,7 @@ const styles = StyleSheet.create({
   },
   bentoRowBorderTop: {
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E4DACB',
   },
   bentoCard: {
     flex: 1,
@@ -2035,12 +2035,12 @@ const styles = StyleSheet.create({
   },
   bentoCardBorder: {
     borderLeftWidth: 1,
-    borderLeftColor: '#E2E8F0',
+    borderLeftColor: '#E4DACB',
   },
   bentoLabel: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     marginBottom: 2,
   },
@@ -2052,13 +2052,13 @@ const styles = StyleSheet.create({
   bentoValue: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     textAlign: 'center',
   },
   bentoHint: {
     fontSize: 8.5,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#8A7F70',
     marginTop: 2,
     textAlign: 'center',
   },
@@ -2069,7 +2069,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   subTab: {
     flexDirection: 'row',
@@ -2077,9 +2077,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   subTabActive: {
     backgroundColor: WF_COLORS.primary,
@@ -2088,10 +2088,10 @@ const styles = StyleSheet.create({
   subTabText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
   },
   subTabTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
   },
   tabCountBadge: {
@@ -2104,17 +2104,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   tabCountBadgeInactive: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   tabCountText: {
     fontSize: 10,
     fontWeight: '800',
   },
   tabCountTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   tabCountTextInactive: {
-    color: '#475569',
+    color: '#5A5146',
   },
   tabHighlightBadge: {
     marginLeft: 6,
@@ -2133,7 +2133,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tabHighlightTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   tabHighlightTextInactive: {
     color: '#92400E',
@@ -2142,11 +2142,11 @@ const styles = StyleSheet.create({
   aiDnaHeaderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     marginBottom: 12,
   },
   aiDnaIconCircle: {
@@ -2160,11 +2160,11 @@ const styles = StyleSheet.create({
   aiDnaTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   aiDnaSubtitle: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 2,
     lineHeight: 15,
   },
@@ -2172,7 +2172,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
     borderColor: WF_COLORS.primary,
     borderRadius: 14,
@@ -2202,19 +2202,19 @@ const styles = StyleSheet.create({
   dnaCardValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginBottom: 2,
   },
   dnaCardDesc: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
   },
   aiNoteCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     marginBottom: 10,
   },
   aiNoteHeader: {
@@ -2225,25 +2225,25 @@ const styles = StyleSheet.create({
   aiNoteTitle: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   aiNoteContentBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     marginBottom: 8,
   },
   aiNoteText: {
     fontSize: 12,
-    color: '#334155',
+    color: '#3B332A',
     lineHeight: 18,
     fontStyle: 'italic',
   },
   aiNoteFooter: {
     fontSize: 10.5,
-    color: '#94A3B8',
+    color: '#8A7F70',
     lineHeight: 14,
   },
 
@@ -2258,28 +2258,28 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   emptyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     padding: 28,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     borderStyle: 'dashed',
     marginTop: 8,
   },
   emptyTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3B332A',
     marginTop: 12,
     textAlign: 'center',
   },
   emptyDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 4,
     textAlign: 'center',
     lineHeight: 18,
@@ -2290,12 +2290,12 @@ const styles = StyleSheet.create({
 
   // Itinerary Card
   itinCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -2305,7 +2305,7 @@ const styles = StyleSheet.create({
     height: 120,
     width: '100%',
     position: 'relative',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   itinCover: {
     width: '100%',
@@ -2338,7 +2338,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   itinAiTagText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -2349,7 +2349,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   itinDurationText: {
-    color: '#0369A1',
+    color: '#8F3F24',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -2361,7 +2361,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itinDestText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2371,7 +2371,7 @@ const styles = StyleSheet.create({
   itinTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
     lineHeight: 20,
   },
   itinBudgetRow: {
@@ -2381,11 +2381,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   itinBudgetLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
   },
   itinBudgetValue: {
@@ -2404,9 +2404,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
     paddingVertical: 7,
     borderRadius: 12,
   },
@@ -2419,7 +2419,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#F7E4DF',
     borderWidth: 1,
     borderColor: '#FECACA',
     alignItems: 'center',
@@ -2434,19 +2434,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   itinManualTagText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '700',
   },
 
   // Post Card
   postCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: '#E4DACB',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -2462,7 +2462,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     marginRight: 10,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   postNameRow: {
     flexDirection: 'row',
@@ -2472,7 +2472,7 @@ const styles = StyleSheet.create({
   postAuthorName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   postTierPill: {
     backgroundColor: '#FEF3C7',
@@ -2487,7 +2487,7 @@ const styles = StyleSheet.create({
   },
   postMeta: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     marginTop: 2,
   },
   unbookmarkBtn: {
@@ -2496,12 +2496,12 @@ const styles = StyleSheet.create({
   postTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginBottom: 4,
   },
   postContent: {
     fontSize: 12.5,
-    color: '#334155',
+    color: '#3B332A',
     lineHeight: 18,
   },
   postSingleImage: {
@@ -2517,7 +2517,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   postStatItem: {
     flexDirection: 'row',
@@ -2525,17 +2525,17 @@ const styles = StyleSheet.create({
   },
   postStatText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
   },
 
   // Prestige Tier Section
   prestigeCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     marginBottom: 16,
   },
   prestigeHeader: {
@@ -2546,7 +2546,7 @@ const styles = StyleSheet.create({
   prestigeTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   prestigeSubtitle: {
     fontSize: 12,
@@ -2569,7 +2569,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -2586,7 +2586,7 @@ const styles = StyleSheet.create({
   },
   progressMetaText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
   },
   progressPercentText: {
@@ -2601,16 +2601,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tierCardItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   tierCardCurrent: {
     borderColor: WF_COLORS.primary,
     borderWidth: 2,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
   },
   tierCardLocked: {
     opacity: 0.65,
@@ -2627,7 +2627,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
   },
   tierIconLarge: {
     fontSize: 18,
@@ -2635,16 +2635,16 @@ const styles = StyleSheet.create({
   tierNameText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   tierNameEnText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#5A5146',
     fontWeight: '600',
   },
   tierDescText: {
     fontSize: 11.5,
-    color: '#475569',
+    color: '#5A5146',
     lineHeight: 16,
     marginBottom: 10,
   },
@@ -2654,12 +2654,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F3EDE2',
   },
   tierRequirementText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
   },
   tierStatusActive: {
     backgroundColor: WF_COLORS.primary,
@@ -2668,7 +2668,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   tierStatusActiveText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -2684,13 +2684,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tierStatusLocked: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
   tierStatusLockedText: {
-    color: '#64748B',
+    color: '#5A5146',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -2701,11 +2701,11 @@ const styles = StyleSheet.create({
   },
   achCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     alignItems: 'center',
   },
   achCardUnlocked: {
@@ -2719,11 +2719,11 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   achTitleRow: {
     flexDirection: 'row',
@@ -2733,7 +2733,7 @@ const styles = StyleSheet.create({
   achTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   achUnlockedPill: {
     backgroundColor: '#FDE68A',
@@ -2748,12 +2748,12 @@ const styles = StyleSheet.create({
   },
   achDesc: {
     fontSize: 11,
-    color: '#475569',
+    color: '#5A5146',
     marginTop: 2,
   },
   achDate: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: '#8A7F70',
     marginTop: 2,
     fontFamily: 'monospace',
   },
@@ -2766,7 +2766,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 24,
     maxHeight: '90%',
     overflow: 'hidden',
@@ -2778,12 +2778,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F3EDE2',
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   modalCloseBtn: {
     padding: 6,
@@ -2795,18 +2795,18 @@ const styles = StyleSheet.create({
   modalAvatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     padding: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   modalAvatarPreview: {
     width: 50,
     height: 50,
     borderRadius: 25,
     borderWidth: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
   },
   modalAvatarWrapper: {
     position: 'relative',
@@ -2828,9 +2828,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F6E6DD',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
     borderRadius: 12,
     paddingVertical: 7,
     paddingHorizontal: 12,
@@ -2843,7 +2843,7 @@ const styles = StyleSheet.create({
   },
   pickImageHint: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: '#8A7F70',
     marginTop: 3,
   },
   inputGroup: {
@@ -2852,17 +2852,17 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3B332A',
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F4EC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#1E1A15',
   },
   textArea: {
     height: 70,
@@ -2881,9 +2881,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
   },
   chipActive: {
     backgroundColor: WF_COLORS.primary,
@@ -2892,10 +2892,10 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -2904,19 +2904,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    backgroundColor: '#F8FAFC',
+    borderTopColor: '#F3EDE2',
+    backgroundColor: '#F8F4EC',
   },
   modalCancelBtn: {
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   modalCancelBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#5A5146',
   },
   modalSaveBtn: {
     paddingHorizontal: 20,
@@ -2927,7 +2927,7 @@ const styles = StyleSheet.create({
   modalSaveBtnText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
   },
 
   // Auth Card Styles
@@ -2946,34 +2946,34 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F6E6DD',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#E8D5C9',
   },
   authHeroTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#1E1A15',
     marginBottom: 8,
     textAlign: 'center',
   },
   authHeroDesc: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#5A5146',
     textAlign: 'center',
     lineHeight: 19,
   },
   authCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: '#E4DACB',
+    shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -2982,7 +2982,7 @@ const styles = StyleSheet.create({
   },
   authTabs: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3EDE2',
     borderRadius: 14,
     padding: 4,
   },
@@ -2993,7 +2993,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   authTabActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -3003,7 +3003,7 @@ const styles = StyleSheet.create({
   authTabText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#5A5146',
   },
   authTabTextActive: {
     color: WF_COLORS.primary,
@@ -3019,7 +3019,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -3032,26 +3032,26 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4DACB',
   },
   dividerText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#8A7F70',
     fontWeight: '600',
   },
   googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D9CDBE',
     paddingVertical: 11,
     borderRadius: 14,
   },
   googleBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#3B332A',
   },
 });

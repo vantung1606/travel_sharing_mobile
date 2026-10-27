@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, TextInput } from '@/components/Themed';
 import { POST_CATEGORIES } from '@/components/community/communityUtils';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, uploadApi } from '@/src/services/api';
@@ -191,7 +191,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
         <View style={[styles.sheet, { paddingTop: Math.max(insets.top, 8) + 4 }]}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.headerBtn} onPress={onClose}>
-              <FontAwesome name="times" size={18} color={WF_COLORS.slate700} />
+              <FontAwesome name="times" size={18} color={WF_PAPER.inkSecondary} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>{isEdit ? 'Chỉnh sửa bài viết' : 'Chia sẻ với cộng đồng'}</Text>
@@ -214,7 +214,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                   <FontAwesome
                     name="globe"
                     size={13}
-                    color={visibility === 'PUBLIC' ? '#FFFFFF' : WF_COLORS.slate500}
+                    color={visibility === 'PUBLIC' ? 'WF_PAPER.card' : WF_PAPER.inkMuted}
                   />
                   <Text style={[styles.visibilityLabel, visibility === 'PUBLIC' && styles.visibilityLabelActive]}>
                     Công khai
@@ -226,7 +226,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                   <FontAwesome
                     name="lock"
                     size={13}
-                    color={visibility === 'PRIVATE' ? '#FFFFFF' : WF_COLORS.slate500}
+                    color={visibility === 'PRIVATE' ? 'WF_PAPER.card' : WF_PAPER.inkMuted}
                   />
                   <Text style={[styles.visibilityLabel, visibility === 'PRIVATE' && styles.visibilityLabelActive]}>
                     Chỉ mình tôi
@@ -238,7 +238,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               <TextInput
                 style={styles.input}
                 placeholder="VD: Bí kíp du lịch Đà Nẵng 4N3Đ tự túc"
-                placeholderTextColor={WF_COLORS.slate400}
+                placeholderTextColor={WF_PAPER.inkMuted}
                 value={title}
                 onChangeText={setTitle}
               />
@@ -247,7 +247,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Cảm nghĩ, mẹo du lịch, quán ăn ngon, lưu ý trang phục..."
-                placeholderTextColor={WF_COLORS.slate400}
+                placeholderTextColor={WF_PAPER.inkMuted}
                 value={content}
                 onChangeText={setContent}
                 multiline
@@ -272,7 +272,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               <TextInput
                 style={styles.input}
                 placeholder="VD: Mũi Né, Phan Thiết"
-                placeholderTextColor={WF_COLORS.slate400}
+                placeholderTextColor={WF_PAPER.inkMuted}
                 value={location}
                 onChangeText={setLocation}
               />
@@ -281,7 +281,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               <TextInput
                 style={styles.input}
                 placeholder="Link video YouTube hoặc MP4..."
-                placeholderTextColor={WF_COLORS.slate400}
+                placeholderTextColor={WF_PAPER.inkMuted}
                 value={videoUrl}
                 onChangeText={setVideoUrl}
                 autoCapitalize="none"
@@ -298,17 +298,17 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                     <TouchableOpacity
                       style={styles.removeThumb}
                       onPress={() => setImages((prev) => prev.filter((_, i) => i !== index))}>
-                      <FontAwesome name="times" size={10} color="#FFFFFF" />
+                      <FontAwesome name="times" size={10} color="WF_PAPER.card" />
                     </TouchableOpacity>
                   </View>
                 ))}
                 {images.length < MAX_IMAGES ? (
                   <TouchableOpacity style={styles.addThumb} onPress={handlePickImages} disabled={uploading}>
                     {uploading ? (
-                      <ActivityIndicator color={WF_COLORS.primary} />
+                      <ActivityIndicator color={WF_PAPER.clay} />
                     ) : (
                       <>
-                        <FontAwesome name="plus" size={16} color={WF_COLORS.primary} />
+                        <FontAwesome name="plus" size={16} color={WF_PAPER.clay} />
                         <Text style={styles.addThumbText}>Thêm ảnh</Text>
                       </>
                     )}
@@ -331,7 +331,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                           <FontAwesome
                             name={active ? 'check-circle' : 'map-o'}
                             size={12}
-                            color={active ? '#FFFFFF' : WF_COLORS.primary}
+                            color={active ? 'WF_PAPER.card' : WF_PAPER.clay}
                           />
                           <Text
                             style={[styles.itineraryChipText, active && styles.itineraryChipTextActive]}
@@ -360,7 +360,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                           <FontAwesome
                             name={active ? 'check-circle' : 'map-marker'}
                             size={12}
-                            color={active ? '#FFFFFF' : '#059669'}
+                            color={active ? 'WF_PAPER.card' : '#059669'}
                           />
                           <Text
                             style={[styles.placeChipText, active && styles.placeChipTextActive]}
@@ -381,10 +381,10 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                 onPress={handleSubmit}
                 disabled={submitting || uploading}>
                 {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color="WF_PAPER.card" />
                 ) : (
                   <>
-                    <FontAwesome name="paper-plane" size={14} color="#FFFFFF" />
+                    <FontAwesome name="paper-plane" size={14} color="WF_PAPER.card" />
                     <Text style={styles.submitText}>{isEdit ? 'Lưu thay đổi' : 'Đăng bài viết'}</Text>
                   </>
                 )}
@@ -409,9 +409,9 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     marginTop: 42,
-    backgroundColor: WF_COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: WF_PAPER.card,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
     overflow: 'hidden',
   },
   header: {
@@ -421,25 +421,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: WF_COLORS.slate200,
+    borderBottomColor: WF_PAPER.cardBorder,
   },
   headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: WF_COLORS.slate100,
+    width: 34,
+    height: 34,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     fontFamily: SERIF_FONT,
   },
   headerSub: {
     fontSize: 11.5,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
     marginTop: 1,
   },
   form: {
@@ -458,27 +458,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
   },
   visibilityActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
+    borderColor: WF_PAPER.clay,
   },
   visibilityLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   visibilityLabelActive: {
-    color: '#FFFFFF',
+    color: 'WF_PAPER.card',
   },
   label: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
     marginBottom: 6,
   },
   labelRow: {
@@ -488,13 +488,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
-    borderRadius: 12,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
+    borderRadius: 5,
     paddingHorizontal: 13,
     height: 46,
     fontSize: 13.5,
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     marginBottom: 14,
   },
   textArea: {
@@ -509,24 +509,24 @@ const styles = StyleSheet.create({
   chip: {
     height: 36,
     paddingHorizontal: 14,
-    borderRadius: 999,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
+    borderColor: WF_PAPER.clay,
   },
   chipText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: 'WF_PAPER.card',
   },
   imageGrid: {
     flexDirection: 'row',
@@ -537,9 +537,9 @@ const styles = StyleSheet.create({
   imageThumb: {
     width: 84,
     height: 84,
-    borderRadius: 12,
+    borderRadius: 5,
     overflow: 'hidden',
-    backgroundColor: WF_COLORS.slate100,
+    backgroundColor: WF_PAPER.pillBg,
   },
   thumbImage: {
     width: '100%',
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     right: 4,
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: 'rgba(15, 23, 42, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -559,11 +559,11 @@ const styles = StyleSheet.create({
   addThumb: {
     width: 84,
     height: 84,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: WF_COLORS.primary,
-    backgroundColor: WF_COLORS.primarySoft,
+    borderColor: WF_PAPER.clay,
+    backgroundColor: WF_PAPER.bg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   addThumbText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: WF_COLORS.primary,
+    color: WF_PAPER.clay,
   },
   itineraryChip: {
     flexDirection: 'row',
@@ -580,23 +580,23 @@ const styles = StyleSheet.create({
     height: 38,
     maxWidth: 220,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
-    backgroundColor: WF_COLORS.primarySoft,
+    borderColor: 'WF_PAPER.clayLight',
+    backgroundColor: WF_PAPER.bg,
   },
   itineraryChipActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
+    backgroundColor: WF_PAPER.clay,
+    borderColor: WF_PAPER.clay,
   },
   itineraryChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.clayDark,
     flexShrink: 1,
   },
   itineraryChipTextActive: {
-    color: '#FFFFFF',
+    color: 'WF_PAPER.card',
   },
   placeChip: {
     flexDirection: 'row',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     height: 38,
     maxWidth: 220,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#BBF7D0',
     backgroundColor: '#F0FDF4',
@@ -621,14 +621,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   placeChipTextActive: {
-    color: '#FFFFFF',
+    color: 'WF_PAPER.card',
   },
   footer: {
     paddingHorizontal: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.white,
+    borderTopColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
   },
   submitBtn: {
     flexDirection: 'row',
@@ -636,11 +636,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: WF_COLORS.primary,
+    borderRadius: 4,
+    backgroundColor: WF_PAPER.clay,
   },
   submitText: {
-    color: '#FFFFFF',
+    color: 'WF_PAPER.card',
     fontSize: 14.5,
     fontWeight: '800',
   },

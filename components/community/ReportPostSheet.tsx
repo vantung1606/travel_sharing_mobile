@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, TextInput } from '@/components/Themed';
 import { REPORT_REASONS } from '@/components/community/communityUtils';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 
 interface ReportPostSheetProps {
   visible: boolean;
@@ -81,7 +81,7 @@ export function ReportPostSheet({ visible, postTitle, submitting, onClose, onSub
               ) : null}
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <FontAwesome name="times" size={16} color={WF_COLORS.slate500} />
+              <FontAwesome name="times" size={16} color={WF_PAPER.inkMuted} />
             </TouchableOpacity>
           </View>
 
@@ -99,7 +99,7 @@ export function ReportPostSheet({ visible, postTitle, submitting, onClose, onSub
                   <FontAwesome
                     name={selected ? 'dot-circle-o' : 'circle-o'}
                     size={16}
-                    color={selected ? WF_COLORS.primary : WF_COLORS.slate400}
+                    color={selected ? WF_PAPER.clay : WF_PAPER.inkMuted}
                   />
                   <Text style={[styles.reasonText, selected && styles.reasonTextActive]}>{item}</Text>
                 </TouchableOpacity>
@@ -110,7 +110,7 @@ export function ReportPostSheet({ visible, postTitle, submitting, onClose, onSub
           <TextInput
             style={styles.detailsInput}
             placeholder="Mô tả thêm (không bắt buộc)..."
-            placeholderTextColor={WF_COLORS.slate400}
+            placeholderTextColor={WF_PAPER.inkMuted}
             value={details}
             onChangeText={setDetails}
             multiline
@@ -123,7 +123,7 @@ export function ReportPostSheet({ visible, postTitle, submitting, onClose, onSub
             disabled={!reason || submitting}
             onPress={() => onSubmit(reason, details.trim())}>
             {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#FFFDF8" />
             ) : (
               <Text style={styles.submitText}>Gửi báo cáo</Text>
             )}
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sheet: {
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: WF_PAPER.card,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 16,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: WF_COLORS.slate200,
+    backgroundColor: WF_PAPER.cardBorder,
     marginBottom: 10,
   },
   headerRow: {
@@ -183,25 +183,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
   },
   subtitle: {
     fontSize: 11.5,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
     marginTop: 2,
   },
   closeBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: WF_COLORS.slate100,
+    borderRadius: 4,
+    backgroundColor: WF_PAPER.pillBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
     marginBottom: 6,
   },
   reasonList: {
@@ -213,48 +213,48 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 12,
     paddingVertical: 11,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
   },
   reasonRowActive: {
-    borderColor: WF_COLORS.primary,
-    backgroundColor: WF_COLORS.primarySoft,
+    borderColor: WF_PAPER.clay,
+    backgroundColor: WF_PAPER.bg,
   },
   reasonText: {
     flex: 1,
     fontSize: 13,
-    color: WF_COLORS.slate700,
+    color: WF_PAPER.inkSecondary,
     fontWeight: '600',
   },
   reasonTextActive: {
-    color: WF_COLORS.primaryHover,
+    color: WF_PAPER.clayDark,
     fontWeight: '700',
   },
   detailsInput: {
     marginTop: 10,
     minHeight: 66,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.bg,
     paddingHorizontal: 12,
     paddingTop: 9,
     fontSize: 13,
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     textAlignVertical: 'top',
   },
   submitBtn: {
     marginTop: 12,
     height: 46,
-    borderRadius: 12,
-    backgroundColor: WF_COLORS.primary,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.clay,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitText: {
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontWeight: '800',
     fontSize: 14,
   },

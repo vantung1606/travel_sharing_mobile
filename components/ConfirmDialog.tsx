@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     marginHorizontal: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderRadius: 22,
     paddingHorizontal: 22,
     paddingTop: 24,
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   confirmText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFDF8',
     fontFamily: SERIF_FONT,
   },
 });

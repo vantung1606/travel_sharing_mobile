@@ -3,7 +3,7 @@ import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { PostItem } from '@/src/services/api';
 
 interface PlaceAttachCardProps {
@@ -72,7 +72,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
 
             {address ? (
               <View style={styles.addressRow}>
-                <FontAwesome name="location-arrow" size={10} color={WF_COLORS.slate400} />
+                <FontAwesome name="location-arrow" size={10} color={WF_PAPER.inkMuted} />
                 <Text style={styles.addressText} numberOfLines={1}>
                   {address}
                 </Text>
@@ -100,7 +100,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
 
               {openHours ? (
                 <View style={styles.chip}>
-                  <FontAwesome name="clock-o" size={9} color={WF_COLORS.primaryHover} />
+                  <FontAwesome name="clock-o" size={9} color={WF_PAPER.clayDark} />
                   <Text style={styles.chipText} numberOfLines={1}>{openHours}</Text>
                 </View>
               ) : null}
@@ -124,7 +124,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#F0FDF4',
-    borderRadius: 16,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#BBF7D0',
     overflow: 'hidden',
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   categoryPill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
     borderColor: '#BBF7D0',
     paddingHorizontal: 7,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   },
   cityText: {
     fontSize: 11,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
     fontWeight: '500',
   },
   mainRow: {
@@ -187,8 +187,8 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: 60,
     height: 60,
-    borderRadius: 12,
-    backgroundColor: WF_COLORS.slate200,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.cardBorder,
   },
   infoCol: {
     flex: 1,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   placeTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: WF_COLORS.slate900,
+    color: WF_PAPER.inkPrimary,
     lineHeight: 18,
   },
   addressRow: {
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 11,
-    color: WF_COLORS.slate500,
+    color: WF_PAPER.inkMuted,
     flex: 1,
   },
   chipsRow: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
   },
   ratingText: {
     fontSize: 10,
@@ -235,17 +235,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF8',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4DACB',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
   },
   chipText: {
     fontSize: 10,
     fontWeight: '600',
-    color: WF_COLORS.slate600,
+    color: WF_PAPER.inkSecondary,
   },
   footerRow: {
     flexDirection: 'row',
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   },
   footerHint: {
     fontSize: 10,
-    color: WF_COLORS.slate400,
+    color: WF_PAPER.inkMuted,
     fontStyle: 'italic',
   },
   actionBtn: {

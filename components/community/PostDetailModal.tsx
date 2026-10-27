@@ -543,7 +543,7 @@ export function PostDetailModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: 'rgba(30, 26, 21, 0.55)',
     justifyContent: 'flex-end',
   },
   sheet: {

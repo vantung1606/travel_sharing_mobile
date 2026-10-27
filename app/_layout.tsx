@@ -90,7 +90,6 @@ function RootLayoutNav() {
     <ThemeProvider value={WAYFARE_THEME}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
   );

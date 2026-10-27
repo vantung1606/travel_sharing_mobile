@@ -44,7 +44,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
         {/* Top badge row */}
         <View style={styles.topRow}>
           <View style={styles.badge}>
-            <FontAwesome name="map-marker" size={11} color="#059669" />
+            <FontAwesome name="map-marker" size={11} color={WF_PAPER.clay} />
             <Text style={styles.badgeText}>Check-in địa điểm</Text>
           </View>
           {category ? (
@@ -83,7 +83,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
             <View style={styles.chipsRow}>
               {rating != null && rating > 0 ? (
                 <View style={styles.ratingChip}>
-                  <FontAwesome name="star" size={10} color="#D97706" />
+                  <FontAwesome name="star" size={10} color={WF_PAPER.clayDark} />
                   <Text style={styles.ratingText}>
                     {rating.toFixed(1)}
                     {reviewCount != null ? ` (${reviewCount})` : ''}
@@ -93,7 +93,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
 
               {ticketPrice ? (
                 <View style={styles.chip}>
-                  <FontAwesome name="ticket" size={9} color="#059669" />
+                  <FontAwesome name="ticket" size={9} color={WF_PAPER.clay} />
                   <Text style={styles.chipText} numberOfLines={1}>{ticketPrice}</Text>
                 </View>
               ) : null}
@@ -113,7 +113,7 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
           <Text style={styles.footerHint}>Chạm để khám phá địa điểm</Text>
           <View style={styles.actionBtn}>
             <Text style={styles.actionBtnText}>Khám phá</Text>
-            <FontAwesome name="chevron-right" size={10} color="#059669" />
+            <FontAwesome name="chevron-right" size={10} color={WF_PAPER.clay} />
           </View>
         </View>
       </View>
@@ -123,17 +123,17 @@ export function PlaceAttachCard({ post, onPress }: PlaceAttachCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: WF_PAPER.card,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: WF_PAPER.cardBorder,
     overflow: 'hidden',
     marginTop: 8,
     flexDirection: 'row',
   },
   accent: {
     width: 4,
-    backgroundColor: '#10B981',
+    backgroundColor: WF_PAPER.clay,
   },
   content: {
     flex: 1,
@@ -150,29 +150,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: WF_PAPER.clayLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 999,
+    borderRadius: 4,
   },
   badgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#059669',
+    color: WF_PAPER.clay,
     textTransform: 'uppercase',
   },
   categoryPill: {
     backgroundColor: '#FFFDF8',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: WF_PAPER.cardBorder,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 999,
+    borderRadius: 4,
   },
   categoryText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#065F46',
+    color: WF_PAPER.inkSecondary,
   },
   cityText: {
     fontSize: 11,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#DCFCE7',
+    borderTopColor: WF_PAPER.cardBorder,
   },
   footerHint: {
     fontSize: 10,
@@ -268,6 +268,6 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#059669',
+    color: WF_PAPER.clay,
   },
 });

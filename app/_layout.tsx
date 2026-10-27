@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -11,12 +11,26 @@ import { ConfirmHost } from '@/components/ConfirmDialog';
 import { ToastHost } from '@/components/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import { LogBox } from 'react-native';
+import { WF_PAPER } from '@/constants/Colors';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
 
 // Initialize global Times New Roman / Serif typography across the entire app
 applyGlobalSerifTypography();
 
 LogBox.ignoreLogs(['Cannot connect to Expo CLI']);
+
+const WAYFARE_THEME = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: WF_PAPER.clay,
+    background: WF_PAPER.bg,
+    card: WF_PAPER.card,
+    text: WF_PAPER.inkPrimary,
+    border: WF_PAPER.cardBorder,
+    notification: WF_PAPER.clay,
+  },
+};
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -68,12 +82,13 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: WF_PAPER.bg,
   },
 });
 
 function RootLayoutNav() {
   return (
-    <ThemeProvider value={DefaultTheme}>
+    <ThemeProvider value={WAYFARE_THEME}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

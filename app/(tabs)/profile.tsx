@@ -686,9 +686,9 @@ export default function ProfileScreen() {
               activeOpacity={0.8}
             >
               {isUploadingCover ? (
-                <ActivityIndicator size="small" color="#FFFDF8" style={{ marginRight: 4 }} />
+                <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginRight: 4 }} />
               ) : (
-                <FontAwesome name="camera" size={12} color="#FFFDF8" style={{ marginRight: 4 }} />
+                <FontAwesome name="camera" size={12} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
               )}
               <Text style={styles.coverEditBtnText}>
                 {isUploadingCover ? 'Đang tải...' : 'Đổi ảnh bìa'}
@@ -881,8 +881,8 @@ export default function ProfileScreen() {
                 >
                   <Text style={styles.bentoLabel}>Đang Theo Dõi</Text>
                   <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#6366F1' }]}>{activeFollowingCount}</Text>
-                    <FontAwesome name="user-plus" size={12} color="#6366F1" style={{ marginLeft: 4 }} />
+                    <Text style={[styles.bentoValue, { color: WF_COLORS.violet }]}>{activeFollowingCount}</Text>
+                    <FontAwesome name="user-plus" size={12} color={WF_COLORS.violet} style={{ marginLeft: 4 }} />
                   </View>
                   <Text style={styles.bentoHint}>Quản lý →</Text>
                 </TouchableOpacity>
@@ -1127,7 +1127,7 @@ export default function ProfileScreen() {
                             <FontAwesome
                               name={isAi ? 'magic' : 'pencil'}
                               size={10}
-                              color={isAi ? '#FDE047' : '#FFFDF8'}
+                              color={isAi ? '#FDE047' : WF_COLORS.primary}
                               style={{ marginRight: 4 }}
                             />
                             <Text style={isAi ? styles.itinAiTagText : styles.itinManualTagText}>
@@ -1141,7 +1141,7 @@ export default function ProfileScreen() {
                           </View>
                         </View>
                         <View style={styles.itinDestTag}>
-                          <FontAwesome name="map-marker" size={12} color="#FDE047" style={{ marginRight: 4 }} />
+                          <FontAwesome name="map-marker" size={12} color="#FFFDF8" style={{ marginRight: 4 }} />
                           <Text style={styles.itinDestText} numberOfLines={1}>
                             {itin.destination || 'Việt Nam'}
                           </Text>
@@ -1263,7 +1263,7 @@ export default function ProfileScreen() {
             {/* Header info */}
             <View style={styles.aiDnaHeaderCard}>
               <View style={styles.aiDnaIconCircle}>
-                <FontAwesome name="magic" size={20} color="#F59E0B" />
+                <FontAwesome name="magic" size={20} color="#B7791F" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.aiDnaTitle}>Cấu Hình Gu Du Lịch & AI DNA</Text>
@@ -1293,15 +1293,15 @@ export default function ProfileScreen() {
               </View>
 
               {/* Card 2 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#047857' }]}>MỨC NGÂN SÁCH ƯA THÍCH</Text>
+              <View style={[styles.dnaCard, { backgroundColor: '#F3EDE2', borderColor: '#D9CDBE' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#6B6154' }]}>MỨC NGÂN SÁCH ƯA THÍCH</Text>
                 <Text style={styles.dnaCardValue}>💰 {displayBudget}</Text>
                 <Text style={styles.dnaCardDesc}>Cân đối chi phí di chuyển, ăn uống & lưu trú</Text>
               </View>
 
               {/* Card 3 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#B45309' }]}>CẤP BẬC NHÀ THÁM HIỂM</Text>
+              <View style={[styles.dnaCard, { backgroundColor: '#F7EAD5', borderColor: '#E8D3AF' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#8F5E14' }]}>CẤP BẬC NHÀ THÁM HIỂM</Text>
                 <Text style={styles.dnaCardValue}>
                   {currentTier.icon} {currentTier.name}
                 </Text>
@@ -1309,8 +1309,8 @@ export default function ProfileScreen() {
               </View>
 
               {/* Card 4 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#7E22CE' }]}>ĐÓNG GÓP CỘNG ĐỒNG</Text>
+              <View style={[styles.dnaCard, { backgroundColor: '#F8F4EC', borderColor: '#E4DACB' }]}>
+                <Text style={[styles.dnaCardLabel, { color: '#B0522F' }]}>ĐÓNG GÓP CỘNG ĐỒNG</Text>
                 <Text style={styles.dnaCardValue}>🌟 {postsCount} Bài viết • {itinsCount} Tour</Text>
                 <Text style={styles.dnaCardDesc}>
                   {totalLikesReceived} lượt thích từ bạn bè du khách
@@ -1321,7 +1321,7 @@ export default function ProfileScreen() {
             {/* Bio note for AI */}
             <View style={styles.aiNoteCard}>
               <View style={styles.aiNoteHeader}>
-                <FontAwesome name="bolt" size={14} color="#F59E0B" style={{ marginRight: 6 }} />
+                <FontAwesome name="bolt" size={14} color="#B7791F" style={{ marginRight: 6 }} />
                 <Text style={styles.aiNoteTitle}>Ghi chú riêng của bạn dành cho AI Engine</Text>
               </View>
               <View style={styles.aiNoteContentBox}>
@@ -1498,7 +1498,7 @@ export default function ProfileScreen() {
             {/* Community Contribution Badges */}
             <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
               <Text style={styles.sectionTitle}>
-                <FontAwesome name="trophy" size={15} color="#F59E0B" /> Huy Hiệu Đóng Góp Cộng Đồng
+                <FontAwesome name="trophy" size={15} color="#B7791F" /> Huy Hiệu Đóng Góp Cộng Đồng
               </Text>
             </View>
 
@@ -1751,21 +1751,17 @@ const styles = StyleSheet.create({
 
   // Hero Card
   heroCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 2,
     backgroundColor: '#FFFDF8',
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderRadius: 6,
     borderWidth: 1,
-    borderTopWidth: 0,
     borderColor: '#E4DACB',
     overflow: 'hidden',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
   },
   coverWrapper: {
-    height: 140,
+    height: 132,
     width: '100%',
     position: 'relative',
     backgroundColor: '#1E1A15',
@@ -1781,7 +1777,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    backgroundColor: 'rgba(30, 26, 21, 0.24)',
   },
   coverEditBtn: {
     position: 'absolute',
@@ -1789,15 +1785,15 @@ const styles = StyleSheet.create({
     right: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(30, 26, 21, 0.12)',
   },
   coverEditBtnText: {
-    color: '#FFFDF8',
+    color: WF_COLORS.primary,
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 5,
@@ -1832,16 +1828,16 @@ const styles = StyleSheet.create({
     right: 0,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 5,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFDF8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.02,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 0,
   },
   tierCornerText: {
     fontSize: 11,
@@ -1857,7 +1853,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3EDE2',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E4DACB',
   },
@@ -1872,7 +1868,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#FECACA',
     justifyContent: 'center',
@@ -1902,7 +1898,7 @@ const styles = StyleSheet.create({
   tierBadgePill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
   },
@@ -1939,7 +1935,7 @@ const styles = StyleSheet.create({
   budgetPill: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#047857',
+    color: '#B0522F',
   },
   travelStyleRow: {
     flexDirection: 'row',
@@ -1950,7 +1946,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6E6DD',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E8D5C9',
   },
@@ -1993,7 +1989,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 43,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(30, 26, 21, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2001,7 +1997,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(30, 26, 21, 0.75)',
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -2014,7 +2010,7 @@ const styles = StyleSheet.create({
   // Key Travel Metrics Bento Bar (6 items grid)
   bentoContainer: {
     backgroundColor: '#F8F4EC',
-    borderRadius: 18,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E4DACB',
     marginTop: 6,
@@ -2076,7 +2072,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 5,
     backgroundColor: '#F8F4EC',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2098,7 +2094,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   tabCountBadgeActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
@@ -2120,7 +2116,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   tabHighlightBadgeActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
@@ -2143,7 +2139,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2175,7 +2171,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF8',
     borderWidth: 1,
     borderColor: WF_COLORS.primary,
-    borderRadius: 14,
+    borderRadius: 5,
     paddingVertical: 10,
     marginBottom: 14,
   },
@@ -2189,7 +2185,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   dnaCard: {
-    borderRadius: 18,
+    borderRadius: 6,
     padding: 14,
     borderWidth: 1,
   },
@@ -2211,7 +2207,7 @@ const styles = StyleSheet.create({
   },
   aiNoteCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 5,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2229,7 +2225,7 @@ const styles = StyleSheet.create({
   },
   aiNoteContentBox: {
     backgroundColor: '#F8F4EC',
-    borderRadius: 12,
+    borderRadius: 5,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2262,7 +2258,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     padding: 28,
     alignItems: 'center',
     borderWidth: 1,
@@ -2291,15 +2287,10 @@ const styles = StyleSheet.create({
   // Itinerary Card
   itinCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E4DACB',
     overflow: 'hidden',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   itinCoverContainer: {
     height: 120,
@@ -2318,7 +2309,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    backgroundColor: 'rgba(30, 26, 21, 0.28)',
   },
   itinTopBadges: {
     position: 'absolute',
@@ -2332,10 +2323,10 @@ const styles = StyleSheet.create({
   itinAiTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(2, 132, 199, 0.9)',
+    backgroundColor: 'rgba(176, 82, 47, 0.94)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 3,
   },
   itinAiTagText: {
     color: '#FFFDF8',
@@ -2343,10 +2334,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   itinDurationTag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(30, 26, 21, 0.10)',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 3,
   },
   itinDurationText: {
     color: '#8F3F24',
@@ -2408,7 +2401,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8D5C9',
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: 5,
   },
   itinViewBtnText: {
     color: WF_COLORS.primary,
@@ -2418,7 +2411,7 @@ const styles = StyleSheet.create({
   itinDeleteBtn: {
     width: 36,
     height: 34,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: '#F7E4DF',
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -2428,13 +2421,15 @@ const styles = StyleSheet.create({
   itinManualTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(248, 244, 236, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(30, 26, 21, 0.10)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 3,
   },
   itinManualTagText: {
-    color: '#FFFDF8',
+    color: WF_COLORS.primary,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -2442,15 +2437,10 @@ const styles = StyleSheet.create({
   // Post Card
   postCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   postHeader: {
     flexDirection: 'row',
@@ -2478,7 +2468,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   postTierPillText: {
     fontSize: 9,
@@ -2507,7 +2497,7 @@ const styles = StyleSheet.create({
   postSingleImage: {
     width: '100%',
     height: 160,
-    borderRadius: 14,
+    borderRadius: 6,
     marginTop: 8,
     resizeMode: 'cover',
   },
@@ -2532,7 +2522,7 @@ const styles = StyleSheet.create({
   // Prestige Tier Section
   prestigeCard: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 20,
+    borderRadius: 6,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2557,7 +2547,7 @@ const styles = StyleSheet.create({
   prestigeXpPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 5,
   },
   prestigeXpText: {
     fontSize: 12,
@@ -2602,7 +2592,7 @@ const styles = StyleSheet.create({
   },
   tierCardItem: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 16,
+    borderRadius: 5,
     padding: 14,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2665,7 +2655,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.primary,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   tierStatusActiveText: {
     color: '#FFFDF8',
@@ -2673,13 +2663,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tierStatusUnlocked: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E8EFE3',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   tierStatusUnlockedText: {
-    color: '#15803D',
+    color: '#4F6B52',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -2687,7 +2677,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E4DACB',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 5,
   },
   tierStatusLockedText: {
     color: '#5A5146',
@@ -2702,7 +2692,7 @@ const styles = StyleSheet.create({
   achCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFDF8',
-    borderRadius: 16,
+    borderRadius: 6,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2718,7 +2708,7 @@ const styles = StyleSheet.create({
   achIconCircle: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: '#FFFDF8',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2739,7 +2729,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FDE68A',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   achUnlockedPillText: {
     fontSize: 9,
@@ -2761,13 +2751,13 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(30, 26, 21, 0.6)',
     justifyContent: 'center',
     padding: 16,
   },
   modalContainer: {
     backgroundColor: '#FFFDF8',
-    borderRadius: 24,
+    borderRadius: 6,
     maxHeight: '90%',
     overflow: 'hidden',
   },
@@ -2797,7 +2787,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8F4EC',
     padding: 10,
-    borderRadius: 16,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E4DACB',
   },
@@ -2820,7 +2810,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 25,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(30, 26, 21, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2831,7 +2821,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6E6DD',
     borderWidth: 1,
     borderColor: '#E8D5C9',
-    borderRadius: 12,
+    borderRadius: 5,
     paddingVertical: 7,
     paddingHorizontal: 12,
     marginTop: 3,
@@ -2858,7 +2848,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F4EC',
     borderWidth: 1,
     borderColor: '#E4DACB',
-    borderRadius: 12,
+    borderRadius: 5,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 13,
@@ -2880,7 +2870,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     borderWidth: 1,
     borderColor: '#E4DACB',
@@ -2910,7 +2900,7 @@ const styles = StyleSheet.create({
   modalCancelBtn: {
     paddingHorizontal: 16,
     paddingVertical: 9,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: '#E4DACB',
   },
   modalCancelBtnText: {
@@ -2921,7 +2911,7 @@ const styles = StyleSheet.create({
   modalSaveBtn: {
     paddingHorizontal: 20,
     paddingVertical: 9,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
   },
   modalSaveBtnText: {
@@ -2969,36 +2959,36 @@ const styles = StyleSheet.create({
   authCard: {
     width: '100%',
     backgroundColor: '#FFFDF8',
-    borderRadius: 24,
+    borderRadius: 6,
     padding: 20,
     borderWidth: 1,
     borderColor: '#E4DACB',
     shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
     gap: 14,
   },
   authTabs: {
     flexDirection: 'row',
     backgroundColor: '#F3EDE2',
-    borderRadius: 14,
+    borderRadius: 5,
     padding: 4,
   },
   authTab: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 5,
   },
   authTabActive: {
     backgroundColor: '#FFFDF8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.02,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 0,
   },
   authTabText: {
     fontSize: 13,
@@ -3011,7 +3001,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     backgroundColor: WF_COLORS.primary,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 5,
     alignItems: 'center',
     marginTop: 6,
   },
@@ -3047,7 +3037,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D9CDBE',
     paddingVertical: 11,
-    borderRadius: 14,
+    borderRadius: 5,
   },
   googleBtnText: {
     fontSize: 13,

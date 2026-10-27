@@ -200,41 +200,41 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       case 'CHAT_MESSAGE':
         return {
           iconName: 'comments' as const,
-          iconColor: '#2563EB',
-          bgColor: '#DBEAFE',
-          borderColor: '#BFDBFE',
+          iconColor: '#B0522F',
+          bgColor: '#F6E6DD',
+          borderColor: '#E8D5C9',
           badgeText: 'Tin nhắn',
           badgeColor: '#8F3F24',
         };
       case 'FOLLOW':
         return {
           iconName: 'user-plus' as const,
-          iconColor: '#8B5CF6',
-          bgColor: '#EDE9FE',
-          borderColor: '#DDD6FE',
+          iconColor: '#8F5E14',
+          bgColor: '#F7EAD5',
+          borderColor: '#E8D3AF',
           badgeText: 'Theo dõi',
-          badgeColor: '#7C3AED',
+          badgeColor: '#8F5E14',
         };
       case 'SHARE':
       case 'COMMUNITY_SHARE':
       case 'ITINERARY_SHARED':
         return {
           iconName: 'share-alt' as const,
-          iconColor: '#0D9488',
-          bgColor: '#CCFBF1',
-          borderColor: '#99F6E4',
+          iconColor: '#B7791F',
+          bgColor: '#F7EAD5',
+          borderColor: '#E8D3AF',
           badgeText: 'Chia sẻ',
-          badgeColor: '#0F766E',
+          badgeColor: '#8F5E14',
         };
       case 'PLACE_APPROVED':
       case 'POST_APPROVED':
         return {
           iconName: 'check-circle' as const,
-          iconColor: '#10B981',
-          bgColor: '#D1FAE5',
-          borderColor: '#A7F3D0',
+          iconColor: '#4F6B52',
+          bgColor: '#E8EFE3',
+          borderColor: '#C9D8C2',
           badgeText: 'Đã duyệt',
-          badgeColor: '#059669',
+          badgeColor: '#3F5742',
         };
       case 'SYSTEM':
       default:
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   headerIconBadge: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 5,
     backgroundColor: '#F6E6DD',
     borderWidth: 1,
     borderColor: '#E8D5C9',
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6E6DD',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E8D5C9',
   },
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
   filterTab: {
     paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 5,
     backgroundColor: '#F3EDE2',
   },
   filterTabActive: {
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#E4DACB',
   },
@@ -661,19 +661,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FFFDF8',
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E4DACB',
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.02,
     shadowRadius: 3,
-    elevation: 1,
+    elevation: 0,
   },
   notificationCardUnread: {
-    backgroundColor: '#F6E6DD',
+    backgroundColor: '#FBF4EC',
     borderColor: '#E8D5C9',
   },
   avatarWrapper: {
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
     right: -3,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: 5,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
   typePill: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 0.8,
   },
   typePillText: {
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 5,
     backgroundColor: '#F6E6DD',
     borderWidth: 1,
     borderColor: '#E8D5C9',

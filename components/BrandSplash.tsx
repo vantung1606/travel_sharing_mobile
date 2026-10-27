@@ -22,7 +22,7 @@ interface BrandSplashProps {
 
 /**
  * Màn hình chờ thương hiệu hiển thị ngay sau native splash.
- * Đồng bộ nền #031726 và logo trắng với cấu hình splash trong app.json.
+ * Đồng bộ nền mực #1E1A15 và logo trắng với cấu hình splash trong app.json.
  */
 export function BrandSplash({ onFinish }: BrandSplashProps) {
   const insets = useSafeAreaInsets();
@@ -101,8 +101,6 @@ export function BrandSplash({ onFinish }: BrandSplashProps) {
       style={[styles.overlay, { opacity: overlayOpacity }]}
       accessibilityLabel="Wayfare Travel đang chuẩn bị hành trình"
       accessibilityRole="progressbar">
-      <View style={styles.topGlow} />
-      <View style={styles.bottomGlow} />
       <View style={styles.orbitOuter} />
       <View style={styles.orbitInner} />
       <View style={styles.centerDot} />
@@ -151,30 +149,12 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: '#031726',
+    backgroundColor: '#1E1A15',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
     elevation: 999,
     overflow: 'hidden',
-  },
-  topGlow: {
-    position: 'absolute',
-    top: -190,
-    right: -170,
-    width: 400,
-    height: 400,
-    borderRadius: 200,
-    backgroundColor: 'rgba(14, 165, 233, 0.085)',
-  },
-  bottomGlow: {
-    position: 'absolute',
-    bottom: -220,
-    left: -180,
-    width: 480,
-    height: 480,
-    borderRadius: 240,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
   },
   orbitOuter: {
     position: 'absolute',
@@ -186,7 +166,7 @@ const styles = StyleSheet.create({
     height: 350,
     borderRadius: 175,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.045)',
+    borderColor: 'rgba(246, 230, 221, 0.10)',
   },
   orbitInner: {
     position: 'absolute',
@@ -198,7 +178,7 @@ const styles = StyleSheet.create({
     height: 248,
     borderRadius: 124,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.035)',
+    borderColor: 'rgba(246, 230, 221, 0.07)',
   },
   centerDot: {
     position: 'absolute',
@@ -209,7 +189,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(251, 191, 36, 0.85)',
+    backgroundColor: '#F6E6DD',
   },
   content: {
     alignItems: 'center',
@@ -225,7 +205,7 @@ const styles = StyleSheet.create({
   taglineLine: {
     width: 22,
     height: 1,
-    backgroundColor: 'rgba(251, 191, 36, 0.5)',
+    backgroundColor: 'rgba(246, 230, 221, 0.5)',
   },
   tagline: {
     fontSize: 9,
@@ -250,7 +230,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FBBF24',
+    backgroundColor: '#F6E6DD',
   },
   loadingText: {
     fontSize: 9,

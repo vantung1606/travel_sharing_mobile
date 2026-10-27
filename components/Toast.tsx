@@ -69,9 +69,9 @@ export function showToast(options: ToastOptions): void {
 }
 
 const KIND_CONFIG: Record<ToastKind, { accent: string; icon: string }> = {
-  success: { accent: '#34D399', icon: 'check' },
-  error: { accent: '#FB7185', icon: 'exclamation' },
-  info: { accent: '#38BDF8', icon: 'info' },
+  success: { accent: '#4F6B52', icon: 'check' },
+  error: { accent: '#A64B3C', icon: 'exclamation' },
+  info: { accent: '#B7791F', icon: 'info' },
 };
 
 const DEFAULT_DURATION = 3200;
@@ -205,7 +205,7 @@ export function ToastHost({ enabled = true }: { enabled?: boolean }) {
         accessibilityLabel={`${toast.title}${toast.message ? `. ${toast.message}` : ''}`}>
         <TouchableOpacity activeOpacity={0.92} onPress={hide} style={styles.card}>
           <View style={[styles.iconBadge, { backgroundColor: config.accent }]}>
-            <FontAwesome name={iconName as any} size={13} color="#031726" />
+            <FontAwesome name={iconName as any} size={13} color="#FFFDF8" />
           </View>
 
           <View style={styles.body}>
@@ -248,28 +248,28 @@ const styles = StyleSheet.create({
     elevation: 99999,
   },
   wrap: {
-    borderRadius: 18,
-    backgroundColor: '#031726',
+    borderRadius: 6,
+    backgroundColor: '#1E1A15',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.22)',
-    elevation: 14,
-    shadowColor: '#031726',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
+    borderColor: 'rgba(228, 218, 203, 0.22)',
+    elevation: 0,
+    shadowColor: '#1E1A15',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 13,
-    borderRadius: 18,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   iconBadge: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

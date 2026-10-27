@@ -1556,7 +1556,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                 style={styles.assistantCard}
                 onPress={() => handleSelectRoom(aiRoom)}>
                 <View style={styles.assistantIcon}>
-                  <FontAwesome name="compass" size={20} color="#B45309" />
+                  <FontAwesome name="compass" size={20} color={WF_COLORS.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.assistantTitle}>Trợ lý du lịch</Text>
@@ -1569,7 +1569,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                   <FontAwesome
                     name="long-arrow-right"
                     size={11}
-                    color="#B45309"
+                    color={WF_COLORS.primary}
                     style={{ marginLeft: 5 }}
                   />
                 </View>
@@ -1952,7 +1952,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F6F8FB',
+    backgroundColor: '#F8F4EC',
   },
 
   // ── Header ────────────────────────────────────────────────
@@ -1964,11 +1964,6 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: WF_COLORS.slate200,
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
     zIndex: 5,
   },
   headerEyebrow: {
@@ -1992,7 +1987,7 @@ const styles = StyleSheet.create({
   headerIconBtn: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: WF_COLORS.slate100,
@@ -2002,15 +1997,15 @@ const styles = StyleSheet.create({
   composeBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: WF_COLORS.primary,
     shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 0,
   },
   threadHeaderCenter: {
     flex: 1,
@@ -2064,37 +2059,32 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 12,
     padding: 13,
-    borderRadius: 18,
-    backgroundColor: '#FFFBEB',
+    borderRadius: 6,
+    backgroundColor: '#FBF4EC',
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    shadowColor: '#B45309',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#E8D5C9',
   },
   assistantIcon: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FEF3C7',
+    borderRadius: 5,
+    backgroundColor: '#FFFDF8',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 11,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E8D5C9',
   },
   assistantTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#78350F',
+    color: '#8F3F24',
     marginBottom: 2,
   },
   assistantDesc: {
     fontSize: 10.5,
     lineHeight: 15,
-    color: '#92400E',
+    color: '#6B6154',
   },
   assistantCta: {
     flexDirection: 'row',
@@ -2102,13 +2092,15 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingHorizontal: 9,
     paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
+    borderRadius: 5,
+    backgroundColor: '#FFFDF8',
+    borderWidth: 1,
+    borderColor: '#E8D5C9',
   },
   assistantCtaText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#B45309',
+    color: WF_COLORS.primary,
   },
   searchBox: {
     flexDirection: 'row',
@@ -2117,7 +2109,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingHorizontal: 12,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
     backgroundColor: WF_COLORS.white,
@@ -2149,7 +2141,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 14,
     paddingVertical: 0,
-    borderRadius: 19,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.white,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
@@ -2173,7 +2165,7 @@ const styles = StyleSheet.create({
     height: 19,
     paddingHorizontal: 5,
     paddingVertical: 0,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.slate100,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2198,7 +2190,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 11,
     paddingVertical: 9,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: '#F7E4DF',
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -2244,18 +2236,11 @@ const styles = StyleSheet.create({
   roomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: WF_COLORS.white,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#EDF2F7',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.025,
-    shadowRadius: 4,
-    elevation: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EDE2',
   },
   roomAvatarWrap: {
     position: 'relative',
@@ -2302,7 +2287,7 @@ const styles = StyleSheet.create({
     width: 17,
     height: 17,
     borderRadius: 8.5,
-    backgroundColor: '#6366F1',
+    backgroundColor: WF_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -2331,18 +2316,18 @@ const styles = StyleSheet.create({
   },
   roomNameUnread: {
     fontWeight: '800',
-    color: '#0B1220',
+    color: '#1E1A15',
   },
   roomTypePill: {
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 6,
-    backgroundColor: WF_COLORS.amberLight,
+    borderRadius: 3,
+    backgroundColor: WF_COLORS.primarySoft,
   },
   roomTypePillText: {
     fontSize: 8,
     fontWeight: '800',
-    color: '#B45309',
+    color: WF_COLORS.primary,
   },
   roomTime: {
     fontSize: 9.5,
@@ -2371,7 +2356,7 @@ const styles = StyleSheet.create({
     minWidth: 20,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2389,7 +2374,7 @@ const styles = StyleSheet.create({
   emptyIcon: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 6,
     backgroundColor: WF_COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2415,7 +2400,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 18,
     paddingVertical: 9,
-    borderRadius: 13,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
   },
   emptyActionText: {
@@ -2508,7 +2493,7 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 6,
+    borderRadius: 4,
     backgroundColor: WF_COLORS.amberLight,
   },
   assistantBadgeText: {
@@ -2517,28 +2502,18 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   bubble: {
-    borderRadius: 18,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 9,
     maxWidth: '100%',
   },
   bubbleMe: {
     backgroundColor: WF_COLORS.primary,
-    shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.14,
-    shadowRadius: 6,
-    elevation: 2,
   },
   bubbleOther: {
     backgroundColor: WF_COLORS.white,
     borderWidth: 1,
     borderColor: '#E8DFD0',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.035,
-    shadowRadius: 5,
-    elevation: 1,
   },
   bubbleImage: {
     paddingHorizontal: 4,
@@ -2590,10 +2565,10 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     lineHeight: 14,
     color: WF_COLORS.slate500,
-    backgroundColor: '#EDF2F7',
+    backgroundColor: '#F3EDE2',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 5,
     overflow: 'hidden',
     textAlign: 'center',
   },
@@ -2619,8 +2594,8 @@ const styles = StyleSheet.create({
     borderColor: '#E8DFD0',
     paddingHorizontal: 12,
     paddingVertical: 9,
-    borderRadius: 16,
-    borderBottomLeftRadius: 6,
+    borderRadius: 6,
+    borderBottomLeftRadius: 4,
   },
   typingDots: {
     flexDirection: 'row',
@@ -2644,17 +2619,12 @@ const styles = StyleSheet.create({
     bottom: 10,
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 5,
   },
   jumpBadge: {
     position: 'absolute',
@@ -2663,7 +2633,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     paddingHorizontal: 3,
-    borderRadius: 8,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.rose,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2682,7 +2652,7 @@ const styles = StyleSheet.create({
   threadEmptyIcon: {
     width: 62,
     height: 62,
-    borderRadius: 31,
+    borderRadius: 6,
     backgroundColor: WF_COLORS.primarySoft,
     borderWidth: 1,
     borderColor: WF_COLORS.primaryLight,
@@ -2722,7 +2692,7 @@ const styles = StyleSheet.create({
   quickChip: {
     paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primarySoft,
     borderWidth: 1,
     borderColor: WF_COLORS.primaryLight,
@@ -2744,7 +2714,7 @@ const styles = StyleSheet.create({
   attachButton: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.slate100,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2754,7 +2724,7 @@ const styles = StyleSheet.create({
   inputWrap: {
     flex: 1,
     backgroundColor: WF_COLORS.slate50,
-    borderRadius: 19,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: WF_COLORS.slate200,
     paddingHorizontal: 12,
@@ -2780,18 +2750,13 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 1,
   },
   sendButtonActive: {
     backgroundColor: WF_COLORS.primary,
-    shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.26,
-    shadowRadius: 5,
-    elevation: 3,
   },
   sendButtonIdle: {
     backgroundColor: WF_COLORS.slate100,
@@ -2799,7 +2764,7 @@ const styles = StyleSheet.create({
 
   // ── Attachments & itinerary ──────────────────────────────
   imageWrap: {
-    borderRadius: 14,
+    borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: WF_COLORS.slate100,
   },
@@ -2813,7 +2778,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(30, 26, 21, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -2837,7 +2802,7 @@ const styles = StyleSheet.create({
   attachmentIcon: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2863,7 +2828,7 @@ const styles = StyleSheet.create({
   },
   itineraryCard: {
     width: 244,
-    borderRadius: 14,
+    borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: WF_COLORS.primarySoft,
     borderWidth: 1,
@@ -2889,7 +2854,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_COLORS.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 7,
+    borderRadius: 4,
     maxWidth: '70%',
   },
   itineraryDestinationText: {
@@ -2941,11 +2906,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 16,
+    borderRadius: 6,
     backgroundColor: WF_COLORS.white,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#EDF2F7',
+    borderColor: '#F3EDE2',
   },
   skeletonAvatar: {
     width: 50,
@@ -2981,7 +2946,7 @@ const styles = StyleSheet.create({
   },
   skeletonBubble: {
     height: 42,
-    borderRadius: 16,
+    borderRadius: 6,
     backgroundColor: WF_COLORS.slate200,
     marginBottom: 12,
   },
@@ -3003,7 +2968,7 @@ const styles = StyleSheet.create({
   threadErrorIcon: {
     width: 58,
     height: 58,
-    borderRadius: 29,
+    borderRadius: 6,
     backgroundColor: '#F7E4DF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3026,7 +2991,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingHorizontal: 18,
     paddingVertical: 9,
-    borderRadius: 13,
+    borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
   },
   threadErrorBtnText: {
@@ -3042,7 +3007,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(2, 6, 23, 0.94)',
+    backgroundColor: 'rgba(20, 17, 13, 0.94)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 80,
@@ -3064,7 +3029,7 @@ const styles = StyleSheet.create({
     right: 16,
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
     justifyContent: 'center',

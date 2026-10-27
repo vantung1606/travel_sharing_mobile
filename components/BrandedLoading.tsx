@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: WF_COLORS.primaryLight,
     borderWidth: 1,
-    borderColor: 'rgba(2, 132, 199, 0.18)',
+    borderColor: 'rgba(176, 82, 47, 0.18)',
   },
   title: {
     fontSize: 14,

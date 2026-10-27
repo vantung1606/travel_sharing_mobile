@@ -89,11 +89,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: WF_PAPER.cardBorder,
     overflow: 'hidden',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
   },
   block: {
     backgroundColor: BLOCK,

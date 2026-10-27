@@ -489,9 +489,9 @@ export function PostDetailModal({
                   onPress={handleSend}
                   disabled={!input.trim() || submitting}>
                   {submitting ? (
-                    <ActivityIndicator size="small" color="WF_PAPER.card" />
+                    <ActivityIndicator size="small" color={WF_PAPER.card} />
                   ) : (
-                    <FontAwesome name="paper-plane" size={14} color="WF_PAPER.card" />
+                    <FontAwesome name="paper-plane" size={14} color={WF_PAPER.card} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   },
   followBtnActive: {
     backgroundColor: WF_PAPER.clayLight,
-    borderColor: 'WF_PAPER.clayLight',
+    borderColor: WF_PAPER.clayLight,
   },
   followText: {
     fontSize: 11,

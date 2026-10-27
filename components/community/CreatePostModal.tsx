@@ -214,7 +214,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                   <FontAwesome
                     name="globe"
                     size={13}
-                    color={visibility === 'PUBLIC' ? 'WF_PAPER.card' : WF_PAPER.inkMuted}
+                    color={visibility === 'PUBLIC' ? WF_PAPER.card : WF_PAPER.inkMuted}
                   />
                   <Text style={[styles.visibilityLabel, visibility === 'PUBLIC' && styles.visibilityLabelActive]}>
                     Công khai
@@ -226,7 +226,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                   <FontAwesome
                     name="lock"
                     size={13}
-                    color={visibility === 'PRIVATE' ? 'WF_PAPER.card' : WF_PAPER.inkMuted}
+                    color={visibility === 'PRIVATE' ? WF_PAPER.card : WF_PAPER.inkMuted}
                   />
                   <Text style={[styles.visibilityLabel, visibility === 'PRIVATE' && styles.visibilityLabelActive]}>
                     Chỉ mình tôi
@@ -298,7 +298,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                     <TouchableOpacity
                       style={styles.removeThumb}
                       onPress={() => setImages((prev) => prev.filter((_, i) => i !== index))}>
-                      <FontAwesome name="times" size={10} color="WF_PAPER.card" />
+                      <FontAwesome name="times" size={10} color={WF_PAPER.card} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -331,7 +331,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                           <FontAwesome
                             name={active ? 'check-circle' : 'map-o'}
                             size={12}
-                            color={active ? 'WF_PAPER.card' : WF_PAPER.clay}
+                            color={active ? WF_PAPER.card : WF_PAPER.clay}
                           />
                           <Text
                             style={[styles.itineraryChipText, active && styles.itineraryChipTextActive]}
@@ -360,7 +360,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                           <FontAwesome
                             name={active ? 'check-circle' : 'map-marker'}
                             size={12}
-                            color={active ? 'WF_PAPER.card' : '#059669'}
+                            color={active ? WF_PAPER.card : WF_PAPER.clay}
                           />
                           <Text
                             style={[styles.placeChipText, active && styles.placeChipTextActive]}
@@ -381,10 +381,10 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                 onPress={handleSubmit}
                 disabled={submitting || uploading}>
                 {submitting ? (
-                  <ActivityIndicator color="WF_PAPER.card" />
+                  <ActivityIndicator color={WF_PAPER.card} />
                 ) : (
                   <>
-                    <FontAwesome name="paper-plane" size={14} color="WF_PAPER.card" />
+                    <FontAwesome name="paper-plane" size={14} color={WF_PAPER.card} />
                     <Text style={styles.submitText}>{isEdit ? 'Lưu thay đổi' : 'Đăng bài viết'}</Text>
                   </>
                 )}
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     color: WF_PAPER.inkSecondary,
   },
   visibilityLabelActive: {
-    color: 'WF_PAPER.card',
+    color: WF_PAPER.card,
   },
   label: {
     fontSize: 12.5,
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     color: WF_PAPER.inkSecondary,
   },
   chipTextActive: {
-    color: 'WF_PAPER.card',
+    color: WF_PAPER.card,
   },
   imageGrid: {
     flexDirection: 'row',
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: 'WF_PAPER.clayLight',
+    borderColor: WF_PAPER.clayLight,
     backgroundColor: WF_PAPER.bg,
   },
   itineraryChipActive: {
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   itineraryChipTextActive: {
-    color: 'WF_PAPER.card',
+    color: WF_PAPER.card,
   },
   placeChip: {
     flexDirection: 'row',
@@ -607,21 +607,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    backgroundColor: '#F0FDF4',
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
   },
   placeChipActive: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
+    backgroundColor: WF_PAPER.clay,
+    borderColor: WF_PAPER.clay,
   },
   placeChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#065F46',
+    color: WF_PAPER.inkMuted,
     flexShrink: 1,
   },
   placeChipTextActive: {
-    color: 'WF_PAPER.card',
+    color: WF_PAPER.card,
   },
   footer: {
     paddingHorizontal: 14,
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_PAPER.clay,
   },
   submitText: {
-    color: 'WF_PAPER.card',
+    color: WF_PAPER.card,
     fontSize: 14.5,
     fontWeight: '800',
   },

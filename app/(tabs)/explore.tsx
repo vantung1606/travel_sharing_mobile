@@ -17,6 +17,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { FeaturedPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
 import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
+import { ExploreMapModal } from '@/components/explore/ExploreMapModal';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { WF_COLORS } from '@/constants/Colors';
 import { authPrompt } from '@/src/services/authPrompt';
@@ -118,6 +119,7 @@ export default function ExploreScreen() {
 
   const [savedIds, setSavedIds] = useState<number[]>([]);
   const [isAddPlaceOpen, setIsAddPlaceOpen] = useState<boolean>(false);
+  const [isMapOpen, setIsMapOpen] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   const fetchPlaces = useCallback(async () => {
@@ -458,13 +460,22 @@ export default function ExploreScreen() {
                 <Text style={styles.pageSubtitle}>Những tọa độ đẹp đã được cộng đồng kiểm chứng</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <TouchableOpacity
-                  style={styles.proposeBtn}
-                  activeOpacity={0.85}
-                  onPress={() => setIsAddPlaceOpen(true)}>
-                  <FontAwesome name="plus" size={11} color="#FFFDF8" style={{ marginRight: 5 }} />
-                  <Text style={styles.proposeBtnText}>Đề xuất</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity
+                    style={styles.mapBtn}
+                    activeOpacity={0.85}
+                    onPress={() => setIsMapOpen(true)}>
+                    <FontAwesome name="map" size={11} color="#FFFDF8" style={{ marginRight: 5 }} />
+                    <Text style={styles.proposeBtnText}>Bản đồ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.proposeBtn}
+                    activeOpacity={0.85}
+                    onPress={() => setIsAddPlaceOpen(true)}>
+                    <FontAwesome name="plus" size={11} color="#FFFDF8" style={{ marginRight: 5 }} />
+                    <Text style={styles.proposeBtnText}>Đề xuất</Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.totalBadge}>
                   <Text style={styles.totalBadgeNum}>{placesTotal || '--'}</Text>
                   <Text style={styles.totalBadgeLabel}>địa điểm</Text>
@@ -938,6 +949,17 @@ export default function ExploreScreen() {
         </View>
       </Modal>
 
+      {/* ─── MODAL BẢN ĐỒ TƯƠNG TÁC & GPS ─────────────────────── */}
+      <ExploreMapModal
+        visible={isMapOpen}
+        places={places}
+        onClose={() => setIsMapOpen(false)}
+        onOpenPlaceDetail={(place) => {
+          setIsMapOpen(false);
+          handleOpenPlaceDetail(place);
+        }}
+      />
+
       {/* ─── MODAL ĐỀ XUẤT ĐỊA ĐIỂM MỚI ─────────────────────── */}
       <AddPlaceModal
         visible={isAddPlaceOpen}
@@ -1013,6 +1035,16 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate500,
     marginTop: 3,
     lineHeight: 17,
+  },
+  mapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    minWidth: 64,
   },
   proposeBtn: {
     flexDirection: 'row',

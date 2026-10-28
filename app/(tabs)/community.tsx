@@ -23,6 +23,7 @@ import { PostCard } from '@/components/community/PostCard';
 import { PostDetailModal } from '@/components/community/PostDetailModal';
 import { PostLikersModal } from '@/components/community/PostLikersModal';
 import { ReportPostSheet } from '@/components/community/ReportPostSheet';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import {
   FEED_SCOPES,
   FeedScope,
@@ -118,6 +119,7 @@ export default function CommunityScreen() {
   const [itineraryVisible, setItineraryVisible] = useState(false);
   const [cloningPostId, setCloningPostId] = useState<number | null>(null);
   const [selectedPostForLikers, setSelectedPostForLikers] = useState<PostItem | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   // ── Place Check-in integration ─────────────────────────────
   const routeParams = useLocalSearchParams<{ checkinPlaceId?: string }>();
@@ -703,6 +705,7 @@ export default function CommunityScreen() {
         onViewItinerary={() => openItineraryFor(item)}
         onCloneItinerary={() => cloneItinerary(item)}
         onPressPlace={handleOpenPlace}
+        onPressAuthor={() => item.authorId && setSelectedUserId(Number(item.authorId))}
       />
     );
   };
@@ -1004,6 +1007,7 @@ export default function CommunityScreen() {
         onViewItinerary={() => detailPost && openItineraryFor(detailPost)}
         onCloneItinerary={() => detailPost && cloneItinerary(detailPost)}
         onPressPlace={handleOpenPlace}
+        onPressAuthor={(userId) => setSelectedUserId(userId)}
         onSubmitReport={submitReport}
         onCommentCountChange={handleCommentCountChange}
       />
@@ -1145,6 +1149,17 @@ export default function CommunityScreen() {
             else next.delete(targetUserId);
             return next;
           });
+        }}
+      />
+
+      {/* ─── Overlay: hồ sơ công khai thành viên ────────────── */}
+      <UserProfileModal
+        visible={selectedUserId != null}
+        userId={selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+        onPressPost={(post) => {
+          setSelectedUserId(null);
+          setDetailPost(post);
         }}
       />
     </View>

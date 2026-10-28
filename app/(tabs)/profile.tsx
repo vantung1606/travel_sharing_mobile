@@ -44,6 +44,7 @@ import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { ChangePasswordModal } from '@/components/ChangePasswordModal';
 
 const { width } = Dimensions.get('window');
 
@@ -82,8 +83,10 @@ export default function ProfileScreen() {
   const [editPhone, setEditPhone] = useState<string>('');
   const [editTravelStyle, setEditTravelStyle] = useState<string>('Khám phá tự do');
   const [editBudget, setEditBudget] = useState<string>('Linh hoạt');
+  const [editAddress, setEditAddress] = useState<string>('');
   const [editAvatarUrl, setEditAvatarUrl] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
   const [isUploadingCover, setIsUploadingCover] = useState<boolean>(false);
 
@@ -126,6 +129,7 @@ export default function ProfileScreen() {
             setEditPhone(live.phoneNumber || live.phone || '');
             setEditTravelStyle(live.travelStyle || 'Khám phá tự do');
             setEditBudget(live.budgetPreference || 'Linh hoạt');
+            setEditAddress(live.address || live.location || '');
             setEditAvatarUrl(live.avatarUrl || session.avatar || '');
           }
         } catch (pe) {
@@ -319,6 +323,7 @@ export default function ProfileScreen() {
         phoneNumber: editPhone.trim(),
         travelStyle: editTravelStyle,
         budgetPreference: editBudget,
+        address: editAddress.trim(),
         avatarUrl: editAvatarUrl.trim() || undefined,
       };
 
@@ -659,7 +664,7 @@ export default function ProfileScreen() {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80';
   const displayName = profileData?.fullName || user?.fullName || 'Nhà Lữ Hành';
   const displayHandle = profileData?.handle || user?.handle || '@wanderer';
-  const displayLocation = profileData?.location || 'Việt Nam';
+  const displayLocation = profileData?.address || profileData?.location || 'Việt Nam';
   const displayTravelStyle = profileData?.travelStyle || 'Khám phá tự do';
   const displayBudget = profileData?.budgetPreference || 'Linh hoạt';
   const displayBio =
@@ -735,6 +740,15 @@ export default function ProfileScreen() {
                 >
                   <FontAwesome name="pencil" size={12} color="#3B332A" style={{ marginRight: 6 }} />
                   <Text style={styles.editProfileBtnText}>Chỉnh Sửa</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setIsChangePasswordOpen(true)}
+                  style={styles.changePasswordBtn}
+                  activeOpacity={0.8}
+                >
+                  <FontAwesome name="key" size={12} color="#3B332A" style={{ marginRight: 6 }} />
+                  <Text style={styles.editProfileBtnText}>Đổi Mật Khẩu</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1623,6 +1637,18 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
+              {/* Address / Location */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Địa chỉ / Nơi cư trú</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="VD: Quận 1, TP. Hồ Chí Minh"
+                  placeholderTextColor="#8A7F70"
+                  value={editAddress}
+                  onChangeText={setEditAddress}
+                />
+              </View>
+
               {/* Travel Style Selector */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Phong cách du lịch</Text>
@@ -1713,6 +1739,16 @@ export default function ProfileScreen() {
         }}
         initialTab={followModalInitialTab}
         onFollowChange={loadProfile}
+      />
+
+      {/* Modal Đổi mật khẩu tài khoản */}
+      <ChangePasswordModal
+        visible={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onSuccess={() => {
+          setIsChangePasswordOpen(false);
+          loadProfile();
+        }}
       />
 
       {/* Modal xem chi tiết lịch trình du lịch */}
@@ -1862,6 +1898,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#3B332A',
+  },
+  changePasswordBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFDF8',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#E4DACB',
   },
   logoutBtn: {
     flexDirection: 'row',

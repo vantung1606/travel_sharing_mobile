@@ -57,6 +57,7 @@ interface PostDetailModalProps {
   onViewItinerary: () => void;
   onCloneItinerary: () => void;
   onPressPlace?: (placeId: number) => void;
+  onPressAuthor?: (userId: number) => void;
   onSubmitReport: (post: PostItem, reason: string, details: string) => Promise<void>;
   onCommentCountChange?: (postId: number, count: number) => void;
 }
@@ -81,6 +82,7 @@ export function PostDetailModal({
   onViewItinerary,
   onCloneItinerary,
   onPressPlace,
+  onPressAuthor,
   onSubmitReport,
   onCommentCountChange,
 }: PostDetailModalProps) {
@@ -249,19 +251,32 @@ export function PostDetailModal({
     <Image source={{ uri: uri || FALLBACK_AVATAR }} style={styles.commentAvatar} />
   );
 
-  const renderCommentBody = (comment: CommentItem, isReply: boolean, parentId?: number) => (
-    <View style={[styles.commentItem, isReply && styles.replyItem]}>
-      {renderAvatar(comment.authorAvatar || comment.userAvatar)}
-      <View style={{ flex: 1 }}>
-        <View style={styles.commentHead}>
-          <Text style={styles.commentAuthor} numberOfLines={1}>
-            {comment.authorName || comment.userName || 'Thành viên Wayfare'}
-            {comment.replyToUserName ? (
-              <Text style={styles.replyTo}> → {comment.replyToUserName}</Text>
-            ) : null}
-          </Text>
-          <Text style={styles.commentTime}>{comment.timeAgo || 'Vừa xong'}</Text>
-        </View>
+  const renderCommentBody = (comment: CommentItem, isReply: boolean, parentId?: number) => {
+    const commentAuthorId = comment.authorId || (comment as any).userId;
+    return (
+      <View style={[styles.commentItem, isReply && styles.replyItem]}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => commentAuthorId && onPressAuthor?.(commentAuthorId)}
+          disabled={!commentAuthorId || !onPressAuthor}>
+          {renderAvatar(comment.authorAvatar || comment.userAvatar)}
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <View style={styles.commentHead}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => commentAuthorId && onPressAuthor?.(commentAuthorId)}
+              disabled={!commentAuthorId || !onPressAuthor}
+              style={{ flexShrink: 1 }}>
+              <Text style={styles.commentAuthor} numberOfLines={1}>
+                {comment.authorName || comment.userName || 'Thành viên Wayfare'}
+                {comment.replyToUserName ? (
+                  <Text style={styles.replyTo}> → {comment.replyToUserName}</Text>
+                ) : null}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.commentTime}>{comment.timeAgo || 'Vừa xong'}</Text>
+          </View>
         <Text style={styles.commentText}>{comment.content}</Text>
         <View style={styles.commentActions}>
           <TouchableOpacity
@@ -282,6 +297,7 @@ export function PostDetailModal({
       </View>
     </View>
   );
+};
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -308,39 +324,45 @@ export function PostDetailModal({
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
               {/* Author */}
               <View style={styles.authorRow}>
-                <Image source={{ uri: post.authorAvatar || FALLBACK_AVATAR }} style={styles.authorAvatar} />
-                <View style={{ flex: 1 }}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.authorName} numberOfLines={1}>
-                      {post.authorName || 'Thành viên Wayfare'}
-                    </Text>
-                    <View style={styles.tierPill}>
-                      <Text style={styles.tierPillText}>{getTierLabel(post.authorTier)}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaText}>{post.timeAgo || 'Vừa xong'}</Text>
-                    {post.locationTag || post.locationName ? (
-                      <>
-                        <Text style={styles.metaDot}>·</Text>
-                        <FontAwesome name="map-marker" size={10} color={WF_PAPER.inkMuted} />
-                        <Text style={styles.metaText} numberOfLines={1}>
-                          {post.locationTag || post.locationName}
-                        </Text>
-                      </>
-                    ) : null}
-                    <View style={[styles.visibilityPill, isPrivate && styles.visibilityPillPrivate]}>
-                      <FontAwesome
-                        name={isPrivate ? 'lock' : 'globe'}
-                        size={9}
-                        color={isPrivate ? '#B45309' : WF_PAPER.clay}
-                      />
-                      <Text style={[styles.visibilityText, isPrivate && { color: '#B45309' }]}>
-                        {isPrivate ? 'Chỉ mình tôi' : 'Công khai'}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => post.authorId && onPressAuthor?.(post.authorId)}
+                  disabled={!post.authorId || !onPressAuthor}
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                  <Image source={{ uri: post.authorAvatar || FALLBACK_AVATAR }} style={styles.authorAvatar} />
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.authorName} numberOfLines={1}>
+                        {post.authorName || 'Thành viên Wayfare'}
                       </Text>
+                      <View style={styles.tierPill}>
+                        <Text style={styles.tierPillText}>{getTierLabel(post.authorTier)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaText}>{post.timeAgo || 'Vừa xong'}</Text>
+                      {post.locationTag || post.locationName ? (
+                        <>
+                          <Text style={styles.metaDot}>·</Text>
+                          <FontAwesome name="map-marker" size={10} color={WF_PAPER.inkMuted} />
+                          <Text style={styles.metaText} numberOfLines={1}>
+                            {post.locationTag || post.locationName}
+                          </Text>
+                        </>
+                      ) : null}
+                      <View style={[styles.visibilityPill, isPrivate && styles.visibilityPillPrivate]}>
+                        <FontAwesome
+                          name={isPrivate ? 'lock' : 'globe'}
+                          size={9}
+                          color={isPrivate ? '#B45309' : WF_PAPER.clay}
+                        />
+                        <Text style={[styles.visibilityText, isPrivate && { color: '#B45309' }]}>
+                          {isPrivate ? 'Chỉ mình tôi' : 'Công khai'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
                 {!isOwner && onToggleFollow ? (
                   <TouchableOpacity
                     style={[styles.followBtn, isFollowingAuthor && styles.followBtnActive]}

@@ -311,6 +311,17 @@ export const authApi = {
       await authStorage.clearSession();
     }
   },
+
+  async changePassword(currentPassword: string, newPassword: string, confirmPassword?: string): Promise<void> {
+    const res = await apiClient.post<ApiResponse<void>>('/users/change-password', {
+      currentPassword,
+      newPassword,
+      confirmPassword: confirmPassword || newPassword,
+    });
+    if (!res.data.success) {
+      throw new Error(res.data.message || 'Đổi mật khẩu không thành công');
+    }
+  },
 };
 
 // ─── PLACES API ────────────────────────────────────────────
@@ -467,6 +478,7 @@ export interface UserProfileItem {
   travelStyle?: string;
   budgetPreference?: string;
   location?: string;
+  address?: string;
   rank?: string;
   role?: string;
   tier?: string;
@@ -600,6 +612,7 @@ export interface UpdateProfilePayload {
   phoneNumber?: string;
   travelStyle?: string;
   budgetPreference?: string;
+  address?: string;
   avatarUrl?: string;
   coverImageUrl?: string;
 }

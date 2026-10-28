@@ -49,6 +49,31 @@ export function ItineraryDetailModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
+  const [togglingVisibility, setTogglingVisibility] = useState<boolean>(false);
+
+  const handleToggleVisibility = async () => {
+    if (!fullItin?.id || togglingVisibility) return;
+    setTogglingVisibility(true);
+    try {
+      const nextPublic = !(fullItin.isPublic !== false);
+      const updated = await itineraryApi.toggleVisibility(fullItin.id, nextPublic);
+      setFullItin(prev => prev ? { ...prev, isPublic: updated.isPublic } : null);
+      if (onItineraryUpdated) onItineraryUpdated();
+      showToast({
+        kind: 'success',
+        title: nextPublic ? 'Đã công khai lịch trình!' : 'Đã chuyển sang riêng tư!',
+        message: nextPublic ? 'Mọi người có thể khám phá chuyến đi của bạn.' : 'Lịch trình chỉ hiển thị với bạn.',
+      });
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi cập nhật hiển thị',
+        message: e?.message || 'Không thể đổi chế độ hiển thị.',
+      });
+    } finally {
+      setTogglingVisibility(false);
+    }
+  };
 
   const fetchFullDetail = useCallback(async (id: number) => {
     try {
@@ -207,9 +232,28 @@ export function ItineraryDetailModal({
           <Text style={styles.navTitle} numberOfLines={1}>
             {fullItin?.title || 'Chi tiết chuyến đi'}
           </Text>
-          <TouchableOpacity style={styles.circleBtn} onPress={handleShareTrip}>
-            <FontAwesome name="share-alt" size={14} color="#1E1A15" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {canEdit && (
+              <TouchableOpacity
+                style={[
+                  styles.circleBtn,
+                  { backgroundColor: fullItin?.isPublic !== false ? '#DCFCE7' : '#FEF3C7' },
+                ]}
+                onPress={handleToggleVisibility}
+                disabled={togglingVisibility}
+                activeOpacity={0.8}
+              >
+                <FontAwesome
+                  name={fullItin?.isPublic !== false ? 'globe' : 'lock'}
+                  size={14}
+                  color={fullItin?.isPublic !== false ? '#15803D' : '#B45309'}
+                />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.circleBtn} onPress={handleShareTrip}>
+              <FontAwesome name="share-alt" size={14} color="#1E1A15" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
@@ -243,6 +287,29 @@ export function ItineraryDetailModal({
                     <Text style={styles.aiBadgeText}>Thủ công</Text>
                   </View>
                 )}
+
+                <TouchableOpacity
+                  activeOpacity={canEdit ? 0.8 : 1}
+                  onPress={canEdit ? handleToggleVisibility : undefined}
+                  style={[
+                    styles.aiBadge,
+                    {
+                      backgroundColor: fullItin?.isPublic !== false ? 'rgba(21, 128, 61, 0.9)' : 'rgba(180, 83, 9, 0.9)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    },
+                  ]}
+                >
+                  <FontAwesome
+                    name={fullItin?.isPublic !== false ? 'globe' : 'lock'}
+                    size={10}
+                    color="#FFFDF8"
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.aiBadgeText}>
+                    {fullItin?.isPublic !== false ? 'Công khai' : 'Riêng tư'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.heroTitle} numberOfLines={3}>

@@ -244,6 +244,7 @@ export interface ItineraryItem {
   coverImageUrl?: string;
   coverImage?: string;
   isAiGenerated?: boolean;
+  isPublic?: boolean;
   status?: string;
   groupType?: string;
   authorName?: string;
@@ -690,6 +691,7 @@ export interface CreateItineraryPayload {
   coverImageUrl?: string;
   status?: string;
   isAiGenerated?: boolean;
+  isPublic?: boolean;
   groupType?: string;
   details?: ItineraryDetailItem[];
 }
@@ -741,6 +743,11 @@ export const itineraryApi = {
 
   async cloneItinerary(id: number): Promise<ItineraryItem> {
     const res = await apiClient.post<ApiResponse<ItineraryItem>>(`/itineraries/${id}/clone`);
+    return res.data.data;
+  },
+
+  async toggleVisibility(id: number, isPublic?: boolean): Promise<ItineraryItem> {
+    const res = await apiClient.put<ApiResponse<ItineraryItem>>(`/itineraries/${id}/visibility`, isPublic !== undefined ? { isPublic } : {});
     return res.data.data;
   },
 };

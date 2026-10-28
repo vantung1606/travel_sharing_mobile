@@ -423,6 +423,29 @@ export default function ItineraryScreen() {
     }
   };
 
+  const handleToggleVisibility = async (itin: ItineraryItem) => {
+    try {
+      const nextPublic = !(itin.isPublic !== false);
+      const updated = await itineraryApi.toggleVisibility(itin.id, nextPublic);
+      setItineraries(prev =>
+        prev.map(it => (it.id === itin.id ? { ...it, isPublic: updated.isPublic } : it))
+      );
+      showToast({
+        kind: 'success',
+        title: nextPublic ? 'Đã công khai lịch trình!' : 'Đã chuyển sang riêng tư!',
+        message: nextPublic
+          ? 'Mọi người có thể khám phá chuyến đi của bạn.'
+          : 'Lịch trình chỉ hiển thị với bạn.',
+      });
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi cập nhật hiển thị',
+        message: e?.message || 'Không thể đổi chế độ hiển thị.',
+      });
+    }
+  };
+
   // ─── CHỌN ẢNH TỪ MÁY DÙNG EXPO-IMAGE-PICKER ────────────────
   const handlePickCoverImage = async () => {
     try {
@@ -830,12 +853,26 @@ Ví dụ chuẩn:
               <Text style={styles.destinationBadgeText}>{item.destination}</Text>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {item.isAiGenerated && (
                 <View style={styles.aiBadge}>
                   <Text style={styles.aiBadgeText}>Tour AI</Text>
                 </View>
               )}
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: item.isPublic !== false ? 'rgba(21, 128, 61, 0.9)' : 'rgba(30, 26, 21, 0.85)' }
+              ]}>
+                <FontAwesome
+                  name={item.isPublic !== false ? 'globe' : 'lock'}
+                  size={10}
+                  color={item.isPublic !== false ? '#FFFFFF' : '#FCD34D'}
+                  style={{ marginRight: 3 }}
+                />
+                <Text style={[styles.statusBadgeText, { color: item.isPublic !== false ? '#FFFFFF' : '#FCD34D' }]}>
+                  {item.isPublic !== false ? 'Công khai' : 'Riêng tư'}
+                </Text>
+              </View>
               <View style={[styles.statusBadge, isCompleted ? styles.statusBadgeCompleted : styles.statusBadgeUpcoming]}>
                 <Text style={styles.statusBadgeText}>
                   {isCompleted ? 'Đã hoàn thành' : isUpcoming ? 'Sắp diễn ra' : 'Bản nháp'}
@@ -892,6 +929,22 @@ Ví dụ chuẩn:
             </TouchableOpacity>
 
             <View style={styles.cardIconActions}>
+              {isOwner && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={[
+                    styles.actionIconBtn,
+                    { backgroundColor: item.isPublic !== false ? '#DCFCE7' : '#FEF3C7' },
+                  ]}
+                  onPress={() => handleToggleVisibility(item)}>
+                  <FontAwesome
+                    name={item.isPublic !== false ? 'globe' : 'lock'}
+                    size={13}
+                    color={item.isPublic !== false ? '#15803D' : '#B45309'}
+                  />
+                </TouchableOpacity>
+              )}
+
               {!isOwner && (
                 <TouchableOpacity
                   activeOpacity={0.8}

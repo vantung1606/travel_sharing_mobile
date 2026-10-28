@@ -21,6 +21,7 @@ import { CreatePostModal } from '@/components/community/CreatePostModal';
 import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { PostCard } from '@/components/community/PostCard';
 import { PostDetailModal } from '@/components/community/PostDetailModal';
+import { PostLikersModal } from '@/components/community/PostLikersModal';
 import { ReportPostSheet } from '@/components/community/ReportPostSheet';
 import {
   FEED_SCOPES,
@@ -116,6 +117,7 @@ export default function CommunityScreen() {
   const [itineraryDetail, setItineraryDetail] = useState<ItineraryItem | null>(null);
   const [itineraryVisible, setItineraryVisible] = useState(false);
   const [cloningPostId, setCloningPostId] = useState<number | null>(null);
+  const [selectedPostForLikers, setSelectedPostForLikers] = useState<PostItem | null>(null);
 
   // ── Place Check-in integration ─────────────────────────────
   const routeParams = useLocalSearchParams<{ checkinPlaceId?: string }>();
@@ -690,6 +692,7 @@ export default function CommunityScreen() {
         currentUserId={session?.id ?? null}
         onToggleFollow={canFollow ? () => toggleFollowAuthor(item.authorId) : undefined}
         onToggleLike={() => toggleLike(item.id)}
+        onPressLikers={() => setSelectedPostForLikers(item)}
         onToggleBookmark={() => toggleBookmark(item.id)}
         onOpenComments={() => setDetailPost(postWithCount)}
         onShare={() => handleShare(item)}
@@ -990,6 +993,7 @@ export default function CommunityScreen() {
         menuOptions={detailPost ? buildMenuOptions(detailPost) : []}
         onClose={() => setDetailPost(null)}
         onToggleLike={() => detailPost && toggleLike(detailPost.id)}
+        onPressLikers={() => detailPost && setSelectedPostForLikers(detailPost)}
         onToggleBookmark={() => detailPost && toggleBookmark(detailPost.id)}
         onToggleFollow={
           detailPost && session && detailPost.authorId != null && !(detailPost.isOwner ?? detailPost.authorId === session.id)
@@ -1124,6 +1128,23 @@ export default function CommunityScreen() {
           setPlaceDetailVisible(false);
           setCheckinPlaceId(place.id);
           setComposerVisible(true);
+        }}
+      />
+
+      {/* ─── Overlay: danh sách người đã thích ───────────── */}
+      <PostLikersModal
+        visible={!!selectedPostForLikers}
+        postId={selectedPostForLikers?.id ?? null}
+        postTitle={selectedPostForLikers?.title}
+        currentUserId={session?.id ?? null}
+        onClose={() => setSelectedPostForLikers(null)}
+        onFollowChange={(targetUserId, isFollowing) => {
+          setFollowingIds((prev) => {
+            const next = new Set(prev);
+            if (isFollowing) next.add(targetUserId);
+            else next.delete(targetUserId);
+            return next;
+          });
         }}
       />
     </View>

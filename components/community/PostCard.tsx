@@ -33,6 +33,7 @@ interface PostCardProps {
   onPressAuthor?: () => void;
   onToggleFollow?: () => void;
   onToggleLike: () => void;
+  onPressLikers?: () => void;
   onToggleBookmark: () => void;
   onOpenComments: () => void;
   onShare: () => void;
@@ -72,6 +73,7 @@ export function PostCard({
   onPressAuthor,
   onToggleFollow,
   onToggleLike,
+  onPressLikers,
   onToggleBookmark,
   onOpenComments,
   onShare,
@@ -280,14 +282,26 @@ export function PostCard({
 
       {/* Action bar */}
       <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.action} onPress={onToggleLike} activeOpacity={0.7}>
-          <FontAwesome
-            name={liked ? 'heart' : 'heart-o'}
-            size={17}
-            color={liked ? '#EF4444' : WF_PAPER.inkMuted}
-          />
-          <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{likeCount}</Text>
-        </TouchableOpacity>
+        <View style={styles.action}>
+          <TouchableOpacity
+            onPress={onToggleLike}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 3 }}
+          >
+            <FontAwesome
+              name={liked ? 'heart' : 'heart-o'}
+              size={17}
+              color={liked ? '#EF4444' : WF_PAPER.inkMuted}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onPressLikers || onToggleLike}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 3, right: 8 }}
+          >
+            <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{likeCount}</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.action} onPress={onOpenComments} activeOpacity={0.7}>
           <FontAwesome name="comment-o" size={17} color={WF_PAPER.inkMuted} />

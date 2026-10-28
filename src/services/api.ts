@@ -203,6 +203,18 @@ export interface PostItem {
   sharedPost?: PostItem;
 }
 
+export interface PostLikerItem {
+  id: number;
+  fullName: string;
+  handle?: string;
+  avatarUrl?: string;
+  bio?: string;
+  role?: string;
+  isFollowing?: boolean;
+  isMe?: boolean;
+  likedAt?: string;
+}
+
 export function normalizeMediaUrl(url?: string | null): string {
   if (!url || typeof url !== 'string') return '';
   if (/^http:\/\/localhost(:\d+)?\/uploads\//i.test(url)) {
@@ -506,6 +518,11 @@ export const postApi = {
   async toggleLike(id: number): Promise<{ isLiked: boolean; likeCount: number }> {
     const res = await apiClient.post<ApiResponse<{ isLiked: boolean; likeCount: number }>>(`/posts/${id}/like`);
     return res.data.data;
+  },
+
+  async getPostLikers(id: number): Promise<PostLikerItem[]> {
+    const res = await apiClient.get<ApiResponse<PostLikerItem[]>>(`/posts/${id}/likes`);
+    return res.data.data || [];
   },
 
   async toggleBookmark(id: number): Promise<{ isBookmarked: boolean }> {

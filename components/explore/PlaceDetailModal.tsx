@@ -7,6 +7,7 @@ import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { Text } from '@/components/Themed';
 import { PlaceImage } from '@/components/explore/PlaceImage';
+import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { WF_COLORS } from '@/constants/Colors';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
@@ -44,6 +45,11 @@ export function PlaceDetailModal({
 }: PlaceDetailModalProps) {
   const [session, setSession] = useState<UserSession | null>(null);
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
+  const [reportTarget, setReportTarget] = useState<{
+    type: 'PLACE' | 'REVIEW';
+    id: number;
+    title: string;
+  } | null>(null);
   // reviewsState/weatherState gắn dấu "forKey" = placeId đã tải → loading là
   // state suy diễn (reviewsState.forKey !== placeId), KHÔNG cần setState
   // đồng bộ trong effect (react-hooks/set-state-in-effect).
@@ -355,6 +361,20 @@ export function PlaceDetailModal({
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  style={[styles.floatingBtn, styles.floatingBtnReport]}
+                  onPress={() => {
+                    if (!place) return;
+                    setReportTarget({
+                      type: 'PLACE',
+                      id: place.id,
+                      title: place.name,
+                    });
+                  }}
+                  accessibilityLabel="Báo cáo địa điểm">
+                  <FontAwesome name="flag-o" size={15} color={WF_COLORS.slate900} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={[styles.floatingBtn, styles.floatingBtnRight]}
                   onPress={onToggleSave}
                   accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
@@ -548,7 +568,28 @@ export function PlaceDetailModal({
                                     </Text>
                                   </TouchableOpacity>
                                 </View>
-                              ) : null}
+                              ) : (
+                                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 }}>
+                                  <TouchableOpacity
+                                    onPress={() =>
+                                      setReportTarget({
+                                        type: 'REVIEW',
+                                        id: r.id,
+                                        title: `Đánh giá của ${r.authorName || 'du khách'}`,
+                                      })
+                                    }
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      paddingVertical: 2,
+                                      paddingHorizontal: 6,
+                                    }}>
+                                    <FontAwesome name="flag-o" size={11} color={WF_COLORS.slate400} />
+                                    <Text style={{ fontSize: 11, color: WF_COLORS.slate400 }}>Báo cáo</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              )}
                             </View>
                           </View>
                         );
@@ -753,6 +794,14 @@ export function PlaceDetailModal({
           ) : null}
         </ScrollView>
       </SafeAreaView>
+
+      <UniversalReportModal
+        visible={!!reportTarget}
+        targetType={reportTarget?.type || 'PLACE'}
+        targetId={reportTarget?.id ?? null}
+        targetTitle={reportTarget?.title}
+        onClose={() => setReportTarget(null)}
+      />
     </Modal>
   );
 }
@@ -808,6 +857,9 @@ const styles = StyleSheet.create({
   },
   floatingBtnLeft: {
     left: 12,
+  },
+  floatingBtnReport: {
+    right: 54,
   },
   floatingBtnRight: {
     right: 12,

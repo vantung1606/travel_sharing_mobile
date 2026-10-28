@@ -23,7 +23,7 @@ import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { PostCard } from '@/components/community/PostCard';
 import { PostDetailModal } from '@/components/community/PostDetailModal';
 import { PostLikersModal } from '@/components/community/PostLikersModal';
-import { ReportPostSheet } from '@/components/community/ReportPostSheet';
+import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import {
   FEED_SCOPES,
@@ -1113,22 +1113,13 @@ export default function CommunityScreen() {
         onClose={() => setMenuPost(null)}
       />
 
-      {/* ─── Overlay: báo cáo vi phạm (từ thẻ feed) ─────────── */}
-      <ReportPostSheet
+      {/* ─── Overlay: báo cáo vi phạm bài viết đa năng ─────────── */}
+      <UniversalReportModal
         visible={!!reportTarget}
-        postTitle={reportTarget?.title || reportTarget?.content?.slice(0, 60)}
-        submitting={reportSubmitting}
+        targetType="POST"
+        targetId={reportTarget?.id ?? null}
+        targetTitle={reportTarget?.title || reportTarget?.content?.slice(0, 60)}
         onClose={() => setReportTarget(null)}
-        onSubmit={async (reason, details) => {
-          if (!reportTarget) return;
-          setReportSubmitting(true);
-          try {
-            await submitReport(reportTarget, reason, details);
-            setReportTarget(null);
-          } finally {
-            setReportSubmitting(false);
-          }
-        }}
       />
 
       {/* ─── Overlay: xem ảnh ───────────────────────────────── */}

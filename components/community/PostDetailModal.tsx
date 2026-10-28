@@ -20,7 +20,7 @@ import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
 import { PlaceAttachCard } from '@/components/community/PlaceAttachCard';
 import { PostMedia } from '@/components/community/PostMedia';
-import { ReportPostSheet } from '@/components/community/ReportPostSheet';
+import { UniversalReportModal } from '@/components/UniversalReportModal';
 import {
   getPostCommentCount,
   getPostImages,
@@ -58,7 +58,7 @@ interface PostDetailModalProps {
   onCloneItinerary: () => void;
   onPressPlace?: (placeId: number) => void;
   onPressAuthor?: (userId: number) => void;
-  onSubmitReport: (post: PostItem, reason: string, details: string) => Promise<void>;
+  onSubmitReport?: (post: PostItem, reason: string, details: string) => Promise<void>;
   onCommentCountChange?: (postId: number, count: number) => void;
 }
 
@@ -555,20 +555,12 @@ export function PostDetailModal({
           onClose={() => setMenuVisible(false)}
         />
 
-        <ReportPostSheet
+        <UniversalReportModal
           visible={reportVisible}
-          postTitle={post.title || post.content?.slice(0, 60)}
-          submitting={reportSubmitting}
+          targetType="POST"
+          targetId={post.id}
+          targetTitle={post.title || post.content?.slice(0, 60)}
           onClose={() => setReportVisible(false)}
-          onSubmit={async (reason, details) => {
-            setReportSubmitting(true);
-            try {
-              await onSubmitReport(post, reason, details);
-              setReportVisible(false);
-            } finally {
-              setReportSubmitting(false);
-            }
-          }}
         />
 
         {/* Thông báo & hộp xác nhận trong chính modal bài viết */}

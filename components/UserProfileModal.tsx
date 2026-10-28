@@ -14,6 +14,7 @@ import {
 import { Text } from '@/components/Themed';
 import { RichPostText } from '@/components/community/RichTextToolbar';
 import { PostMedia } from '@/components/community/PostMedia';
+import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { showToast } from '@/components/Toast';
 import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
 import { PostItem, UserProfileItem, userApi } from '@/src/services/api';
@@ -48,6 +49,7 @@ export function UserProfileModal({
   const [following, setFollowing] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
   const [followersCount, setFollowersCount] = useState<number>(0);
+  const [reportVisible, setReportVisible] = useState<boolean>(false);
 
   useEffect(() => {
     if (!visible || !userId) {
@@ -128,9 +130,15 @@ export function UserProfileModal({
             <Text style={styles.headerTitle} numberOfLines={1}>
               {profile?.fullName || 'Hồ sơ du khách'}
             </Text>
-            {userId && !isMe && onReportUser ? (
+            {userId && !isMe ? (
               <TouchableOpacity
-                onPress={() => onReportUser(userId, profile?.fullName || 'Người dùng')}
+                onPress={() => {
+                  if (onReportUser) {
+                    onReportUser(userId, profile?.fullName || 'Người dùng');
+                  } else {
+                    setReportVisible(true);
+                  }
+                }}
                 style={styles.reportBtn}
                 accessibilityLabel="Báo cáo người dùng">
                 <FontAwesome name="flag-o" size={16} color={WF_PAPER.inkMuted} />
@@ -362,6 +370,14 @@ export function UserProfileModal({
           ) : null}
         </View>
       </View>
+
+      <UniversalReportModal
+        visible={reportVisible}
+        targetType="USER"
+        targetId={userId}
+        targetTitle={profile?.fullName || 'Người dùng'}
+        onClose={() => setReportVisible(false)}
+      />
     </Modal>
   );
 }

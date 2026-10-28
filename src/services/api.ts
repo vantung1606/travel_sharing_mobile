@@ -1177,5 +1177,21 @@ export const notificationApi = {
   },
 };
 
+// ─── UNIVERSAL REPORT API ──────────────────────────────────
+export interface CreateReportPayload {
+  targetType: 'POST' | 'PLACE' | 'USER' | 'REVIEW';
+  targetId: number;
+  category: string;
+  reason: string;
+  description?: string;
+  evidenceImageUrl?: string;
+}
+
+export const reportApi = {
+  async submitReport(payload: CreateReportPayload): Promise<void> {
+    await apiClient.post('/reports', payload);
+  },
+};
+
 export default apiClient;
 

@@ -119,6 +119,128 @@ class ChatSocketService {
     };
   }
 
+  /**
+   * Đăng ký nhận sự kiện typing (đang soạn tin) của phòng.
+   */
+  subscribeToTyping(roomId: number | string, handler: (payload: any) => void): () => void {
+    const key = String(roomId);
+    this.connect();
+
+    let sub: StompSubscription | null = null;
+    const topic = `/topic/room.${key}/typing`;
+
+    const doSub = () => {
+      if (!this.client || !this.isConnected) return;
+      try {
+        sub = this.client.subscribe(topic, (frame: IMessage) => {
+          try {
+            const data = JSON.parse(frame.body);
+            handler(data);
+          } catch {
+            // ignore
+          }
+        });
+      } catch (e) {
+        console.warn(`[STOMP] subscribe typing room ${key} failed:`, e);
+      }
+    };
+
+    if (this.client && this.isConnected) {
+      doSub();
+    } else {
+      const interval = setInterval(() => {
+        if (this.client && this.isConnected) {
+          clearInterval(interval);
+          doSub();
+        }
+      }, 200);
+      setTimeout(() => clearInterval(interval), 5000);
+    }
+
+    return () => {
+      if (sub) {
+        try {
+          sub.unsubscribe();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }
+
+  /**
+   * Đăng ký nhận sự kiện đã đọc (read receipt) của phòng.
+   */
+  subscribeToReadReceipt(roomId: number | string, handler: (payload: any) => void): () => void {
+    const key = String(roomId);
+    this.connect();
+
+    let sub: StompSubscription | null = null;
+    const topic = `/topic/room.${key}/read`;
+
+    const doSub = () => {
+      if (!this.client || !this.isConnected) return;
+      try {
+        sub = this.client.subscribe(topic, (frame: IMessage) => {
+          try {
+            const data = JSON.parse(frame.body);
+            handler(data);
+          } catch {
+            // ignore
+          }
+        });
+      } catch (e) {
+        console.warn(`[STOMP] subscribe read room ${key} failed:`, e);
+      }
+    };
+
+    if (this.client && this.isConnected) {
+      doSub();
+    } else {
+      const interval = setInterval(() => {
+        if (this.client && this.isConnected) {
+          clearInterval(interval);
+          doSub();
+        }
+      }, 200);
+      setTimeout(() => clearInterval(interval), 5000);
+    }
+
+    return () => {
+      if (sub) {
+        try {
+          sub.unsubscribe();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }
+
+  sendTyping(roomId: number | string, data: { email: string; userName?: string; isTyping: boolean }): void {
+    if (!this.client || !this.isConnected || !roomId) return;
+    try {
+      this.client.publish({
+        destination: '/app/chat.typing',
+        body: JSON.stringify({ roomId: Number(roomId), ...data }),
+      });
+    } catch (e) {
+      console.warn('[STOMP] sendTyping error:', e);
+    }
+  }
+
+  sendReadReceipt(roomId: number | string, data: { email: string; lastReadMessageId?: number }): void {
+    if (!this.client || !this.isConnected || !roomId) return;
+    try {
+      this.client.publish({
+        destination: '/app/chat.read',
+        body: JSON.stringify({ roomId: Number(roomId), ...data }),
+      });
+    } catch (e) {
+      console.warn('[STOMP] sendReadReceipt error:', e);
+    }
+  }
+
   disconnect(): void {
     this.roomSubscriptions.forEach((sub) => {
       try {

@@ -899,6 +899,7 @@ export interface ChatMessage {
   /** Giờ hiển thị dạng "HH:mm" (backend trả sẵn trong trường `time`). */
   time?: string;
   isMe?: boolean;
+  isRead?: boolean;
   /** Tin nhắn đang chờ server xác nhận (optimistic). */
   isPending?: boolean;
   /** Gửi thất bại, cho phép bấm "Gửi lại". */
@@ -918,6 +919,7 @@ export interface ChatMember {
   isOnline?: boolean;
   statusText?: string;
   lastActiveAt?: string;
+  lastReadMessageId?: number;
 }
 
 export interface ChatRoom {
@@ -948,6 +950,7 @@ const mapChatMember = (raw: any): ChatMember => ({
   isOnline: raw?.isOnline,
   statusText: raw?.statusText,
   lastActiveAt: raw?.lastActiveAt,
+  lastReadMessageId: raw?.lastReadMessageId ? Number(raw.lastReadMessageId) : undefined,
 });
 
 const mapChatRoom = (raw: any): ChatRoom => {
@@ -994,6 +997,7 @@ const mapChatMessage = (raw: any): ChatMessage => ({
   createdAt: raw?.createdAt,
   time: raw?.time,
   isMe: typeof raw?.isMe === 'boolean' ? raw.isMe : undefined,
+  isRead: typeof raw?.isRead === 'boolean' ? raw.isRead : undefined,
 });
 
 export const chatApi = {
@@ -1014,6 +1018,14 @@ export const chatApi = {
   async getRoomMessages(roomId: number | string): Promise<ChatMessage[]> {
     const res = await apiClient.get<ApiResponse<any[]>>(`/chat/rooms/${roomId}/messages`);
     return (res.data.data || []).map(mapChatMessage);
+  },
+
+  async markRoomAsRead(roomId: number | string): Promise<void> {
+    try {
+      await apiClient.post(`/chat/rooms/${roomId}/read`);
+    } catch {
+      // ignore
+    }
   },
 
   async sendMessage(

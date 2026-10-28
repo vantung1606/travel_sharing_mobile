@@ -497,8 +497,16 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   const initialRoomHandledRef = useRef(false);
   const lastMeasuredTextRef = useRef('');
 
+  const [typingUsers, setTypingUsers] = useState<Record<string, { userName: string; lastTypedAt: number }>>({});
   const unsubscribeRoomRef = useRef<(() => void) | null>(null);
+  const unsubscribeTypingRef = useRef<(() => void) | null>(null);
+  const unsubscribeReadRef = useRef<(() => void) | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typingCleanupTimerRef = useRef<any>(null);
+  const typingDebounceTimerRef = useRef<any>(null);
+  const isTypingRef = useRef(false);
+  const currentUserEmailRef = useRef<string | null>(null);
+  const currentUserNameRef = useRef<string | null>(null);
 
   const filterPulse = useRef(new Animated.Value(1)).current;
 
@@ -509,6 +517,8 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       .then((session) => {
         const rawId = (session as any)?.id ?? (session as any)?.userId;
         currentUserIdRef.current = rawId != null ? Number(rawId) : null;
+        currentUserEmailRef.current = (session as any)?.email ?? null;
+        currentUserNameRef.current = (session as any)?.fullName ?? (session as any)?.name ?? null;
       })
       .catch(() => {});
   }, []);
@@ -523,9 +533,29 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       unsubscribeRoomRef.current();
       unsubscribeRoomRef.current = null;
     }
+    if (unsubscribeTypingRef.current) {
+      unsubscribeTypingRef.current();
+      unsubscribeTypingRef.current = null;
+    }
+    if (unsubscribeReadRef.current) {
+      unsubscribeReadRef.current();
+      unsubscribeReadRef.current = null;
+    }
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current);
       pollTimerRef.current = null;
+    }
+    if (typingCleanupTimerRef.current) {
+      clearInterval(typingCleanupTimerRef.current);
+      typingCleanupTimerRef.current = null;
+    }
+    setTypingUsers({});
+    if (isTypingRef.current && activeRoomIdRef.current && currentUserEmailRef.current) {
+      isTypingRef.current = false;
+      chatSocket.sendTyping(activeRoomIdRef.current, {
+        email: currentUserEmailRef.current,
+        isTyping: false,
+      });
     }
   }, []);
 
@@ -546,6 +576,31 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     if (!text) {
       setInputHeight(40);
       lastMeasuredTextRef.current = '';
+    }
+
+    if (activeRoom && activeRoom.type !== 'AI' && currentUserEmailRef.current) {
+      if (!isTypingRef.current && text.trim().length > 0) {
+        isTypingRef.current = true;
+        chatSocket.sendTyping(activeRoom.id, {
+          email: currentUserEmailRef.current,
+          userName: currentUserNameRef.current || 'Bạn',
+          isTyping: true,
+        });
+      }
+
+      if (typingDebounceTimerRef.current) {
+        clearTimeout(typingDebounceTimerRef.current);
+      }
+
+      typingDebounceTimerRef.current = setTimeout(() => {
+        isTypingRef.current = false;
+        if (currentUserEmailRef.current && activeRoomIdRef.current) {
+          chatSocket.sendTyping(activeRoomIdRef.current, {
+            email: currentUserEmailRef.current,
+            isTyping: false,
+          });
+        }
+      }, 2000);
     }
   };
 
@@ -630,6 +685,14 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         );
         setMessages(normalized);
         setTimeout(() => scrollToBottom(false), 120);
+
+        chatApi.markRoomAsRead(room.id);
+        if (currentUserEmailRef.current) {
+          chatSocket.sendReadReceipt(room.id, {
+            email: currentUserEmailRef.current,
+            lastReadMessageId: 0,
+          });
+        }
       } catch {
         setMessagesError('Không tải được tin nhắn. Kiểm tra kết nối và thử lại.');
       } finally {
@@ -646,10 +709,81 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         setMessages((prev) => mergeIncomingMessage(prev, normalized));
         updateRoomFromMessage(room.id, normalized);
 
+        if (!normalized.isMe) {
+          chatApi.markRoomAsRead(room.id);
+          if (currentUserEmailRef.current) {
+            chatSocket.sendReadReceipt(room.id, {
+              email: currentUserEmailRef.current,
+              lastReadMessageId: Number(normalized.id) || undefined,
+            });
+          }
+        }
+
         if (!nearBottomRef.current && !normalized.isMe) {
           setNewMessageCount((count) => count + 1);
         }
       });
+
+      // Đăng ký nhận sự kiện đang soạn tin (Typing Indicator)
+      unsubscribeTypingRef.current = chatSocket.subscribeToTyping(room.id, (payload) => {
+        if (!payload || !payload.email) return;
+        if (
+          currentUserEmailRef.current &&
+          payload.email.toLowerCase().trim() === currentUserEmailRef.current.toLowerCase().trim()
+        ) {
+          return;
+        }
+
+        setTypingUsers((prev) => {
+          const next = { ...prev };
+          if (payload.isTyping) {
+            next[payload.email] = {
+              userName: payload.userName || 'Đối phương',
+              lastTypedAt: Date.now(),
+            };
+          } else {
+            delete next[payload.email];
+          }
+          return next;
+        });
+      });
+
+      // Đăng ký nhận sự kiện đã đọc (Read Receipt)
+      unsubscribeReadRef.current = chatSocket.subscribeToReadReceipt(room.id, (receipt) => {
+        if (!receipt || !receipt.lastReadMessageId) return;
+        if (
+          currentUserEmailRef.current &&
+          receipt.email &&
+          receipt.email.toLowerCase().trim() === currentUserEmailRef.current.toLowerCase().trim()
+        ) {
+          return;
+        }
+
+        const readId = Number(receipt.lastReadMessageId);
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id && Number(m.id) <= readId) {
+              return { ...m, isRead: true };
+            }
+            return m;
+          })
+        );
+      });
+
+      typingCleanupTimerRef.current = setInterval(() => {
+        setTypingUsers((prev) => {
+          const now = Date.now();
+          let changed = false;
+          const next = { ...prev };
+          for (const [em, data] of Object.entries(next)) {
+            if (now - data.lastTypedAt > 3500) {
+              delete next[em];
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      }, 1500);
 
       // Polling dự phòng 5s nếu WebSocket bị chặn
       pollTimerRef.current = setInterval(async () => {
@@ -874,6 +1008,17 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         isMe: true,
         isPending: true,
       };
+
+      if (typingDebounceTimerRef.current) {
+        clearTimeout(typingDebounceTimerRef.current);
+      }
+      if (isTypingRef.current && currentUserEmailRef.current) {
+        isTypingRef.current = false;
+        chatSocket.sendTyping(room.id, {
+          email: currentUserEmailRef.current,
+          isTyping: false,
+        });
+      }
 
       setMessages((prev) => [...prev, optimistic]);
       scrollToBottom(true);
@@ -1345,13 +1490,34 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                       color="#FECACA"
                       style={{ marginLeft: 4 }}
                     />
+                  ) : message.isRead ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 4 }}>
+                      <FontAwesome
+                        name="check"
+                        size={8}
+                        color="#93C5FD"
+                      />
+                      <FontAwesome
+                        name="check"
+                        size={8}
+                        color="#93C5FD"
+                        style={{ marginLeft: -3 }}
+                      />
+                      <Text style={{ fontSize: 9, color: '#BFDBFE', marginLeft: 2.5, fontWeight: '600' }}>
+                        Đã xem
+                      </Text>
+                    </View>
                   ) : (
-                    <FontAwesome
-                      name="check"
-                      size={9}
-                      color="rgba(255,255,255,0.8)"
-                      style={{ marginLeft: 4 }}
-                    />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 4 }}>
+                      <FontAwesome
+                        name="check"
+                        size={9}
+                        color="rgba(255,255,255,0.8)"
+                      />
+                      <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', marginLeft: 2.5 }}>
+                        Đã gửi
+                      </Text>
+                    </View>
                   ))}
               </View>
             )}
@@ -1836,6 +2002,16 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+              </View>
+            )}
+
+            {Object.keys(typingUsers).length > 0 && (
+              <View style={styles.typingIndicatorRow}>
+                <View style={styles.chatTypingBubble}>
+                  <Text style={styles.chatTypingText}>
+                    {Object.values(typingUsers).map((u) => u.userName).join(', ')} đang soạn tin...
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -2703,6 +2879,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#8F3F24',
+  },
+  typingIndicatorRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 5,
+    backgroundColor: '#FAF7F0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WF_COLORS.slate200,
+  },
+  chatTypingBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: WF_COLORS.white,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+  },
+  chatTypingText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: WF_COLORS.slate600,
   },
   inputBar: {
     flexDirection: 'row',

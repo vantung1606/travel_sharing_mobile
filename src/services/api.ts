@@ -247,6 +247,7 @@ export interface ItineraryItem {
   isPublic?: boolean;
   status?: string;
   groupType?: string;
+  travelStyle?: string;
   authorName?: string;
   details?: ItineraryDetailItem[];
   placesCount?: number;
@@ -693,7 +694,21 @@ export interface CreateItineraryPayload {
   isAiGenerated?: boolean;
   isPublic?: boolean;
   groupType?: string;
+  travelStyle?: string;
   details?: ItineraryDetailItem[];
+}
+
+export interface UpdateItineraryPayload {
+  title?: string;
+  destination?: string;
+  startDate?: string;
+  endDate?: string;
+  budgetTotal?: number;
+  coverImageUrl?: string;
+  groupType?: string;
+  travelStyle?: string;
+  isPublic?: boolean;
+  status?: string;
 }
 
 // ─── ITINERARIES API ───────────────────────────────────────
@@ -715,6 +730,11 @@ export const itineraryApi = {
 
   async createItinerary(payload: CreateItineraryPayload): Promise<ItineraryItem> {
     const res = await apiClient.post<ApiResponse<ItineraryItem>>('/itineraries', payload);
+    return res.data.data;
+  },
+
+  async updateItinerary(id: number, payload: UpdateItineraryPayload): Promise<ItineraryItem> {
+    const res = await apiClient.put<ApiResponse<ItineraryItem>>(`/itineraries/${id}`, payload);
     return res.data.data;
   },
 

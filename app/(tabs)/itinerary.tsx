@@ -910,6 +910,15 @@ Ví dụ chuẩn:
               <Text style={styles.metaBudgetText}>{budgetDisplay}</Text>
             </View>
 
+            {item.travelStyle && (
+              <View style={styles.metaBadge}>
+                <FontAwesome name="compass" size={11} color="#B0522F" style={{ marginRight: 4 }} />
+                <Text style={[styles.metaUserText, { color: '#B0522F', fontWeight: '600' }]} numberOfLines={1}>
+                  {item.travelStyle}
+                </Text>
+              </View>
+            )}
+
             {item.creatorName && (
               <View style={styles.metaBadge}>
                 <FontAwesome name="user-circle" size={12} color={WF_COLORS.slate500} style={{ marginRight: 4 }} />
@@ -930,19 +939,28 @@ Ví dụ chuẩn:
 
             <View style={styles.cardIconActions}>
               {isOwner && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[
-                    styles.actionIconBtn,
-                    { backgroundColor: item.isPublic !== false ? '#DCFCE7' : '#FEF3C7' },
-                  ]}
-                  onPress={() => handleToggleVisibility(item)}>
-                  <FontAwesome
-                    name={item.isPublic !== false ? 'globe' : 'lock'}
-                    size={13}
-                    color={item.isPublic !== false ? '#15803D' : '#B45309'}
-                  />
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={[
+                      styles.actionIconBtn,
+                      { backgroundColor: item.isPublic !== false ? '#DCFCE7' : '#FEF3C7' },
+                    ]}
+                    onPress={() => handleToggleVisibility(item)}>
+                    <FontAwesome
+                      name={item.isPublic !== false ? 'globe' : 'lock'}
+                      size={13}
+                      color={item.isPublic !== false ? '#15803D' : '#B45309'}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={[styles.actionIconBtn, { backgroundColor: '#E0F2FE' }]}
+                    onPress={() => handleOpenDetail(item)}>
+                    <FontAwesome name="pencil" size={12} color="#0369A1" />
+                  </TouchableOpacity>
+                </>
               )}
 
               {!isOwner && (

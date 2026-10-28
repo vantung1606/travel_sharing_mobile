@@ -212,6 +212,76 @@ export function ItineraryDetailModal({
     }
   };
 
+  // State chỉnh sửa toàn bộ chuyến đi & lưu phong cách du lịch
+  const [editTripVisible, setEditTripVisible] = useState<boolean>(false);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editDestination, setEditDestination] = useState<string>('');
+  const [editStartDate, setEditStartDate] = useState<string>('');
+  const [editEndDate, setEditEndDate] = useState<string>('');
+  const [editBudget, setEditBudget] = useState<string>('');
+  const [editGroupType, setEditGroupType] = useState<string>('Cá nhân');
+  const [editTravelStyle, setEditTravelStyle] = useState<string>('Nghỉ dưỡng & Khám phá');
+  const [editIsPublic, setEditIsPublic] = useState<boolean>(true);
+  const [editCoverImageUrl, setEditCoverImageUrl] = useState<string>('');
+  const [submittingEdit, setSubmittingEdit] = useState<boolean>(false);
+
+  const openEditTripModal = () => {
+    if (!fullItin) return;
+    setEditTitle(fullItin.title || '');
+    setEditDestination(fullItin.destination || '');
+    setEditStartDate(fullItin.startDate || '');
+    setEditEndDate(fullItin.endDate || '');
+    setEditBudget(fullItin.budgetTotal ? String(fullItin.budgetTotal) : '');
+    setEditGroupType(fullItin.groupType || 'Cá nhân');
+    setEditTravelStyle(fullItin.travelStyle || 'Nghỉ dưỡng & Khám phá');
+    setEditIsPublic(fullItin.isPublic !== false);
+    setEditCoverImageUrl(fullItin.coverImageUrl || fullItin.coverImage || '');
+    setEditTripVisible(true);
+  };
+
+  const handleSaveTripEdit = async () => {
+    if (!editTitle.trim() || !editDestination.trim()) {
+      showToast({
+        kind: 'info',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập tên chuyến đi và điểm đến!',
+      });
+      return;
+    }
+    if (!fullItin?.id) return;
+    try {
+      setSubmittingEdit(true);
+      const budgetNum = parseFloat(editBudget.replace(/,/g, '')) || 0;
+      const updated = await itineraryApi.updateItinerary(fullItin.id, {
+        title: editTitle.trim(),
+        destination: editDestination.trim(),
+        startDate: editStartDate.trim() || undefined,
+        endDate: editEndDate.trim() || undefined,
+        budgetTotal: budgetNum > 0 ? budgetNum : undefined,
+        groupType: editGroupType,
+        travelStyle: editTravelStyle,
+        isPublic: editIsPublic,
+        coverImageUrl: editCoverImageUrl.trim() || undefined,
+      });
+      setFullItin(updated);
+      setEditTripVisible(false);
+      onItineraryUpdated?.();
+      showToast({
+        kind: 'success',
+        title: 'Đã cập nhật chuyến đi! 🎉',
+        message: `Thông tin chuyến đi "${editTitle.trim()}" đã được lưu thành công.`,
+      });
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Cập nhật thất bại',
+        message: e?.message || 'Không thể lưu thông tin chuyến đi.',
+      });
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
   const coverUrl =
     fullItin?.coverImageUrl ||
     fullItin?.coverImage ||
@@ -248,6 +318,15 @@ export function ItineraryDetailModal({
                   size={14}
                   color={fullItin?.isPublic !== false ? '#15803D' : '#B45309'}
                 />
+              </TouchableOpacity>
+            )}
+            {canEdit && (
+              <TouchableOpacity
+                style={[styles.circleBtn, { backgroundColor: '#E0F2FE' }]}
+                onPress={openEditTripModal}
+                activeOpacity={0.8}
+              >
+                <FontAwesome name="pencil" size={13} color="#0369A1" />
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.circleBtn} onPress={handleShareTrip}>
@@ -310,6 +389,18 @@ export function ItineraryDetailModal({
                     {fullItin?.isPublic !== false ? 'Công khai' : 'Riêng tư'}
                   </Text>
                 </TouchableOpacity>
+
+                <View
+                  style={[
+                    styles.aiBadge,
+                    { backgroundColor: 'rgba(180, 83, 9, 0.85)', flexDirection: 'row', alignItems: 'center' },
+                  ]}
+                >
+                  <FontAwesome name="compass" size={10} color="#FFFDF8" style={{ marginRight: 4 }} />
+                  <Text style={styles.aiBadgeText}>
+                    {fullItin?.travelStyle || 'Nghỉ dưỡng & Khám phá'}
+                  </Text>
+                </View>
               </View>
 
               <Text style={styles.heroTitle} numberOfLines={3}>
@@ -676,6 +767,182 @@ export function ItineraryDetailModal({
                     <ActivityIndicator size="small" color="#FFFDF8" />
                   ) : (
                     <Text style={styles.submitModalBtnText}>Thêm vào lịch trình</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal Chỉnh Sửa Toàn Bộ Chuyến Đi */}
+        <Modal
+          visible={editTripVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditTripVisible(false)}>
+          <View style={styles.addModalOverlay}>
+            <View style={[styles.addModalCard, { maxHeight: '90%' }]}>
+              <View style={styles.addModalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <FontAwesome name="pencil-square-o" size={18} color="#B0522F" />
+                  <Text style={styles.addModalTitle}>Chỉnh sửa chuyến đi</Text>
+                </View>
+                <TouchableOpacity onPress={() => setEditTripVisible(false)}>
+                  <FontAwesome name="times" size={18} color="#5A5146" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+                {/* Tên chuyến đi */}
+                <Text style={styles.fieldLabel}>Tên lịch trình / Chuyến đi *</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editTitle}
+                  onChangeText={setEditTitle}
+                  placeholder="VD: Khám phá Đà Nẵng 3N2Đ"
+                  placeholderTextColor="#8A7F70"
+                />
+
+                {/* Điểm đến */}
+                <Text style={styles.fieldLabel}>Điểm đến chính *</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editDestination}
+                  onChangeText={setEditDestination}
+                  placeholder="VD: Đà Nẵng, Phú Quốc..."
+                  placeholderTextColor="#8A7F70"
+                />
+
+                {/* Ngày đi & Ngày về */}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>Ngày bắt đầu (YYYY-MM-DD)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editStartDate}
+                      onChangeText={setEditStartDate}
+                      placeholder="2026-11-01"
+                      placeholderTextColor="#8A7F70"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>Ngày kết thúc (YYYY-MM-DD)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editEndDate}
+                      onChangeText={setEditEndDate}
+                      placeholder="2026-11-04"
+                      placeholderTextColor="#8A7F70"
+                    />
+                  </View>
+                </View>
+
+                {/* Ngân sách */}
+                <Text style={styles.fieldLabel}>Dự toán tổng ngân sách (VNĐ)</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editBudget}
+                  onChangeText={setEditBudget}
+                  keyboardType="numeric"
+                  placeholder="VD: 5000000"
+                  placeholderTextColor="#8A7F70"
+                />
+
+                {/* Nhóm đối tượng */}
+                <Text style={styles.fieldLabel}>Nhóm đồng hành</Text>
+                <View style={styles.categoryPickerRow}>
+                  {['Cá nhân', 'Cặp đôi', 'Bạn bè', 'Gia đình'].map((grp) => {
+                    const isSelected = editGroupType === grp;
+                    return (
+                      <TouchableOpacity
+                        key={grp}
+                        style={[styles.categoryChoice, isSelected && styles.categoryChoiceActive]}
+                        onPress={() => setEditGroupType(grp)}>
+                        <Text style={[styles.categoryChoiceText, isSelected && styles.categoryChoiceTextActive]}>
+                          {grp}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Phong cách du lịch */}
+                <Text style={styles.fieldLabel}>Phong cách du lịch</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {[
+                    'Nghỉ dưỡng & Khám phá',
+                    'Phượt bụi & Mạo hiểm',
+                    'Ẩm thực & Check-in',
+                    'Văn hóa & Lịch sử',
+                    'Gia đình & Thư giãn',
+                    'Sinh thái & Thiên nhiên',
+                  ].map((style) => {
+                    const isSelected = editTravelStyle === style;
+                    return (
+                      <TouchableOpacity
+                        key={style}
+                        style={[styles.categoryChoice, isSelected && styles.categoryChoiceActive]}
+                        onPress={() => setEditTravelStyle(style)}>
+                        <Text style={[styles.categoryChoiceText, isSelected && styles.categoryChoiceTextActive]}>
+                          {style}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Chế độ hiển thị */}
+                <Text style={styles.fieldLabel}>Chế độ hiển thị</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryChoice,
+                      { flex: 1, alignItems: 'center', paddingVertical: 10 },
+                      editIsPublic && { backgroundColor: '#DCFCE7', borderColor: '#15803D' },
+                    ]}
+                    onPress={() => setEditIsPublic(true)}>
+                    <Text style={[styles.categoryChoiceText, editIsPublic && { color: '#15803D', fontWeight: '700' }]}>
+                      Công khai 🌐
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryChoice,
+                      { flex: 1, alignItems: 'center', paddingVertical: 10 },
+                      !editIsPublic && { backgroundColor: '#FEF3C7', borderColor: '#B45309' },
+                    ]}
+                    onPress={() => setEditIsPublic(false)}>
+                    <Text style={[styles.categoryChoiceText, !editIsPublic && { color: '#B45309', fontWeight: '700' }]}>
+                      Riêng tư 🔒
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Link ảnh bìa */}
+                <Text style={styles.fieldLabel}>URL Ảnh bìa chuyến đi</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editCoverImageUrl}
+                  onChangeText={setEditCoverImageUrl}
+                  placeholder="https://images.unsplash.com/..."
+                  placeholderTextColor="#8A7F70"
+                />
+              </ScrollView>
+
+              <View style={styles.addModalActions}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setEditTripVisible(false)}>
+                  <Text style={styles.cancelModalBtnText}>Hủy bỏ</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitModalBtn, submittingEdit && { opacity: 0.6 }]}
+                  disabled={submittingEdit}
+                  onPress={handleSaveTripEdit}>
+                  {submittingEdit ? (
+                    <ActivityIndicator size="small" color="#FFFDF8" />
+                  ) : (
+                    <Text style={styles.submitModalBtnText}>Lưu thay đổi 🎉</Text>
                   )}
                 </TouchableOpacity>
               </View>

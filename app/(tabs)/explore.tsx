@@ -16,6 +16,8 @@ import { BrandedLoading } from '@/components/BrandedLoading';
 import { Text, TextInput } from '@/components/Themed';
 import { FeaturedPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
 import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
+import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { WF_COLORS } from '@/constants/Colors';
 import { authPrompt } from '@/src/services/authPrompt';
 import { authStorage } from '@/src/services/authStorage';
@@ -115,6 +117,8 @@ export default function ExploreScreen() {
   const [submittingPlan, setSubmittingPlan] = useState<boolean>(false);
 
   const [savedIds, setSavedIds] = useState<number[]>([]);
+  const [isAddPlaceOpen, setIsAddPlaceOpen] = useState<boolean>(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   const fetchPlaces = useCallback(async () => {
     setFetching(true);
@@ -453,9 +457,18 @@ export default function ExploreScreen() {
                 <Text style={styles.pageTitle}>Điểm đến Việt Nam</Text>
                 <Text style={styles.pageSubtitle}>Những tọa độ đẹp đã được cộng đồng kiểm chứng</Text>
               </View>
-              <View style={styles.totalBadge}>
-                <Text style={styles.totalBadgeNum}>{placesTotal || '--'}</Text>
-                <Text style={styles.totalBadgeLabel}>địa điểm</Text>
+              <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <TouchableOpacity
+                  style={styles.proposeBtn}
+                  activeOpacity={0.85}
+                  onPress={() => setIsAddPlaceOpen(true)}>
+                  <FontAwesome name="plus" size={11} color="#FFFDF8" style={{ marginRight: 5 }} />
+                  <Text style={styles.proposeBtnText}>Đề xuất</Text>
+                </TouchableOpacity>
+                <View style={styles.totalBadge}>
+                  <Text style={styles.totalBadgeNum}>{placesTotal || '--'}</Text>
+                  <Text style={styles.totalBadgeLabel}>địa điểm</Text>
+                </View>
               </View>
             </View>
 
@@ -678,6 +691,7 @@ export default function ExploreScreen() {
         onToggleSave={() => selectedPlace && handleToggleSave(selectedPlace)}
         onAddToPlan={handleOpenAddToPlan}
         onRequireLogin={() => authPrompt.open()}
+        onPressAuthor={(uid) => setSelectedUserId(uid)}
         onWriteCheckinPost={(place) => {
           setDetailModalVisible(false);
           router.push({
@@ -923,6 +937,25 @@ export default function ExploreScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ─── MODAL ĐỀ XUẤT ĐỊA ĐIỂM MỚI ─────────────────────── */}
+      <AddPlaceModal
+        visible={isAddPlaceOpen}
+        onClose={() => setIsAddPlaceOpen(false)}
+        onPlaceCreated={(newPlace) => {
+          setPlaces((prev) => [newPlace, ...prev]);
+          setPlacesTotal((prev) => prev + 1);
+          setSelectedPlace(newPlace);
+          setDetailModalVisible(true);
+        }}
+      />
+
+      {/* ─── MODAL HỒ SƠ CÔNG KHAI THÀNH VIÊN ───────────────── */}
+      <UserProfileModal
+        visible={selectedUserId != null}
+        userId={selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+      />
     </View>
   );
 }
@@ -980,6 +1013,21 @@ const styles = StyleSheet.create({
     color: WF_COLORS.slate500,
     marginTop: 3,
     lineHeight: 17,
+  },
+  proposeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WF_COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    minWidth: 70,
+  },
+  proposeBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFDF8',
   },
   totalBadge: {
     alignItems: 'center',

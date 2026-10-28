@@ -4,10 +4,11 @@ import { ActivityIndicator, Image, Linking, Modal, ScrollView, Share, StyleSheet
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { showToast } from '@/components/Toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Text } from '@/components/Themed';
 import { PlaceImage } from '@/components/explore/PlaceImage';
 import { WF_COLORS } from '@/constants/Colors';
-import { authStorage } from '@/src/services/authStorage';
+import { authStorage, UserSession } from '@/src/services/authStorage';
 import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
 import { getPostImages } from '@/components/community/communityUtils';
 import { fetchLiveWeather } from '@/src/utils/weather';
@@ -25,6 +26,8 @@ interface PlaceDetailModalProps {
   onWriteCheckinPost?: (place: PlaceItem) => void;
   /** Callback khi người dùng nhấn vào 1 bài viết check-in */
   onOpenPostDetail?: (post: PostItem) => void;
+  /** Callback khi người dùng nhấn vào tác giả review */
+  onPressAuthor?: (userId: number) => void;
 }
 
 export function PlaceDetailModal({
@@ -37,7 +40,10 @@ export function PlaceDetailModal({
   onRequireLogin,
   onWriteCheckinPost,
   onOpenPostDetail,
+  onPressAuthor,
 }: PlaceDetailModalProps) {
+  const [session, setSession] = useState<UserSession | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   // reviewsState/weatherState gắn dấu "forKey" = placeId đã tải → loading là
   // state suy diễn (reviewsState.forKey !== placeId), KHÔNG cần setState
   // đồng bộ trong effect (react-hooks/set-state-in-effect).
@@ -66,6 +72,7 @@ export function PlaceDetailModal({
     setReviewsState({ forKey: null, list: [], canReview: false });
     setWeatherState({ forKey: null, data: null });
     setCheckinState({ forKey: null, list: [] });
+    setEditingReviewId(null);
     setReviewStars(0);
     setReviewComment('');
     setActiveImageIndex(0);
@@ -114,12 +121,13 @@ export function PlaceDetailModal({
           setCheckinState({ forKey: placeId, list: [] });
         }
       });
-    authStorage.getSession().then((session) => {
+    authStorage.getSession().then((s) => {
       if (alive) {
+        setSession(s);
         setReviewsState((prev) => ({
           forKey: placeId,
           list: prev.list,
-          canReview: Boolean(session),
+          canReview: Boolean(s),
         }));
       }
     });
@@ -133,38 +141,119 @@ export function PlaceDetailModal({
     };
   }, [visible, placeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleStartEditReview = (review: ReviewItem) => {
+    setEditingReviewId(review.id);
+    setReviewStars(review.rating);
+    setReviewComment(review.comment);
+    showToast({
+      kind: 'info',
+      title: 'Chế độ chỉnh sửa',
+      message: 'Bạn đang chỉnh sửa đánh giá của mình.',
+      icon: 'pencil',
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReviewId(null);
+    setReviewStars(0);
+    setReviewComment('');
+  };
+
+  const handleDeleteReview = async (review: ReviewItem) => {
+    if (!place) return;
+    const ok = await confirmDialog({
+      title: 'Xóa đánh giá?',
+      message: 'Bạn có chắc chắn muốn xóa bài đánh giá này về địa điểm không?',
+      confirmText: 'Xóa',
+      cancelText: 'Giữ lại',
+      destructive: true,
+    });
+    if (!ok) return;
+
+    try {
+      await reviewApi.deleteReview(place.id, review.id);
+      setReviewsState((prev) => ({
+        ...prev,
+        list: prev.list.filter((r) => r.id !== review.id),
+      }));
+      if (editingReviewId === review.id) {
+        handleCancelEdit();
+      }
+      showToast({
+        kind: 'success',
+        title: 'Đã xóa đánh giá',
+        message: 'Đánh giá của bạn đã được xóa thành công.',
+      });
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Xóa đánh giá thất bại',
+        message: e?.message || 'Không thể xóa đánh giá. Vui lòng thử lại sau.',
+      });
+    }
+  };
+
   const handleSubmitReview = async () => {
     if (!place || submittingReview) return;
     if (!reviewStars || !reviewComment.trim()) return;
     setSubmittingReview(true);
     try {
-      const created = await reviewApi.addReview(place.id, {
-        rating: reviewStars,
-        comment: reviewComment,
-      });
-      const fresh =
-        created ||
-        ({
-          id: Date.now(),
+      if (editingReviewId) {
+        const updated = await reviewApi.updateReview(place.id, editingReviewId, {
           rating: reviewStars,
-          comment: reviewComment.trim(),
-        } as ReviewItem);
-      setReviewsState((prev) => ({
-        forKey: place.id,
-        list: [fresh, ...prev.list],
-        canReview: prev.canReview,
-      }));
-      setReviewStars(0);
-      setReviewComment('');
-      showToast({
-        kind: 'success',
-        title: 'Đã gửi nhận xét!',
-        message: 'Cảm ơn bạn đã chia sẻ trải nghiệm cho người đi sau. 🌟',
-      });
+          comment: reviewComment,
+        });
+        setReviewsState((prev) => ({
+          ...prev,
+          list: prev.list.map((r) =>
+            r.id === editingReviewId
+              ? {
+                  ...r,
+                  ...(updated || {}),
+                  rating: reviewStars,
+                  comment: reviewComment.trim(),
+                }
+              : r
+          ),
+        }));
+        handleCancelEdit();
+        showToast({
+          kind: 'success',
+          title: 'Cập nhật thành công!',
+          message: 'Đánh giá của bạn đã được cập nhật thành công.',
+        });
+      } else {
+        const created = await reviewApi.addReview(place.id, {
+          rating: reviewStars,
+          comment: reviewComment,
+        });
+        const fresh =
+          created ||
+          ({
+            id: Date.now(),
+            rating: reviewStars,
+            comment: reviewComment.trim(),
+            authorName: session?.fullName || 'Tôi',
+            authorAvatar: session?.avatar,
+            authorId: session?.id,
+          } as ReviewItem);
+        setReviewsState((prev) => ({
+          forKey: place.id,
+          list: [fresh, ...prev.list],
+          canReview: prev.canReview,
+        }));
+        setReviewStars(0);
+        setReviewComment('');
+        showToast({
+          kind: 'success',
+          title: 'Đã gửi nhận xét!',
+          message: 'Cảm ơn bạn đã chia sẻ trải nghiệm cho người đi sau. 🌟',
+        });
+      }
     } catch (e: any) {
       showToast({
         kind: 'error',
-        title: 'Không gửi được nhận xét',
+        title: editingReviewId ? 'Không cập nhật được' : 'Không gửi được nhận xét',
         message: e?.message || 'Vui lòng kiểm tra kết nối và thử lại.',
       });
     } finally {
@@ -203,21 +292,24 @@ export function PlaceDetailModal({
     }
   };
 
-  const handleOpenMap = async () => {
+  const handleOpenDirection = async () => {
     if (!place) return;
     const hasCoords = place.latitude != null && place.longitude != null;
-    const query = hasCoords
+    const dest = hasCoords
       ? `${place.latitude},${place.longitude}`
       : encodeURIComponent([place.name, place.address, place.city].filter(Boolean).join(', '));
-    const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
     try {
       await Linking.openURL(url);
     } catch (e) {
-      console.warn('Open map failed', e);
-      showToast({
-        kind: 'error',
-        title: 'Không mở được bản đồ',
-        message: 'Thiết bị không mở được liên kết bản đồ. Bạn thử lại sau nhé.',
+      console.warn('Open maps direction failed', e);
+      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dest}`;
+      Linking.openURL(fallbackUrl).catch(() => {
+        showToast({
+          kind: 'error',
+          title: 'Không mở được chỉ đường',
+          message: 'Thiết bị không mở được ứng dụng bản đồ Google Maps.',
+        });
       });
     }
   };
@@ -408,26 +500,59 @@ export function PlaceDetailModal({
 
                   {liveReviews.length > 0 ? (
                     <View style={styles.reviewsWrap}>
-                      {liveReviews.slice(0, 10).map((r, idx) => (
-                        <View key={r.id ?? `review-${idx}`} style={styles.reviewRow}>
-                          {r.authorAvatar ? (
-                            <Image source={{ uri: r.authorAvatar }} style={styles.reviewAvatar} />
-                          ) : (
-                            <View style={styles.reviewAvatarFallback}>
-                              <Text style={styles.reviewAvatarText}>{(r.authorName || 'W')[0]}</Text>
+                      {liveReviews.slice(0, 15).map((r, idx) => {
+                        const isMyReview = session && (
+                          (r.authorId != null && r.authorId === session.id) ||
+                          (r.authorEmail && session.email && r.authorEmail.toLowerCase() === session.email.toLowerCase()) ||
+                          (r.authorName && session.fullName && r.authorName.trim().toLowerCase() === session.fullName.trim().toLowerCase())
+                        );
+                        return (
+                          <View key={r.id ?? `review-${idx}`} style={styles.reviewRow}>
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={() => r.authorId && onPressAuthor?.(r.authorId)}
+                              disabled={!r.authorId || !onPressAuthor}>
+                              {r.authorAvatar ? (
+                                <Image source={{ uri: r.authorAvatar }} style={styles.reviewAvatar} />
+                              ) : (
+                                <View style={styles.reviewAvatarFallback}>
+                                  <Text style={styles.reviewAvatarText}>{(r.authorName || 'W')[0]}</Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
+                            <View style={styles.reviewBody}>
+                              <View style={styles.reviewMetaRow}>
+                                <TouchableOpacity
+                                  activeOpacity={0.8}
+                                  onPress={() => r.authorId && onPressAuthor?.(r.authorId)}
+                                  disabled={!r.authorId || !onPressAuthor}
+                                  style={{ flex: 1 }}>
+                                  <Text style={styles.reviewAuthor} numberOfLines={1}>
+                                    {r.authorName || 'Du khách'}
+                                    {isMyReview ? ' (Bạn)' : ''}
+                                  </Text>
+                                </TouchableOpacity>
+                                <Text style={styles.reviewStars}>{'★'.repeat(r.rating || 0)}</Text>
+                              </View>
+                              <Text style={styles.reviewComment}>{r.comment}</Text>
+                              {isMyReview ? (
+                                <View style={{ flexDirection: 'row', gap: 14, marginTop: 6 }}>
+                                  <TouchableOpacity onPress={() => handleStartEditReview(r)}>
+                                    <Text style={{ fontSize: 11.5, color: WF_COLORS.primary, fontWeight: '700' }}>
+                                      ✎ Chỉnh sửa
+                                    </Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity onPress={() => handleDeleteReview(r)}>
+                                    <Text style={{ fontSize: 11.5, color: '#E11D48', fontWeight: '700' }}>
+                                      ✕ Xóa
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+                              ) : null}
                             </View>
-                          )}
-                          <View style={styles.reviewBody}>
-                            <View style={styles.reviewMetaRow}>
-                              <Text style={styles.reviewAuthor} numberOfLines={1}>
-                                {r.authorName || 'Du khách'}
-                              </Text>
-                              <Text style={styles.reviewStars}>{'★'.repeat(r.rating || 0)}</Text>
-                            </View>
-                            <Text style={styles.reviewComment}>{r.comment}</Text>
                           </View>
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   ) : (
                     <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 10 }} />
@@ -435,6 +560,16 @@ export function PlaceDetailModal({
 
                   {canReview ? (
                     <View style={styles.reviewForm}>
+                      {editingReviewId ? (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: WF_COLORS.slate200 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: WF_COLORS.primary }}>
+                            ✏️ Đang chỉnh sửa nhận xét của bạn
+                          </Text>
+                          <TouchableOpacity onPress={handleCancelEdit}>
+                            <Text style={{ fontSize: 12, color: '#E11D48', fontWeight: '600' }}>Hủy</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
                       <View style={styles.starPickerRow}>
                         <Text style={styles.starPickerLabel}>Chấm điểm:</Text>
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -471,10 +606,10 @@ export function PlaceDetailModal({
                         {submittingReview ? (
                           <ActivityIndicator size="small" color="#FFFDF8" style={{ marginRight: 6 }} />
                         ) : (
-                          <FontAwesome name="paper-plane" size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
+                          <FontAwesome name={editingReviewId ? 'check' : 'paper-plane'} size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
                         )}
                         <Text style={styles.reviewSubmitText}>
-                          {submittingReview ? 'Đang gửi...' : 'Gửi nhận xét'}
+                          {submittingReview ? 'Đang lưu...' : (editingReviewId ? 'Lưu thay đổi' : 'Gửi nhận xét')}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -599,9 +734,9 @@ export function PlaceDetailModal({
                 ) : null}
 
                 <View style={styles.mapActionsRow}>
-                  <TouchableOpacity style={[styles.mapBtn, styles.mapBtnHalf]} activeOpacity={0.85} onPress={handleOpenMap}>
+                  <TouchableOpacity style={[styles.mapBtn, styles.mapBtnHalf]} activeOpacity={0.85} onPress={handleOpenDirection}>
                     <FontAwesome name="location-arrow" size={13} color={WF_COLORS.primary} style={{ marginRight: 7 }} />
-                    <Text style={styles.mapBtnText} numberOfLines={1}>Google Maps</Text>
+                    <Text style={styles.mapBtnText} numberOfLines={1}>Chỉ đường Maps</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.mapBtn, styles.mapBtnHalf]} activeOpacity={0.85} onPress={handleSharePlace}>
                     <FontAwesome name="share-alt" size={13} color={WF_COLORS.primary} style={{ marginRight: 7 }} />

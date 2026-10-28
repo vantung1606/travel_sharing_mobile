@@ -360,7 +360,30 @@ export const placeApi = {
     const res = await apiClient.get<ApiResponse<PlaceItem>>(`/places/${id}`);
     return mapPlace(res.data.data);
   },
+
+  async createPlace(payload: CreatePlacePayload): Promise<PlaceItem> {
+    const res = await apiClient.post<ApiResponse<PlaceItem>>('/places', payload);
+    return mapPlace(res.data.data);
+  },
 };
+
+export interface CreatePlacePayload {
+  name: string;
+  description?: string;
+  address: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+  ticketPrice?: number;
+  priceRange?: string;
+  openHours?: string;
+  phoneNumber?: string;
+  categoryName?: string;
+  amenities?: string;
+  coverImageUrl?: string;
+  images?: string[];
+  status?: string;
+}
 
 /**
  * Danh sách "muốn đi" lưu TRÊN SERVER (bảng saved_places) — web & app mobile
@@ -392,6 +415,9 @@ export const savedPlaceApi = {
 
 export interface ReviewItem {
   id: number;
+  placeId?: number;
+  authorId?: number;
+  authorEmail?: string;
   authorName?: string;
   authorHandle?: string;
   authorAvatar?: string;
@@ -428,6 +454,18 @@ export const reviewApi = {
       console.warn(`API error adding review for place #${placeId}`, e);
       throw err;
     }
+  },
+
+  async updateReview(placeId: number, reviewId: number, payload: { rating: number; comment: string }): Promise<ReviewItem> {
+    const res = await apiClient.put<ApiResponse<ReviewItem>>(`/places/reviews/${reviewId}`, {
+      rating: Number(payload.rating),
+      comment: String(payload.comment || '').trim(),
+    });
+    return res.data.data;
+  },
+
+  async deleteReview(placeId: number, reviewId: number): Promise<void> {
+    await apiClient.delete(`/places/reviews/${reviewId}`);
   },
 };
 

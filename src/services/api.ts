@@ -679,7 +679,12 @@ export const uploadApi = {
   async uploadSingle(uri: string, name?: string, type?: string): Promise<string> {
     const filename = name || uri.split('/').pop() || `upload_${Date.now()}.jpg`;
     const match = /\.(\w+)$/.exec(filename);
-    const mime = type || (match ? `image/${match[1]}` : 'image/jpeg');
+    const ext = match ? match[1].toLowerCase() : 'jpg';
+    const isVideo = ['mp4', 'mov', 'webm', 'm4v', 'avi', '3gp'].includes(ext);
+    const defaultMime = isVideo
+      ? (ext === 'mov' ? 'video/quicktime' : `video/${ext}`)
+      : (ext === 'jpg' ? 'image/jpeg' : `image/${ext}`);
+    const mime = type || defaultMime;
 
     const formData = new FormData();
     formData.append('file', {

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as Clipboard from 'expo-clipboard';
 
 import { Text, TextInput } from '@/components/Themed';
 import { CommunityFeedSkeleton } from '@/components/CommunityFeedSkeleton';
@@ -411,10 +412,31 @@ export default function CommunityScreen() {
     }
   };
 
+  const copyPostLink = async (post: PostItem) => {
+    try {
+      const shareUrl = `https://wayfare.vn/community?postId=${post.id}`;
+      await Clipboard.setStringAsync(shareUrl);
+      showToast({
+        kind: 'success',
+        title: 'Đã sao chép liên kết',
+        message: 'Đã sao chép liên kết bài viết vào bộ nhớ tạm!',
+        icon: 'copy',
+      });
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi sao chép',
+        message: 'Không thể sao chép liên kết vào bộ nhớ tạm.',
+      });
+    }
+  };
+
   const handleShare = async (post: PostItem) => {
     try {
+      const shareUrl = `https://wayfare.vn/community?postId=${post.id}`;
       await Share.share({
-        message: `${post.title ? `${post.title}\n` : ''}${(post.content || '').slice(0, 180)}\n\n— Chia sẻ từ Cộng đồng Wayfare\nwayfare://community?postId=${post.id}`,
+        message: `${post.title ? `${post.title}\n` : ''}${(post.content || '').slice(0, 180)}\n\n— Khám phá trên Wayfare: ${shareUrl}`,
+        url: shareUrl,
       });
     } catch {
       // Người dùng huỷ chia sẻ
@@ -629,6 +651,12 @@ export default function CommunityScreen() {
       });
     }
 
+    options.push({
+      key: 'copy_link',
+      label: 'Sao chép liên kết bài viết',
+      icon: 'copy',
+      onPress: () => copyPostLink(post),
+    });
     options.push({ key: 'share', label: 'Chia sẻ bài viết', icon: 'share-alt', onPress: () => handleShare(post) });
 
     if (!owner) {

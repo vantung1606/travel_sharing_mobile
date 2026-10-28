@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -48,6 +49,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
   const [placeId, setPlaceId] = useState<number | null>(null);
   const [availablePlaces, setAvailablePlaces] = useState<PlaceItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
@@ -134,6 +136,53 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
     }
   };
 
+  const handlePickVideo = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        showToast({
+          kind: 'info',
+          title: 'Cần quyền truy cập',
+          message: 'Vui lòng cấp quyền truy cập thư viện để chọn video tải lên.',
+        });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      setUploadingVideo(true);
+      const url = await uploadApi.uploadSingle(
+        asset.uri,
+        asset.fileName || `video_${Date.now()}.mp4`,
+        asset.mimeType || 'video/mp4'
+      );
+      if (url) {
+        setVideoUrl(url);
+        showToast({
+          kind: 'success',
+          title: 'Tải video thành công',
+          message: 'Video đã được tải lên Cloud CDN an toàn!',
+          icon: 'check-circle',
+        });
+      } else {
+        throw new Error('Không nhận được đường dẫn video từ máy chủ.');
+      }
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Tải video thất bại',
+        message: err?.response?.data?.message || err?.message || 'Không thể tải video lên Cloud CDN.',
+      });
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       showToast({
@@ -151,11 +200,11 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
       });
       return;
     }
-    if (uploading) {
+    if (uploading || uploadingVideo) {
       showToast({
         kind: 'info',
-        title: 'Đang tải ảnh',
-        message: 'Vui lòng đợi ảnh tải xong rồi đăng bài.',
+        title: 'Đang tải tệp tin',
+        message: 'Vui lòng đợi ảnh hoặc video tải xong rồi mới đăng bài.',
       });
       return;
     }
@@ -289,15 +338,71 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                 onChangeText={setLocation}
               />
 
-              <Text style={styles.label}>Video (tùy chọn)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Link video YouTube hoặc MP4..."
-                placeholderTextColor={WF_PAPER.inkMuted}
-                value={videoUrl}
-                onChangeText={setVideoUrl}
-                autoCapitalize="none"
-              />
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Video bài viết (Cloud CDN / YouTube)</Text>
+                {videoUrl ? (
+                  <TouchableOpacity onPress={() => setVideoUrl('')}>
+                    <Text style={{ fontSize: 12, color: '#E11D48', fontWeight: '600' }}>Xóa video</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {videoUrl ? (
+                <View style={styles.videoPreviewCard}>
+                  <View style={styles.videoPreviewHeader}>
+                    <View style={styles.videoIconCircle}>
+                      <FontAwesome name="play" size={13} color="#FFF" style={{ marginLeft: 2 }} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.videoUrlText} numberOfLines={1}>
+                        {videoUrl}
+                      </Text>
+                      <Text style={styles.videoCloudBadge}>
+                        {videoUrl.includes('cloudinary') ? 'Cloudinary Cloud CDN ✓' : 'Đính kèm ngoại vi'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.videoPreviewActions}>
+                    <TouchableOpacity
+                      style={styles.previewBtn}
+                      onPress={() => Linking.openURL(videoUrl)}>
+                      <FontAwesome name="external-link" size={12} color={WF_PAPER.clay} />
+                      <Text style={styles.previewBtnText}>Xem trước video</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.previewBtn, { borderColor: '#FCA5A5' }]}
+                      onPress={() => setVideoUrl('')}>
+                      <FontAwesome name="trash" size={12} color="#E11D48" />
+                      <Text style={[styles.previewBtnText, { color: '#E11D48' }]}>Gỡ bỏ</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : uploadingVideo ? (
+                <View style={styles.videoLoadingBox}>
+                  <ActivityIndicator size="small" color={WF_PAPER.clay} />
+                  <Text style={styles.videoLoadingText}>
+                    Đang tải video lên Cloudinary Cloud CDN... Vui lòng giữ ứng dụng mở.
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 8, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={styles.uploadVideoBtn}
+                    onPress={handlePickVideo}
+                    disabled={uploadingVideo}>
+                    <FontAwesome name="video-camera" size={16} color={WF_PAPER.clay} />
+                    <Text style={styles.uploadVideoBtnText}>Tải video từ thiết bị lên Cloud CDN</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    style={[styles.input, { marginTop: 0 }]}
+                    placeholder="Hoặc dán trực tiếp link video (YouTube, MP4)..."
+                    placeholderTextColor={WF_PAPER.inkMuted}
+                    value={videoUrl}
+                    onChangeText={setVideoUrl}
+                    autoCapitalize="none"
+                  />
+                </View>
+              )}
 
               {/* Images */}
               <View style={styles.labelRow}>
@@ -655,5 +760,92 @@ const styles = StyleSheet.create({
     color: WF_PAPER.card,
     fontSize: 14.5,
     fontWeight: '800',
+  },
+  videoPreviewCard: {
+    backgroundColor: WF_PAPER.pillBg,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    padding: 12,
+    marginBottom: 14,
+  },
+  videoPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  videoIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: WF_PAPER.clay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoUrlText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: WF_PAPER.inkPrimary,
+  },
+  videoCloudBadge: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  videoPreviewActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  previewBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 34,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.card,
+  },
+  previewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_PAPER.inkPrimary,
+  },
+  videoLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: WF_PAPER.pillBg,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    padding: 14,
+    marginBottom: 14,
+  },
+  videoLoadingText: {
+    flex: 1,
+    fontSize: 12,
+    color: WF_PAPER.inkMuted,
+    lineHeight: 18,
+  },
+  uploadVideoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: WF_PAPER.clayLight,
+    borderStyle: 'dashed',
+    backgroundColor: WF_PAPER.pillBg,
+  },
+  uploadVideoBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WF_PAPER.clay,
   },
 });

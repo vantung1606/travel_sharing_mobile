@@ -11,7 +11,7 @@ import { showToast } from '@/components/Toast';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
-import { notificationApi } from '@/src/services/api';
+import { notificationApi, chatApi } from '@/src/services/api';
 import { SERIF_FONT } from '@/constants/Typography';
 
 function TabBarIcon(props: {
@@ -31,6 +31,7 @@ export default function TabLayout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
 
@@ -43,6 +44,15 @@ export default function TabLayout() {
     }
   }, []);
 
+  const refreshUnreadChatCount = useCallback(async () => {
+    try {
+      const count = await chatApi.getUnreadCount();
+      setUnreadChatCount(count);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
   useEffect(() => {
     authStorage.getSession().then((session) => {
       setCurrentUser(session);
@@ -50,6 +60,7 @@ export default function TabLayout() {
         setIsAuthOpen(true);
       } else {
         refreshUnreadCount();
+        refreshUnreadChatCount();
       }
     });
 
@@ -57,6 +68,7 @@ export default function TabLayout() {
       setCurrentUser(session);
       if (session) {
         refreshUnreadCount();
+        refreshUnreadChatCount();
       } else {
         // ĐĂNG XUẤT: ẩn hết mọi lớp phủ đang mở (Chat / Thông báo), đưa app về tab
         // khởi đầu (Cộng đồng) và mở ngay form đăng nhập TOÀN MÀN HÌNH — trên màn
@@ -107,10 +119,11 @@ export default function TabLayout() {
     const interval = setInterval(() => {
       if (currentUser) {
         refreshUnreadCount();
+        refreshUnreadChatCount();
       }
-    }, 25000);
+    }, 20000);
     return () => clearInterval(interval);
-  }, [currentUser, refreshUnreadCount]);
+  }, [currentUser, refreshUnreadCount, refreshUnreadChatCount]);
 
   return (
     <>
@@ -189,6 +202,13 @@ export default function TabLayout() {
                   style={styles.chatHeaderBtn}>
                   <FontAwesome name="comments" size={16} color={WF_PAPER.clay} style={{ marginRight: 6 }} />
                   <Text style={styles.chatHeaderBtnText}>Chat</Text>
+                  {unreadChatCount > 0 && (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>
+                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
 
                 {/* Nút Profile Avatar */}
@@ -262,7 +282,13 @@ export default function TabLayout() {
       </Tabs>
 
       {/* Modal Trò chuyện trực tuyến (Tin nhắn & Trợ lý AI) */}
-      <ChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <ChatModal
+        visible={isChatOpen}
+        onClose={() => {
+          setIsChatOpen(false);
+          refreshUnreadChatCount();
+        }}
+      />
 
       {/* Modal Thông Báo Thời Gian Thực */}
       <NotificationModal
@@ -347,6 +373,26 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: WF_PAPER.cardBorder,
+    position: 'relative',
+  },
+  chatBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#EF4444',
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: WF_PAPER.card,
+  },
+  chatBadgeText: {
+    color: '#FFFDF8',
+    fontSize: 9,
+    fontWeight: '800',
   },
   chatHeaderBtnText: {
     fontSize: 12,

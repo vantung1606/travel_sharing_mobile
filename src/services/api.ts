@@ -1002,6 +1002,15 @@ export const chatApi = {
     return (res.data.data || []).map(mapChatRoom);
   },
 
+  async getUnreadCount(): Promise<number> {
+    try {
+      const res = await apiClient.get<ApiResponse<{ unreadCount: number }>>('/chat/unread-count');
+      return res.data?.data?.unreadCount || 0;
+    } catch {
+      return 0;
+    }
+  },
+
   async getRoomMessages(roomId: number | string): Promise<ChatMessage[]> {
     const res = await apiClient.get<ApiResponse<any[]>>(`/chat/rooms/${roomId}/messages`);
     return (res.data.data || []).map(mapChatMessage);

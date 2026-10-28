@@ -20,6 +20,7 @@ import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, uploadApi } from '@/src/services/api';
+import { RichTextToolbar } from '@/components/community/RichTextToolbar';
 
 interface CreatePostModalProps {
   visible: boolean;
@@ -48,6 +49,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
   const [availablePlaces, setAvailablePlaces] = useState<PlaceItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
   useEffect(() => {
     if (!visible) return;
@@ -244,12 +246,22 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               />
 
               <Text style={styles.label}>Nội dung *</Text>
+              <RichTextToolbar
+                value={content}
+                onChangeText={setContent}
+                selection={selection}
+              />
               <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Cảm nghĩ, mẹo du lịch, quán ăn ngon, lưu ý trang phục..."
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0 },
+                ]}
+                placeholder="Cảm nghĩ, mẹo du lịch, quán ăn ngon, lưu ý... (Hỗ trợ in đậm, nghiêng, trích dẫn, @...)"
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={content}
                 onChangeText={setContent}
+                onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
                 multiline
               />
 

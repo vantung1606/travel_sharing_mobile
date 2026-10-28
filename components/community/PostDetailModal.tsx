@@ -32,6 +32,7 @@ import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { postApi, CommentItem, PostItem } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { RichPostText } from '@/components/community/RichTextToolbar';
 
 const FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
@@ -359,7 +360,7 @@ export function PostDetailModal({
               ) : null}
 
               {post.title ? <Text style={styles.title}>{post.title}</Text> : null}
-              <Text style={styles.content}>{post.content}</Text>
+              <RichPostText content={post.content} style={styles.content} />
 
               {post.sharedPost ? (
                 <View style={styles.sharedBox}>
@@ -375,9 +376,11 @@ export function PostDetailModal({
                   {post.sharedPost.title ? (
                     <Text style={styles.sharedTitle}>{post.sharedPost.title}</Text>
                   ) : null}
-                  <Text style={styles.sharedContent} numberOfLines={4}>
-                    {post.sharedPost.content}
-                  </Text>
+                  <RichPostText
+                    content={post.sharedPost.content}
+                    style={styles.sharedContent}
+                    numberOfLines={4}
+                  />
                 </View>
               ) : null}
 

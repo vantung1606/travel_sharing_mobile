@@ -13,6 +13,7 @@ import {
 } from '@/components/community/communityUtils';
 import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
+import { RichPostText } from '@/components/community/RichTextToolbar';
 import { PostItem } from '@/src/services/api';
 import { getUserTier } from '@/src/utils/tierSystem';
 
@@ -209,7 +210,7 @@ export function PostCard({
           ) : null}
 
           {content ? (
-            <Text style={styles.content}>{renderContent(shownContent)}</Text>
+            <RichPostText content={shownContent} style={styles.content} />
           ) : null}
 
           {canTruncate ? (
@@ -239,9 +240,11 @@ export function PostCard({
               {post.sharedPost.title}
             </Text>
           ) : null}
-          <Text style={styles.sharedContent} numberOfLines={3}>
-            {post.sharedPost.content}
-          </Text>
+          <RichPostText
+            content={post.sharedPost.content}
+            style={styles.sharedContent}
+            numberOfLines={3}
+          />
         </View>
       ) : null}
 

@@ -75,6 +75,7 @@ export interface PlaceItem {
   category: string;
   address?: string;
   coverImage?: string;
+  images?: string[];
   rating?: number;
   reviewsCount?: number;
   priceLevel?: string;
@@ -124,6 +125,9 @@ function mapPlace(raw: any): PlaceItem {
     category: raw?.categoryName ?? raw?.category ?? '',
     address: raw?.address,
     coverImage: raw?.coverImageUrl ?? raw?.coverImage,
+    images: Array.isArray(raw?.images) && raw.images.length > 0
+      ? raw.images
+      : (raw?.coverImageUrl || raw?.coverImage ? [raw?.coverImageUrl ?? raw?.coverImage] : []),
     rating: ratingRaw != null ? Number(ratingRaw) : undefined,
     reviewsCount: reviewsRaw != null ? Number(reviewsRaw) : undefined,
     priceLevel: raw?.priceRange ?? raw?.priceLevel,

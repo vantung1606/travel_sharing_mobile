@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { showToast } from '@/components/Toast';
@@ -58,6 +58,9 @@ export function PlaceDetailModal({
     list: PostItem[];
   }>({ forKey: null, list: [] });
 
+  const { width: windowWidth } = useWindowDimensions();
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
   const handleModalClose = () => {
     // Dọn dẹp khi đóng modal (setState trong event handler — hợp lệ về quy tắc)
     setReviewsState({ forKey: null, list: [], canReview: false });
@@ -65,6 +68,7 @@ export function PlaceDetailModal({
     setCheckinState({ forKey: null, list: [] });
     setReviewStars(0);
     setReviewComment('');
+    setActiveImageIndex(0);
     onClose();
   };
 
@@ -225,13 +229,36 @@ export function PlaceDetailModal({
           {place ? (
             <>
               <View style={styles.heroWrap}>
-                <PlaceImage place={place} style={styles.hero} />
-                <View style={styles.heroScrim} />
+                {Array.isArray(place.images) && place.images.length > 1 ? (
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={(e) => {
+                      const offsetX = e.nativeEvent.contentOffset.x;
+                      const idx = Math.round(offsetX / windowWidth);
+                      setActiveImageIndex(Math.max(0, Math.min(idx, place.images!.length - 1)));
+                    }}
+                    style={{ width: windowWidth, height: 270 }}
+                  >
+                    {place.images.map((imgUri, index) => (
+                      <Image
+                        key={`${imgUri}-${index}`}
+                        source={{ uri: imgUri }}
+                        style={{ width: windowWidth, height: 270 }}
+                        resizeMode="cover"
+                      />
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <PlaceImage place={place} style={styles.hero} />
+                )}
+                <View style={styles.heroScrim} pointerEvents="none" />
 
-                 <TouchableOpacity
-                   style={[styles.floatingBtn, styles.floatingBtnLeft]}
-                   onPress={handleModalClose}
-                   accessibilityLabel="Đóng chi tiết">
+                <TouchableOpacity
+                  style={[styles.floatingBtn, styles.floatingBtnLeft]}
+                  onPress={handleModalClose}
+                  accessibilityLabel="Đóng chi tiết">
                   <FontAwesome name="chevron-left" size={16} color={WF_COLORS.slate900} />
                 </TouchableOpacity>
 
@@ -245,6 +272,29 @@ export function PlaceDetailModal({
                     color={saved ? WF_COLORS.rose : WF_COLORS.slate900}
                   />
                 </TouchableOpacity>
+
+                {/* Counter Badge */}
+                {Array.isArray(place.images) && place.images.length > 1 && (
+                  <View style={styles.imageBadge}>
+                    <FontAwesome name="camera" size={10} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.imageBadgeText}>{`${activeImageIndex + 1}/${place.images.length}`}</Text>
+                  </View>
+                )}
+
+                {/* Pagination Dots */}
+                {Array.isArray(place.images) && place.images.length > 1 && (
+                  <View style={styles.paginationDots} pointerEvents="none">
+                    {place.images.map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.dot,
+                          i === activeImageIndex && styles.activeDot,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
               </View>
 
               <View style={styles.body}>
@@ -626,6 +676,42 @@ const styles = StyleSheet.create({
   },
   floatingBtnRight: {
     right: 12,
+  },
+  imageBadge: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  imageBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  paginationDots: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  activeDot: {
+    width: 14,
+    backgroundColor: '#FFFFFF',
   },
   body: {
     padding: 16,

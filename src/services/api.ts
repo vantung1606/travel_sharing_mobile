@@ -711,6 +711,12 @@ export interface UpdateItineraryPayload {
   status?: string;
 }
 
+export interface ReorderDetailPayload {
+  detailId: number;
+  visitOrder?: number;
+  dayNumber?: number;
+}
+
 // ─── ITINERARIES API ───────────────────────────────────────
 export const itineraryApi = {
   async getMyItineraries(): Promise<ItineraryItem[]> {
@@ -749,6 +755,11 @@ export const itineraryApi = {
 
   async deleteDetail(detailId: number): Promise<void> {
     await apiClient.delete(`/itineraries/details/${detailId}`);
+  },
+
+  async reorderDetails(itineraryId: number, items: ReorderDetailPayload[]): Promise<ItineraryDetailItem[]> {
+    const res = await apiClient.put<ApiResponse<ItineraryDetailItem[]>>(`/itineraries/${itineraryId}/details/reorder`, items);
+    return res.data.data;
   },
 
   async aiQuickGenerate(payload: {

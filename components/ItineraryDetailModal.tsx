@@ -151,6 +151,53 @@ export function ItineraryDetailModal({
     }
   };
 
+  const handleMoveStop = async (currentIndex: number, direction: number) => {
+    if (!fullItin?.id || !filteredDetails) return;
+    const targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= filteredDetails.length) return;
+
+    const sourceItem = filteredDetails[currentIndex];
+    const targetItem = filteredDetails[targetIndex];
+    if (!sourceItem || !targetItem) return;
+
+    // Hoán đổi vị trí trong danh sách
+    const updatedFiltered = [...filteredDetails];
+    updatedFiltered[currentIndex] = targetItem;
+    updatedFiltered[targetIndex] = sourceItem;
+
+    // Chuẩn bị payload reorder
+    const reorderPayload = updatedFiltered.map((d, idx) => ({
+      detailId: d.id as number,
+      visitOrder: idx + 1,
+      dayNumber: d.dayNumber,
+    })).filter(x => Boolean(x.detailId));
+
+    // Cập nhật state cục bộ
+    const allDetailsCopy = [...(fullItin.details || [])];
+    const sIdx = allDetailsCopy.findIndex(d => d.id === sourceItem.id);
+    const tIdx = allDetailsCopy.findIndex(d => d.id === targetItem.id);
+    if (sIdx !== -1 && tIdx !== -1) {
+      allDetailsCopy[sIdx] = targetItem;
+      allDetailsCopy[tIdx] = sourceItem;
+    }
+    setFullItin(prev => prev ? { ...prev, details: allDetailsCopy } : null);
+
+    showToast({
+      kind: 'success',
+      title: direction < 0 ? 'Đã di chuyển lên 🔼' : 'Đã di chuyển xuống 🔽',
+      message: `Đã đổi thứ tự trạm dừng "${sourceItem.locationName}".`,
+    });
+
+    try {
+      if (reorderPayload.length > 0) {
+        await itineraryApi.reorderDetails(fullItin.id, reorderPayload);
+        onItineraryUpdated?.();
+      }
+    } catch (e: any) {
+      console.warn('Backend reorder stop error:', e);
+    }
+  };
+
   // State thêm trạm dừng mới (hoàn toàn do người dùng tự điền)
   const [addStopVisible, setAddStopVisible] = useState<boolean>(false);
   const [newStopDay, setNewStopDay] = useState<number>(1);
@@ -514,18 +561,38 @@ export function ItineraryDetailModal({
 
                         {/* Right Detail Card */}
                         <View style={styles.stopCard}>
-                          {/* Header: Category Badge & Delete */}
+                          {/* Header: Category Badge & Move Up/Down/Delete Actions */}
                           <View style={styles.stopHeader}>
                             <View style={styles.categoryBadge}>
                               <Text style={styles.categoryBadgeText}>{detail.category || 'Tham quan'}</Text>
                             </View>
-                            {canEdit && detail.id ? (
-                              <TouchableOpacity
-                                onPress={() => handleDeleteStop(detail.id)}
-                                style={styles.deleteTouch}>
-                                <FontAwesome name="trash-o" size={13} color="#EF4444" />
-                              </TouchableOpacity>
-                            ) : null}
+                            {canEdit && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <TouchableOpacity
+                                  disabled={index === 0}
+                                  onPress={() => handleMoveStop(index, -1)}
+                                  style={[styles.deleteTouch, { opacity: index === 0 ? 0.25 : 1 }]}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                                  <FontAwesome name="arrow-up" size={12} color="#0284C7" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  disabled={index === filteredDetails.length - 1}
+                                  onPress={() => handleMoveStop(index, 1)}
+                                  style={[styles.deleteTouch, { opacity: index === filteredDetails.length - 1 ? 0.25 : 1 }]}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                                  <FontAwesome name="arrow-down" size={12} color="#0284C7" />
+                                </TouchableOpacity>
+
+                                {detail.id ? (
+                                  <TouchableOpacity
+                                    onPress={() => handleDeleteStop(detail.id)}
+                                    style={styles.deleteTouch}>
+                                    <FontAwesome name="trash-o" size={13} color="#EF4444" />
+                                  </TouchableOpacity>
+                                ) : null}
+                              </View>
+                            )}
                           </View>
 
                           {/* Title */}

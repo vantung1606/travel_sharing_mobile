@@ -158,9 +158,18 @@ export function getPostCommentCount(post: PostItem): number {
 }
 
 export function getPostImages(post: PostItem): string[] {
-  if (post.images && post.images.length) return post.images.filter(Boolean);
+  const isValidImageUrl = (url?: string): boolean =>
+    typeof url === 'string' &&
+    url.trim().length > 10 &&
+    !url.includes('undefined') &&
+    !url.includes('null') &&
+    (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:image/'));
+
+  if (post.images && post.images.length) {
+    return post.images.filter(isValidImageUrl);
+  }
   const single = post.imageUrl || post.coverImage;
-  return single ? [single] : [];
+  return single && isValidImageUrl(single) ? [single] : [];
 }
 
 /** Nhánh lọc + sắp xếp giống bản web, dùng chung cho mọi nguồn dữ liệu. */

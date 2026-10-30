@@ -344,10 +344,27 @@ export function PostDetailModal({
                       {post.locationTag || post.locationName ? (
                         <>
                           <Text style={styles.metaDot}>·</Text>
-                          <FontAwesome name="map-marker" size={10} color={WF_PAPER.inkMuted} />
-                          <Text style={styles.metaText} numberOfLines={1}>
-                            {post.locationTag || post.locationName}
-                          </Text>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => {
+                              const placeId = post.placeId || post.sharedPost?.placeId;
+                              if (placeId && onPressPlace) {
+                                onClose();
+                                onPressPlace(placeId);
+                              }
+                            }}
+                            disabled={!(post.placeId || post.sharedPost?.placeId) || !onPressPlace}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 }}>
+                            <FontAwesome name="map-marker" size={10} color={WF_PAPER.clay} />
+                            <Text
+                              style={[
+                                styles.metaText,
+                                (post.placeId || post.sharedPost?.placeId) ? { color: WF_PAPER.clay, fontWeight: '600' } : undefined
+                              ]}
+                              numberOfLines={1}>
+                              {post.locationTag || post.locationName}
+                            </Text>
+                          </TouchableOpacity>
                         </>
                       ) : null}
                       <View style={[styles.visibilityPill, isPrivate && styles.visibilityPillPrivate]}>
@@ -427,12 +444,7 @@ export function PostDetailModal({
                 />
               ) : null}
 
-              {post.placeId || post.sharedPost?.placeId ? (
-                <PlaceAttachCard
-                  post={post}
-                  onPress={onPressPlace}
-                />
-              ) : null}
+              {/* Đã ẩn phần địa điểm dưới theo yêu cầu UI tối giản (bấm vào location trên header để xem) */}
 
               {/* Action bar */}
               <View style={styles.actionBar}>

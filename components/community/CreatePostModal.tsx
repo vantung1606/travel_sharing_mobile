@@ -330,22 +330,12 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               />
 
               <Text style={styles.label}>Nội dung *</Text>
-              <RichTextToolbar
-                value={content}
-                onChangeText={setContent}
-                selection={selection}
-              />
               <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0 },
-                ]}
-                placeholder="Cảm nghĩ, mẹo du lịch, quán ăn ngon, lưu ý... (Hỗ trợ in đậm, nghiêng, trích dẫn, @...)"
+                style={[styles.input, styles.textArea]}
+                placeholder="Chia sẻ cảm nghĩ, mẹo du lịch, lưu ý quan trọng... (Gõ @ để gắn thẻ)"
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={content}
                 onChangeText={setContent}
-                onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
                 multiline
               />
 

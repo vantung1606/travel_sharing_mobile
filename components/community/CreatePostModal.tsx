@@ -39,7 +39,8 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [location, setLocation] = useState('');
+  const [customPlaceName, setCustomPlaceName] = useState('');
+  const [isProposingPlace, setIsProposingPlace] = useState(false);
   const [category, setCategory] = useState<string>('Ẩm thực & Check-in');
   const [videoUrl, setVideoUrl] = useState('');
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
@@ -58,17 +59,29 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
     if (editingPost) {
       setTitle(editingPost.title || '');
       setContent(editingPost.content || '');
-      setLocation(editingPost.locationTag || editingPost.locationName || '');
       setCategory(editingPost.category || 'Ẩm thực & Check-in');
       setVideoUrl(editingPost.videoUrl || '');
       setVisibility((editingPost.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
       setImages(editingPost.images?.length ? editingPost.images : editingPost.imageUrl ? [editingPost.imageUrl] : []);
       setItineraryId(editingPost.itineraryId ?? null);
-      setPlaceId(editingPost.placeId ?? null);
+      if (editingPost.placeId) {
+        setPlaceId(editingPost.placeId);
+        setCustomPlaceName('');
+        setIsProposingPlace(false);
+      } else if (editingPost.locationTag && editingPost.locationTag !== 'Việt Nam') {
+        setPlaceId(null);
+        setCustomPlaceName(editingPost.locationTag);
+        setIsProposingPlace(true);
+      } else {
+        setPlaceId(null);
+        setCustomPlaceName('');
+        setIsProposingPlace(false);
+      }
     } else {
       setTitle('');
       setContent('');
-      setLocation('Việt Nam');
+      setCustomPlaceName('');
+      setIsProposingPlace(false);
       setCategory('Ẩm thực & Check-in');
       setVideoUrl('');
       setVisibility('PUBLIC');
@@ -210,11 +223,19 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
     }
     try {
       setSubmitting(true);
+      let computedLocation = 'Việt Nam';
+      if (placeId) {
+        const found = availablePlaces.find((p) => p.id === placeId);
+        computedLocation = found ? (found.city ? `${found.name}, ${found.city}` : found.name) : 'Việt Nam';
+      } else if (customPlaceName.trim()) {
+        computedLocation = customPlaceName.trim();
+      }
+
       const payload = {
         title: title.trim(),
         content: content.trim(),
         category: category || 'Ẩm thực & Check-in',
-        locationTag: location.trim() || 'Việt Nam',
+        locationTag: computedLocation,
         images,
         videoUrl: videoUrl.trim() || undefined,
         visibility,
@@ -343,14 +364,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                 })}
               </ScrollView>
 
-              <Text style={styles.label}>Địa điểm check-in</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="VD: Mũi Né, Phan Thiết"
-                placeholderTextColor={WF_PAPER.inkMuted}
-                value={location}
-                onChangeText={setLocation}
-              />
+
 
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Video bài viết (Cloud CDN / YouTube)</Text>
@@ -477,17 +491,56 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
               ) : null}
 
               {/* Place check-in attach */}
-              {availablePlaces.length > 0 ? (
-                <>
-                  <Text style={styles.label}>Gắn vị trí check-in địa điểm (không bắt buộc)</Text>
+              <View style={{ marginBottom: 14 }}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>Vị trí check-in địa điểm</Text>
+                  {(placeId !== null || customPlaceName.trim() !== '') ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPlaceId(null);
+                        setCustomPlaceName('');
+                        setIsProposingPlace(false);
+                      }}>
+                      <Text style={{ fontSize: 11.5, color: '#E11D48', fontWeight: '700' }}>Bỏ check-in</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {availablePlaces.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                    {/* Nút đề xuất địa điểm mới */}
+                    <TouchableOpacity
+                      style={[styles.placeChip, isProposingPlace && styles.placeChipActive, { borderStyle: 'dashed' }]}
+                      onPress={() => {
+                        const next = !isProposingPlace;
+                        setIsProposingPlace(next);
+                        if (next) {
+                          setPlaceId(null);
+                        }
+                      }}>
+                      <FontAwesome
+                        name="plus-circle"
+                        size={12}
+                        color={isProposingPlace ? WF_PAPER.card : WF_PAPER.clay}
+                      />
+                      <Text style={[styles.placeChipText, isProposingPlace && styles.placeChipTextActive]}>
+                        Đề xuất điểm mới
+                      </Text>
+                    </TouchableOpacity>
+
                     {availablePlaces.slice(0, 30).map((pl) => {
                       const active = placeId === pl.id;
                       return (
                         <TouchableOpacity
                           key={pl.id}
                           style={[styles.placeChip, active && styles.placeChipActive]}
-                          onPress={() => setPlaceId(active ? null : pl.id)}>
+                          onPress={() => {
+                            setPlaceId(active ? null : pl.id);
+                            if (!active) {
+                              setIsProposingPlace(false);
+                              setCustomPlaceName('');
+                            }
+                          }}>
                           <FontAwesome
                             name={active ? 'check-circle' : 'map-marker'}
                             size={12}
@@ -502,8 +555,28 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                       );
                     })}
                   </ScrollView>
-                </>
-              ) : null}
+                ) : null}
+
+                {/* Ô nhập địa điểm mới đề xuất */}
+                {isProposingPlace ? (
+                  <View style={{ marginTop: 8 }}>
+                    <TextInput
+                      style={[styles.input, { marginBottom: 4, borderColor: WF_PAPER.clay }]}
+                      placeholder="Nhập tên địa điểm mới (VD: Tiệm Cà Phê Mây Lang Thang)..."
+                      placeholderTextColor={WF_PAPER.inkMuted}
+                      value={customPlaceName}
+                      onChangeText={(text) => {
+                        setCustomPlaceName(text);
+                        if (placeId) setPlaceId(null);
+                      }}
+                      autoFocus
+                    />
+                    <Text style={{ fontSize: 10.5, color: WF_PAPER.clay, fontStyle: 'italic' }}>
+                      💡 Địa điểm này sẽ được gắn vào bài viết và gửi vào hàng đợi duyệt địa điểm du lịch.
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </ScrollView>
 
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>

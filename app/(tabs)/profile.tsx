@@ -40,6 +40,7 @@ import {
   TierItem,
 } from '@/src/utils/tierSystem';
 import { FollowModal } from '@/components/FollowModal';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
@@ -100,6 +101,7 @@ export default function ProfileScreen() {
   // Follow Modal state (Xem danh sách người theo dõi / đang theo dõi)
   const [followModalVisible, setFollowModalVisible] = useState<boolean>(false);
   const [followModalInitialTab, setFollowModalInitialTab] = useState<'followers' | 'following'>('followers');
+  const [selectedUserIdForModal, setSelectedUserIdForModal] = useState<number | null>(null);
 
   // Itinerary Detail Modal state (Xem chi tiết chuyến đi)
   const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
@@ -1739,6 +1741,16 @@ export default function ProfileScreen() {
         }}
         initialTab={followModalInitialTab}
         onFollowChange={loadProfile}
+        onSelectUser={(targetUserId) => {
+          setSelectedUserIdForModal(targetUserId);
+        }}
+      />
+
+      {/* Modal xem trang cá nhân người dùng khác */}
+      <UserProfileModal
+        visible={Boolean(selectedUserIdForModal)}
+        onClose={() => setSelectedUserIdForModal(null)}
+        userId={selectedUserIdForModal || 0}
       />
 
       {/* Modal Đổi mật khẩu tài khoản */}

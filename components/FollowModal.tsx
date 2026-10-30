@@ -21,6 +21,7 @@ export interface FollowModalProps {
   onClose: () => void;
   initialTab?: 'followers' | 'following';
   onFollowChange?: () => void;
+  onSelectUser?: (userId: number) => void;
 }
 
 export function FollowModal({
@@ -28,6 +29,7 @@ export function FollowModal({
   onClose,
   initialTab = 'following',
   onFollowChange,
+  onSelectUser,
 }: FollowModalProps) {
   const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialTab);
   const [followers, setFollowers] = useState<any[]>([]);
@@ -97,7 +99,16 @@ export function FollowModal({
 
     return (
       <View style={styles.userRow}>
-        <View style={styles.userInfoLeft}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.userInfoLeft}
+          onPress={() => {
+            const targetId = item.id || item.userId;
+            if (typeof onSelectUser === 'function' && targetId) {
+              onSelectUser(targetId);
+            }
+          }}
+        >
           {avatar ? (
             <Image source={{ uri: avatar }} style={styles.userAvatar} />
           ) : (
@@ -118,7 +129,7 @@ export function FollowModal({
               </Text>
             ) : null}
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           activeOpacity={0.8}

@@ -20,8 +20,8 @@ import { POST_CATEGORIES } from '@/components/community/communityUtils';
 import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { ToastHost, showToast } from '@/components/Toast';
-import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, uploadApi } from '@/src/services/api';
 import { RichTextToolbar } from '@/components/community/RichTextToolbar';
+import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
 
 interface CreatePostModalProps {
   visible: boolean;
@@ -49,6 +49,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
   const [myItineraries, setMyItineraries] = useState<ItineraryItem[]>([]);
   const [placeId, setPlaceId] = useState<number | null>(null);
   const [availablePlaces, setAvailablePlaces] = useState<PlaceItem[]>([]);
+  const [isAddPlaceModalOpen, setIsAddPlaceModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -498,7 +499,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
 
                 {availablePlaces.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                    {/* Nút đề xuất địa điểm mới */}
+                    {/* Nút check-in vị trí tự do */}
                     <TouchableOpacity
                       style={[styles.placeChip, isProposingPlace && styles.placeChipActive, { borderStyle: 'dashed' }]}
                       onPress={() => {
@@ -509,12 +510,12 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                         }
                       }}>
                       <FontAwesome
-                        name="plus-circle"
+                        name="map-pin"
                         size={12}
                         color={isProposingPlace ? WF_PAPER.card : WF_PAPER.clay}
                       />
                       <Text style={[styles.placeChipText, isProposingPlace && styles.placeChipTextActive]}>
-                        Đề xuất điểm mới
+                        Vị trí tự do
                       </Text>
                     </TouchableOpacity>
 
@@ -547,12 +548,25 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                   </ScrollView>
                 ) : null}
 
-                {/* Ô nhập địa điểm mới đề xuất */}
+                {/* Dòng liên kết đóng góp địa điểm chính thức vào CSDL */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                  <Text style={{ fontSize: 11, color: WF_PAPER.inkMuted }}>Chưa có trên Bản đồ?</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsAddPlaceModalOpen(true)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <FontAwesome name="plus-circle" size={11} color={WF_PAPER.clay} />
+                    <Text style={{ fontSize: 11, color: WF_PAPER.clay, fontWeight: '700' }}>
+                      Đóng góp địa điểm vào CSDL
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Ô nhập vị trí check-in tự do */}
                 {isProposingPlace ? (
                   <View style={{ marginTop: 8 }}>
                     <TextInput
                       style={[styles.input, { marginBottom: 4, borderColor: WF_PAPER.clay }]}
-                      placeholder="Nhập tên địa điểm mới (VD: Tiệm Cà Phê Mây Lang Thang)..."
+                      placeholder="Nhập tên vị trí check-in (VD: Dốc Nhà Bò, Đà Lạt)..."
                       placeholderTextColor={WF_PAPER.inkMuted}
                       value={customPlaceName}
                       onChangeText={(text) => {
@@ -561,8 +575,8 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                       }}
                       autoFocus
                     />
-                    <Text style={{ fontSize: 10.5, color: WF_PAPER.clay, fontStyle: 'italic' }}>
-                      💡 Địa điểm này sẽ được gắn vào bài viết và gửi vào hàng đợi duyệt địa điểm du lịch.
+                    <Text style={{ fontSize: 10.5, color: WF_PAPER.inkMuted, fontStyle: 'italic' }}>
+                      💡 Vị trí này sẽ được lưu riêng làm nhãn check-in cho bài viết của bạn.
                     </Text>
                   </View>
                 ) : null}
@@ -586,6 +600,23 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
             </View>
           </KeyboardAvoidingView>
         </View>
+
+        {/* Modal đóng góp địa điểm mới chuẩn mực vào CSDL */}
+        <AddPlaceModal
+          visible={isAddPlaceModalOpen}
+          onClose={() => setIsAddPlaceModalOpen(false)}
+          onPlaceCreated={(pl) => {
+            setAvailablePlaces((prev) => [pl, ...prev]);
+            setPlaceId(pl.id);
+            setIsProposingPlace(false);
+            setCustomPlaceName('');
+            showToast({
+              kind: 'success',
+              title: 'Đã gắn địa điểm',
+              message: `Đã chọn "${pl.name}" làm vị trí check-in bài viết.`,
+            });
+          }}
+        />
 
         {/* Thông báo trong chính modal soạn bài */}
         <ToastHost enabled={visible} />

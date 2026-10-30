@@ -151,7 +151,15 @@ export const getUserTier = (userOrXP: UserStatsForXP | number | null | undefined
   else if (rawRank.includes('vàng') || rawRank.includes('gold')) dbTierLevel = Math.max(dbTierLevel, 3);
   else if (rawRank.includes('bạc') || rawRank.includes('silver')) dbTierLevel = Math.max(dbTierLevel, 2);
 
-  if (Array.isArray(user.roles) && user.roles.some((r) => r === 'ROLE_ADMIN')) {
+  if (rawRank.includes('quản trị viên') || rawRank.includes('admin') || rawRank.includes('quản trị')) {
+    dbTierLevel = Math.max(dbTierLevel, 4);
+  }
+
+  if (Array.isArray(user.roles) && user.roles.some((r) => {
+    if (typeof r === 'string') return r.includes('ADMIN');
+    if ((r as any)?.name) return String((r as any).name).includes('ADMIN');
+    return false;
+  })) {
     dbTierLevel = Math.max(dbTierLevel, 4);
   }
 

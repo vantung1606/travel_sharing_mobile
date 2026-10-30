@@ -226,7 +226,14 @@ export function PostCard({
           ) : null}
 
           {content ? (
-            <RichPostText content={shownContent} style={styles.content} />
+            <RichPostText
+              content={shownContent}
+              style={
+                (!post.title || post.title.trim().length === 0) && content.length <= 120 && images.length === 0 && !post.videoUrl
+                  ? styles.shortContent
+                  : styles.content
+              }
+            />
           ) : null}
 
           {canTruncate ? (
@@ -508,6 +515,12 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 20.5,
     color: WF_PAPER.inkSecondary,
+  },
+  shortContent: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: WF_PAPER.inkPrimary,
+    fontWeight: '500',
   },
   mention: {
     color: WF_PAPER.clay,

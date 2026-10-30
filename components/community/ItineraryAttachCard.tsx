@@ -33,79 +33,74 @@ export function ItineraryAttachCard({ post, canClone = true, cloning, onView, on
   const isAi = post.itineraryIsAi ?? post.sharedPost?.itineraryIsAi;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onView}
+      style={styles.card}
+      accessibilityRole="button"
+      accessibilityLabel={`Lịch trình: ${title}. Nhấn để xem chi tiết.`}>
       <View style={styles.accent} />
       <View style={styles.body}>
-        <View style={styles.topRow}>
-          <View style={styles.pill}>
-            <FontAwesome name="map-o" size={11} color={WF_PAPER.clay} />
-            <Text style={styles.pillText}>Lịch trình chi tiết</Text>
-          </View>
-          {isAi ? (
-            <View style={styles.aiPill}>
-              <Text style={styles.aiPillText}>AI tạo</Text>
+        <View style={styles.mainRow}>
+          <View style={styles.contentCol}>
+            <View style={styles.topRow}>
+              <View style={styles.pill}>
+                <FontAwesome name="map-o" size={10} color={WF_PAPER.clay} />
+                <Text style={styles.pillText}>Lịch trình</Text>
+              </View>
+              {duration ? (
+                <Text style={styles.durationBadge}>{duration}</Text>
+              ) : null}
+              {isAi ? (
+                <View style={styles.aiPill}>
+                  <Text style={styles.aiPillText}>AI tạo</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-        </View>
 
-        <Text style={styles.title} numberOfLines={2}>
-          {title}
-        </Text>
-
-        {destination ? (
-          <View style={styles.metaRow}>
-            <FontAwesome name="map-marker" size={11} color={WF_PAPER.inkMuted} />
-            <Text style={styles.metaText} numberOfLines={1}>
-              {destination}
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
             </Text>
-          </View>
-        ) : null}
 
-        <View style={styles.statsRow}>
-          {duration ? (
-            <View style={styles.statChip}>
-              <FontAwesome name="clock-o" size={10} color={WF_PAPER.clayDark} />
-              <Text style={styles.statText}>{duration}</Text>
-            </View>
-          ) : null}
-          {places != null && places > 0 ? (
-            <View style={styles.statChip}>
-              <FontAwesome name="map-pin" size={10} color={WF_PAPER.clayDark} />
-              <Text style={styles.statText}>{places} điểm dừng</Text>
-            </View>
-          ) : null}
-          {budget != null ? (
-            <View style={styles.statChip}>
-              <FontAwesome name="money" size={10} color={WF_PAPER.clayDark} />
-              <Text style={styles.statText}>{formatMoney(budget)} đ</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.actions}>
-          <TouchableOpacity style={[styles.btn, styles.btnGhost]} activeOpacity={0.85} onPress={onView}>
-            <FontAwesome name="eye" size={12} color={WF_PAPER.clayDark} />
-            <Text style={styles.btnGhostText}>Xem chi tiết</Text>
-          </TouchableOpacity>
-          {canClone ? (
-            <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary, cloning && { opacity: 0.7 }]}
-              activeOpacity={0.85}
-              onPress={onClone}
-              disabled={cloning}>
-              {cloning ? (
-                <ActivityIndicator size="small" color="#FFFDF8" />
-              ) : (
+            <View style={styles.metaLine}>
+              {budget != null ? (
+                <Text style={styles.budgetText}>{formatMoney(budget)} đ</Text>
+              ) : null}
+              {places != null && places > 0 ? (
                 <>
-                  <FontAwesome name="copy" size={12} color="#FFFDF8" />
-                  <Text style={styles.btnPrimaryText}>Sao chép Tour</Text>
+                  <Text style={styles.dot}>•</Text>
+                  <Text style={styles.subMetaText}>{places} điểm dừng</Text>
                 </>
-              )}
-            </TouchableOpacity>
-          ) : null}
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.rightActions}>
+            {canClone ? (
+              <TouchableOpacity
+                style={[styles.miniCloneBtn, cloning && { opacity: 0.7 }]}
+                activeOpacity={0.8}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onClone?.();
+                }}
+                disabled={cloning}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                {cloning ? (
+                  <ActivityIndicator size="small" color={WF_PAPER.clay} />
+                ) : (
+                  <>
+                    <FontAwesome name="copy" size={11} color={WF_PAPER.clay} />
+                    <Text style={styles.miniCloneText}>Chép</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : null}
+            <FontAwesome name="angle-right" size={16} color={WF_PAPER.clay} style={{ marginLeft: 2 }} />
+          </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -124,36 +119,58 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    padding: 13,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  contentCol: {
+    flex: 1,
+    minWidth: 0,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 3,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: '#FFFDF8',
     borderRadius: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderWidth: 1,
     borderColor: '#E8D5C9',
   },
   pillText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: WF_PAPER.clayDark,
     letterSpacing: 0.2,
   },
+  durationBadge: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: WF_PAPER.clayDark,
+    backgroundColor: '#FFFDF8',
+    borderWidth: 1,
+    borderColor: '#E8D5C9',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+  },
   aiPill: {
     backgroundColor: WF_PAPER.clayLight,
     borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   aiPillText: {
     fontSize: 9,
@@ -161,74 +178,49 @@ const styles = StyleSheet.create({
     color: WF_PAPER.clay,
   },
   title: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: WF_PAPER.inkPrimary,
-    fontFamily: SERIF_FONT,
   },
-  metaRow: {
+  metaLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
+    marginTop: 2,
   },
-  metaText: {
-    flex: 1,
-    fontSize: 11.5,
+  budgetText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WF_PAPER.clay,
+  },
+  dot: {
+    fontSize: 10,
     color: WF_PAPER.inkMuted,
   },
-  statsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 9,
+  subMetaText: {
+    fontSize: 11,
+    color: WF_PAPER.inkMuted,
   },
-  statChip: {
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  miniCloneBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFDF8',
-    borderRadius: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#F6E6DD',
-  },
-  statText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: WF_PAPER.inkSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 11,
-  },
-  btn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 36,
-    borderRadius: 5,
-  },
-  btnGhost: {
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 4,
     backgroundColor: '#FFFDF8',
     borderWidth: 1,
     borderColor: '#E8D5C9',
   },
-  btnGhostText: {
-    fontSize: 12,
+  miniCloneText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: WF_PAPER.clayDark,
-  },
-  btnPrimary: {
-    backgroundColor: WF_PAPER.clay,
-  },
-  btnPrimaryText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFDF8',
+    color: WF_PAPER.clay,
   },
 });

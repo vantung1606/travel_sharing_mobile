@@ -257,32 +257,46 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.form}>
-              {/* Visibility */}
-              <View style={styles.visibilityRow}>
-                <TouchableOpacity
-                  style={[styles.visibilityOption, visibility === 'PUBLIC' && styles.visibilityActive]}
-                  onPress={() => setVisibility('PUBLIC')}>
-                  <FontAwesome
-                    name="globe"
-                    size={13}
-                    color={visibility === 'PUBLIC' ? WF_PAPER.card : WF_PAPER.inkMuted}
-                  />
-                  <Text style={[styles.visibilityLabel, visibility === 'PUBLIC' && styles.visibilityLabelActive]}>
-                    Công khai
+              {/* Visibility Selector */}
+              <View style={styles.visibilityContainer}>
+                <View style={styles.visibilityLabelGroup}>
+                  <Text style={styles.visibilityTitle}>Chế độ hiển thị</Text>
+                  <Text style={styles.visibilitySubtitle}>
+                    {visibility === 'PUBLIC' ? 'Ai cũng có thể xem 🌐' : 'Chỉ lưu trong tài khoản 🔒'}
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.visibilityOption, visibility === 'PRIVATE' && styles.visibilityActive]}
-                  onPress={() => setVisibility('PRIVATE')}>
-                  <FontAwesome
-                    name="lock"
-                    size={13}
-                    color={visibility === 'PRIVATE' ? WF_PAPER.card : WF_PAPER.inkMuted}
-                  />
-                  <Text style={[styles.visibilityLabel, visibility === 'PRIVATE' && styles.visibilityLabelActive]}>
-                    Chỉ mình tôi
-                  </Text>
-                </TouchableOpacity>
+                </View>
+                <View style={styles.visibilitySegmentedBar}>
+                  <TouchableOpacity
+                    style={[styles.visibilityOption, visibility === 'PUBLIC' && styles.visibilityActive]}
+                    onPress={() => setVisibility('PUBLIC')}
+                    activeOpacity={0.8}>
+                    <FontAwesome
+                      name="globe"
+                      size={11}
+                      color={visibility === 'PUBLIC' ? WF_PAPER.card : WF_PAPER.inkMuted}
+                    />
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.visibilityLabel, visibility === 'PUBLIC' && styles.visibilityLabelActive]}>
+                      Công khai
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.visibilityOption, visibility === 'PRIVATE' && styles.visibilityActive]}
+                    onPress={() => setVisibility('PRIVATE')}
+                    activeOpacity={0.8}>
+                    <FontAwesome
+                      name="lock"
+                      size={11}
+                      color={visibility === 'PRIVATE' ? WF_PAPER.card : WF_PAPER.inkMuted}
+                    />
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.visibilityLabel, visibility === 'PRIVATE' && styles.visibilityLabelActive]}>
+                      Chỉ mình tôi
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <Text style={styles.label}>Tiêu đề</Text>
@@ -563,31 +577,65 @@ const styles = StyleSheet.create({
     padding: 14,
     paddingBottom: 24,
   },
-  visibilityRow: {
+  visibilityContainer: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: WF_PAPER.bg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
     marginBottom: 14,
   },
-  visibilityOption: {
+  visibilityLabelGroup: {
     flex: 1,
+    marginRight: 8,
+  },
+  visibilityTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
+    fontFamily: SERIF_FONT,
+  },
+  visibilitySubtitle: {
+    fontSize: 10.5,
+    color: WF_PAPER.inkMuted,
+    marginTop: 1,
+  },
+  visibilitySegmentedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WF_PAPER.pillBg,
+    padding: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    gap: 2,
+  },
+  visibilityOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 42,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
-    backgroundColor: WF_PAPER.bg,
+    gap: 4.5,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 4,
+    backgroundColor: 'transparent',
   },
   visibilityActive: {
     backgroundColor: WF_PAPER.clay,
-    borderColor: WF_PAPER.clay,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 1,
+    elevation: 1,
   },
   visibilityLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
-    color: WF_PAPER.inkSecondary,
+    color: WF_PAPER.inkMuted,
   },
   visibilityLabelActive: {
     color: WF_PAPER.card,

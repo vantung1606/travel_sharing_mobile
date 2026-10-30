@@ -523,8 +523,7 @@ export function PlaceDetailModal({
                       {liveReviews.slice(0, 15).map((r, idx) => {
                         const isMyReview = session && (
                           (r.authorId != null && r.authorId === session.id) ||
-                          (r.authorEmail && session.email && r.authorEmail.toLowerCase() === session.email.toLowerCase()) ||
-                          (r.authorName && session.fullName && r.authorName.trim().toLowerCase() === session.fullName.trim().toLowerCase())
+                          (r.authorEmail && session.email && r.authorEmail.toLowerCase() === session.email.toLowerCase())
                         );
                         return (
                           <View key={r.id ?? `review-${idx}`} style={styles.reviewRow}>

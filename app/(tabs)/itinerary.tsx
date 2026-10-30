@@ -356,8 +356,7 @@ export default function ItineraryScreen() {
 
     const isOwner =
       (itin.creatorId && session.id && itin.creatorId === session.id) ||
-      (itin.creatorEmail && session.email && itin.creatorEmail === session.email) ||
-      (itin.creatorName && session.fullName && itin.creatorName === session.fullName);
+      (itin.creatorEmail && session.email && itin.creatorEmail === session.email);
 
     if (isOwner) {
       showToast({

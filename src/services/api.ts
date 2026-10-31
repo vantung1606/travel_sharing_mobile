@@ -265,6 +265,22 @@ export interface ItineraryItem {
   placesCount?: number;
   placesList?: string[];
   days?: any[];
+  // 15 Tiêu chí chuẩn tour lữ hành thương mại
+  tourCode?: string;
+  departureLocation?: string;
+  endingLocation?: string;
+  targetAudience?: string;
+  maxGroupSize?: number;
+  transportation?: string;
+  mealPlan?: string;
+  accommodationInfo?: string;
+  tourGuideInfo?: string;
+  childPrice?: number;
+  singleRoomSurcharge?: number;
+  servicesIncluded?: string;
+  servicesExcluded?: string;
+  cancellationPolicy?: string;
+  packingNotes?: string;
 }
 
 // ─── AUTH API ──────────────────────────────────────────────

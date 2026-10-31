@@ -267,7 +267,6 @@ export interface ItineraryItem {
   days?: any[];
   // 15 Tiêu chí chuẩn tour lữ hành thương mại
   tourCode?: string;
-  theme?: string;
   departureLocation?: string;
   endingLocation?: string;
   targetAudience?: string;
@@ -785,23 +784,6 @@ export interface CreateItineraryPayload {
   isPublic?: boolean;
   groupType?: string;
   travelStyle?: string;
-  // 15 Tiêu chuẩn Tour lữ hành thương mại
-  tourCode?: string;
-  theme?: string;
-  departureLocation?: string;
-  endingLocation?: string;
-  targetAudience?: string;
-  maxGroupSize?: number;
-  transportation?: string;
-  mealPlan?: string;
-  accommodationInfo?: string;
-  tourGuideInfo?: string;
-  childPrice?: number;
-  singleRoomSurcharge?: number;
-  servicesIncluded?: string;
-  servicesExcluded?: string;
-  cancellationPolicy?: string;
-  packingNotes?: string;
   details?: ItineraryDetailItem[];
 }
 
@@ -816,23 +798,6 @@ export interface UpdateItineraryPayload {
   travelStyle?: string;
   isPublic?: boolean;
   status?: string;
-  // 15 Tiêu chuẩn Tour lữ hành thương mại
-  tourCode?: string;
-  theme?: string;
-  departureLocation?: string;
-  endingLocation?: string;
-  targetAudience?: string;
-  maxGroupSize?: number;
-  transportation?: string;
-  mealPlan?: string;
-  accommodationInfo?: string;
-  tourGuideInfo?: string;
-  childPrice?: number;
-  singleRoomSurcharge?: number;
-  servicesIncluded?: string;
-  servicesExcluded?: string;
-  cancellationPolicy?: string;
-  packingNotes?: string;
 }
 
 export interface ReorderDetailPayload {

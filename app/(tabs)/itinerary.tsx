@@ -533,6 +533,7 @@ export default function ItineraryScreen() {
 
       // Tạo chuyến đi thủ công: hoàn toàn để trống để người dùng tự điền mốc giờ và hoạt động
       const manualActivities: ItineraryDetailItem[] = [];
+      const manualDestCode = (manualDest.trim().substring(0, 3) || 'VN').toUpperCase().replace(/[^A-Z]/g, 'VN');
 
       const created = await itineraryApi.createItinerary({
         title: manualTitle.trim(),
@@ -544,6 +545,26 @@ export default function ItineraryScreen() {
         status: 'UPCOMING',
         isAiGenerated: false,
         groupType: manualGroup,
+        travelStyle: 'Nghỉ dưỡng & Khám phá',
+
+        // 15 Tiêu chuẩn Tour lữ hành thương mại
+        tourCode: `TOUR-${manualDestCode}-${Math.floor(1000 + Math.random() * 9000)}`,
+        theme: 'Tự do khám phá & Nghỉ dưỡng',
+        departureLocation: 'Hà Nội / TP. Hồ Chí Minh',
+        endingLocation: manualDest.trim(),
+        targetAudience: manualGroup || 'Cá nhân & Bạn bè',
+        maxGroupSize: 15,
+        transportation: 'Ô tô du lịch / Phương tiện tự túc',
+        mealPlan: `• Thưởng thức ẩm thực và đặc sản bản địa tại ${manualDest.trim()}`,
+        accommodationInfo: `Khách sạn / Homestay tiêu chuẩn tại ${manualDest.trim()}`,
+        tourGuideInfo: 'Lịch trình tự túc hoặc hướng dẫn viên địa phương theo yêu cầu',
+        childPrice: Math.round(rawBudget * 0.75),
+        singleRoomSurcharge: Math.round(rawBudget * 0.35),
+        servicesIncluded: '✅ Lịch trình chi tiết do bạn tự thiết kế\n✅ Hỗ trợ định vị bản đồ và chia sẻ cộng đồng Wayfare',
+        servicesExcluded: '❌ Chi phí cá nhân tự túc\n❌ Các chi phí phát sinh ngoài dự kiến',
+        cancellationPolicy: '• Linh hoạt thay đổi kế hoạch theo nhu cầu cá nhân',
+        packingNotes: '• Giấy tờ tùy thân CCCD/Hộ chiếu gốc\n• Trang phục phù hợp thời tiết điểm đến\n• Sạc dự phòng, đồ dùng cá nhân',
+
         details: manualActivities,
       });
 
@@ -644,10 +665,10 @@ export default function ItineraryScreen() {
         .filter(Boolean)
         .join(', ');
 
-      // Build Prompt chi tiết, chuyên sâu cho Gemini 3.8 Flash
-      const prompt = `Bạn là chuyên gia cố vấn du lịch bản địa hàng đầu tại Việt Nam.
+      // Build Prompt chi tiết, chuyên sâu cho Gemini 2.5 Flash chuẩn 15 tiêu chuẩn lữ hành
+      const prompt = `Bạn là chuyên gia cố vấn du lịch bản địa và giám đốc lữ hành hàng đầu tại Việt Nam.
 Hãy nghiên cứu và phân tích điểm đến: "${aiDest}".
-Lập lịch trình du lịch ${aiDays} ngày với các danh lam thắng cảnh, di tích lịch sử và quán ăn đặc sản có thật 100% tại "${aiDest}".
+Lập lịch trình du lịch ${aiDays} ngày chuẩn tour lữ hành thương mại chuyên nghiệp với các danh lam thắng cảnh, di tích lịch sử và quán ăn đặc sản có thật 100% tại "${aiDest}".
 Thông tin chuyến đi:
 - Điểm đến: ${aiDest}
 - Thời lượng: ${aiDays} ngày (${aiDays}N${Math.max(1, aiDays - 1)}Đ)
@@ -659,16 +680,46 @@ ${aiCustomNote ? `- Yêu cầu thêm: ${aiCustomNote}` : ''}
 QUY TẮC BẮT BUỘC:
 1. Nghiên cứu chính xác các địa điểm, quán ăn có thật 100% tại "${aiDest}". Tuyệt đối không dùng văn mẫu chung chung.
 2. Mỗi ngày có 3-4 hoạt động sắp xếp từ sáng đến tối.
-3. BẮT BUỘC VỀ ĐỊA CHỈ ("address"): Tra cứu và ghi ĐỊA CHỈ CỤ THỂ CHI TIẾT CÓ THẬT của từng quán ăn, địa danh (gồm Số nhà/Tên đường - Phường/Xã/Quận/Huyện - Tỉnh/Thành phố tại "${aiDest}"). TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ ghi tên đường cộc lốc (như "202 Chương Dương") hay chỉ ghi tên tỉnh thành chung chung như "${aiDest}" hay "Việt Nam".
-Ví dụ chuẩn:
-- Quán ăn: "202 Chương Dương - Sơn Trà - Đà Nẵng" hoặc "Số 48 Ngô Đức Kế, P. Hồng Sơn, TP. Vinh, Nghệ An"
-- Danh lam/Di tích: "Làng Sen & Hoàng Trù, xã Kim Liên, huyện Nam Đàn, Nghệ An"
-- Trải nghiệm: "Đập Cầu Cau, xã Thanh An, huyện Thanh Chương, Nghệ An"
-4. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:
+3. BẮT BUỘC VỀ ĐỊA CHỈ ("address"): Tra cứu và ghi ĐỊA CHỈ CỤ THỂ CHI TIẾT CÓ THẬT của từng quán ăn, địa danh (gồm Số nhà/Tên đường - Phường/Xã/Quận/Huyện - Tỉnh/Thành phố tại "${aiDest}"). TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ ghi tên đường cộc lốc hay chung chung.
+4. BẮT BUỘC HOÀN THIỆN ĐỦ 15 TIÊU CHUẨN TOUR LỮ HÀNH THƯƠNG MẠI CHUYÊN NGHIỆP:
+   - tourCode: Mã tour định danh (VD: "TOUR-DNG-3N2D")
+   - theme: Chủ đề tour (VD: "Nghỉ Dưỡng Biển & Khám Phá Di Sản")
+   - departureLocation: Điểm đón / khởi hành thực tế
+   - endingLocation: Điểm kết thúc tour
+   - targetAudience: Đối tượng khách và phân khúc
+   - maxGroupSize: Số khách tối đa (số nguyên, VD: 20)
+   - transportation: Phương tiện di chuyển cụ thể
+   - mealPlan: Thực đơn và kế hoạch các bữa ăn sáng, trưa, tối
+   - accommodationInfo: Tiêu chuẩn sao, tên khách sạn/resort tham khảo và loại phòng
+   - tourGuideInfo: Thông tin và nhiệm vụ của hướng dẫn viên suốt tuyến
+   - childPrice: Giá tour trẻ em dự kiến (số nguyên VNĐ)
+   - singleRoomSurcharge: Phụ thu phòng đơn dự kiến (số nguyên VNĐ)
+   - servicesIncluded: Danh sách dịch vụ bao gồm (bullet points)
+   - servicesExcluded: Danh sách dịch vụ không bao gồm (bullet points)
+   - cancellationPolicy: Chính sách đặt cọc, thanh toán và hoàn/hủy tour chi tiết
+   - packingNotes: Lưu ý hành lý, trang phục và giấy tờ tùy thân bắt buộc
+
+5. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:
 {
-  "title": "Tên chuyến đi hấp dẫn do AI sáng tạo (VD: Đà Lạt: Chuyến Đi Lãng Mạn Cho Cặp Đôi)",
+  "title": "Tên chuyến đi hấp dẫn do AI sáng tạo",
   "summaryTip": "Mẹo du lịch bản địa ngắn gọn...",
   "placesList": ["Tên điểm thật 1", "Tên điểm thật 2", "Tên điểm thật 3", "Tên điểm thật 4"],
+  "tourCode": "Mã tour (VD: TOUR-DNG-3N2D)",
+  "theme": "Chủ đề tour",
+  "departureLocation": "Sân bay Nội Bài / Đà Nẵng",
+  "endingLocation": "Đà Nẵng",
+  "targetAudience": "Đối tượng khách phù hợp",
+  "maxGroupSize": 20,
+  "transportation": "Phương tiện di chuyển chi tiết",
+  "mealPlan": "Kế hoạch ẩm thực các bữa sáng/trưa/tối và đặc sản",
+  "accommodationInfo": "Thông tin khách sạn/resort và loại phòng",
+  "tourGuideInfo": "Thông tin hướng dẫn viên suốt tuyến",
+  "childPrice": 2500000,
+  "singleRoomSurcharge": 1200000,
+  "servicesIncluded": "✅ Vé máy bay / xe du lịch đưa đón\\n✅ Khách sạn tiêu chuẩn 3-4 sao\\n✅ Các bữa ăn theo chương trình...",
+  "servicesExcluded": "❌ Thuế VAT\\n❌ Chi phí cá nhân, minibar\\n❌ Tiền tip HDV...",
+  "cancellationPolicy": "• Hủy trước 7 ngày: Hoàn 100%\\n• Hủy trước 3 ngày: Phí phạt 50%...",
+  "packingNotes": "• CCCD/Hộ chiếu bản gốc còn hạn\\n• Trang phục phù hợp...",
   "days": [
     {
       "dayNumber": 1,
@@ -777,6 +828,9 @@ Ví dụ chuẩn:
         ? String(parsedData.title).trim()
         : `${aiDest}: Hành Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`;
 
+      const defaultDestCode = (aiDest.trim().substring(0, 3) || 'VN').toUpperCase().replace(/[^A-Z]/g, 'VN');
+      const genTourCode = parsedData.tourCode || `TOUR-${defaultDestCode}-${Math.floor(1000 + Math.random() * 9000)}`;
+
       const created = await itineraryApi.createItinerary({
         title: tripTitle,
         destination: aiDest.trim(),
@@ -787,6 +841,26 @@ Ví dụ chuẩn:
         status: 'UPCOMING',
         isAiGenerated: true,
         groupType: companionObj.label,
+        travelStyle: interestLabels || 'Nghỉ dưỡng & Khám phá',
+
+        // 15 Tiêu chuẩn Tour lữ hành thương mại
+        tourCode: genTourCode,
+        theme: parsedData.theme || interestLabels || 'Nghỉ dưỡng & Khám phá',
+        departureLocation: parsedData.departureLocation || 'Sân bay Nội Bài (Hà Nội) / Tân Sơn Nhất (TP.HCM)',
+        endingLocation: parsedData.endingLocation || aiDest.trim(),
+        targetAudience: parsedData.targetAudience || companionObj.label,
+        maxGroupSize: Number(parsedData.maxGroupSize) || 20,
+        transportation: parsedData.transportation || 'Vé máy bay khứ hồi + Xe du lịch đời mới máy lạnh đón tiễn',
+        mealPlan: parsedData.mealPlan || `• Bữa sáng: Buffet tại khách sạn\\n• Bữa trưa & tối: Thưởng thức đặc sản ${aiDest.trim()} tại nhà hàng tiêu chuẩn`,
+        accommodationInfo: parsedData.accommodationInfo || `Khách sạn tiêu chuẩn 3-4 sao trung tâm ${aiDest.trim()} (2 khách/phòng)`,
+        tourGuideInfo: parsedData.tourGuideInfo || 'Hướng dẫn viên nhiệt tình, giàu kinh nghiệm thuyết minh suốt tuyến',
+        childPrice: parsedData.childPrice ? Number(parsedData.childPrice) : Math.round(budgetOption.budgetVal * 0.75),
+        singleRoomSurcharge: parsedData.singleRoomSurcharge ? Number(parsedData.singleRoomSurcharge) : Math.round(budgetOption.budgetVal * 0.35),
+        servicesIncluded: parsedData.servicesIncluded || '✅ Vé máy bay / xe du lịch đưa đón\\n✅ Khách sạn tiêu chuẩn 3-4 sao\\n✅ Các bữa ăn theo chương trình ẩm thực\\n✅ Vé vào cổng tham quan các điểm\\n✅ Bảo hiểm du lịch nội địa',
+        servicesExcluded: parsedData.servicesExcluded || '❌ Thuế VAT\\n❌ Chi phí cá nhân, đồ uống minibar\\n❌ Tiền tip HDV và tài xế\\n❌ Vé phát sinh ngoài chương trình',
+        cancellationPolicy: parsedData.cancellationPolicy || '• Hủy trước 7 ngày: Hoàn 100% tiền cọc\\n• Hủy trước 3 ngày: Phí phạt 50%\\n• Hủy trong 24h: Phí phạt 100%',
+        packingNotes: parsedData.packingNotes || '• CCCD/Hộ chiếu bản gốc còn hạn\\n• Trang phục phù hợp khi viếng đền chùa\\n• Thuốc men cá nhân và kem chống nắng',
+
         details: aiActivities,
       });
 

@@ -47,7 +47,7 @@ export function ItineraryDetailModal({
 }: ItineraryDetailModalProps) {
   const [fullItin, setFullItin] = useState<ItineraryItem | null>(itinerary);
   const [loading, setLoading] = useState<boolean>(false);
-  const [selectedDay, setSelectedDay] = useState<number | 'all' | 'tourStandard'>('all');
+  const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
   const [togglingVisibility, setTogglingVisibility] = useState<boolean>(false);
 
@@ -118,7 +118,7 @@ export function ItineraryDetailModal({
   // Số ngày thực tế: ưu tiên khoảng ngày, sau đó mới đến daysCount/trạm dừng.
   const maxDay = getItineraryDayCount(fullItin);
 
-  const filteredDetails = (selectedDay === 'all' || selectedDay === 'tourStandard')
+  const filteredDetails = selectedDay === 'all'
     ? detailsList
     : detailsList.filter(d => d.dayNumber === selectedDay);
 
@@ -448,20 +448,6 @@ export function ItineraryDetailModal({
                     {fullItin?.travelStyle || 'Nghỉ dưỡng & Khám phá'}
                   </Text>
                 </View>
-
-                {fullItin?.tourCode ? (
-                  <View
-                    style={[
-                      styles.aiBadge,
-                      { backgroundColor: 'rgba(15, 23, 42, 0.85)', flexDirection: 'row', alignItems: 'center' },
-                    ]}
-                  >
-                    <FontAwesome name="tag" size={10} color="#FBBF24" style={{ marginRight: 4 }} />
-                    <Text style={[styles.aiBadgeText, { color: '#FBBF24', fontWeight: 'bold' }]}>
-                      #{fullItin.tourCode}
-                    </Text>
-                  </View>
-                ) : null}
               </View>
 
               <Text style={styles.heroTitle} numberOfLines={3}>
@@ -533,191 +519,11 @@ export function ItineraryDetailModal({
                     </TouchableOpacity>
                   );
                 })}
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[
-                    styles.dayPill,
-                    selectedDay === 'tourStandard' && { backgroundColor: '#D97706', borderColor: '#B45309' },
-                  ]}
-                  onPress={() => setSelectedDay('tourStandard')}>
-                  <FontAwesome
-                    name="certificate"
-                    size={11}
-                    color={selectedDay === 'tourStandard' ? '#FFF' : '#D97706'}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
-                    style={[
-                      styles.dayPillText,
-                      selectedDay === 'tourStandard' && styles.dayPillTextActive,
-                      selectedDay !== 'tourStandard' && { color: '#B45309', fontWeight: '700' },
-                    ]}>
-                    Chuẩn Tour (15 Tiêu Chí)
-                  </Text>
-                </TouchableOpacity>
               </ScrollView>
             </View>
 
-            {/* Conditional Tour Standard View vs Timeline Stops */}
-            {selectedDay === 'tourStandard' ? (
-              <View style={styles.tourStandardContainer}>
-                {/* Banner Chuẩn Lữ Hành */}
-                <View style={styles.tourBannerCard}>
-                  <View style={styles.tourBannerBadge}>
-                    <FontAwesome name="star" size={10} color="#FBBF24" style={{ marginRight: 4 }} />
-                    <Text style={styles.tourBannerBadgeText}>HỒ SƠ 15 TIÊU CHÍ LỮ HÀNH THƯƠNG MẠI</Text>
-                  </View>
-                  <Text style={styles.tourBannerTitle}>{fullItin?.title}</Text>
-                  {fullItin?.tourCode ? (
-                    <Text style={styles.tourBannerCode}>Mã Tour: #{fullItin.tourCode}</Text>
-                  ) : null}
-                </View>
-
-                {/* Thẻ 1: Tuyến vận hành & Phương tiện */}
-                <View style={styles.tourCard}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="bus" size={13} color="#0284C7" style={{ marginRight: 6 }} />
-                    <Text style={styles.tourCardTitle}>1. Tuyến Đón Trả & Phương Tiện</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Điểm đón:</Text>
-                    <Text style={styles.tourCardValue}>{fullItin?.departureLocation || 'Trung tâm TP / Điểm hẹn chỉ định'}</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Điểm đến:</Text>
-                    <Text style={[styles.tourCardValue, { color: '#0284C7', fontWeight: '700' }]}>{fullItin?.destination}</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Kết thúc:</Text>
-                    <Text style={styles.tourCardValue}>{fullItin?.endingLocation || fullItin?.departureLocation || fullItin?.destination}</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Phương tiện:</Text>
-                    <Text style={styles.tourCardValue}>{fullItin?.transportation || 'Xe ô tô du lịch đời mới máy lạnh'}</Text>
-                  </View>
-                </View>
-
-                {/* Thẻ 2: Khách hàng & Hướng dẫn viên */}
-                <View style={styles.tourCard}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="users" size={13} color="#4F46E5" style={{ marginRight: 6 }} />
-                    <Text style={styles.tourCardTitle}>2. Khách Hàng & Hướng Dẫn Viên</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Phân khúc:</Text>
-                    <Text style={styles.tourCardValue}>{fullItin?.targetAudience || fullItin?.groupType || 'Khách lẻ / Đoàn gia đình'}</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Quy mô:</Text>
-                    <Text style={styles.tourCardValue}>{fullItin?.maxGroupSize ? `Tối đa ${fullItin.maxGroupSize} khách` : 'Đoàn 15 - 25 khách tiêu chuẩn'}</Text>
-                  </View>
-                  <View style={styles.tourCardCol}>
-                    <Text style={styles.tourCardLabel}>• Hướng dẫn viên:</Text>
-                    <Text style={styles.tourCardDesc}>
-                      {fullItin?.tourGuideInfo || 'Hướng dẫn viên thẻ quốc tế/nội địa nhiệt tình, hỗ trợ chăm sóc đoàn suốt hành trình.'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Thẻ 3: Biểu giá & Phụ thu */}
-                <View style={styles.tourCard}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="dollar" size={13} color="#059669" style={{ marginRight: 6 }} />
-                    <Text style={styles.tourCardTitle}>3. Biểu Phí Tour Trọn Gói</Text>
-                  </View>
-                  <View style={styles.tourPriceBox}>
-                    <Text style={styles.tourPriceLabel}>Giá Người Lớn (Từ 12 tuổi):</Text>
-                    <Text style={styles.tourPriceMain}>{budgetDisplay} / người</Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Giá trẻ em (5-11 tuổi):</Text>
-                    <Text style={styles.tourCardValue}>
-                      {fullItin?.childPrice ? `${Number(fullItin.childPrice).toLocaleString('vi-VN')} đ` : '75% giá vé người lớn'}
-                    </Text>
-                  </View>
-                  <View style={styles.tourCardRow}>
-                    <Text style={styles.tourCardLabel}>• Phụ thu phòng đơn:</Text>
-                    <Text style={styles.tourCardValue}>
-                      {fullItin?.singleRoomSurcharge ? `${Number(fullItin.singleRoomSurcharge).toLocaleString('vi-VN')} đ` : 'Không có / Theo yêu cầu'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Thẻ 4: Ẩm thực & Lưu trú */}
-                <View style={styles.tourCard}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="cutlery" size={13} color="#D97706" style={{ marginRight: 6 }} />
-                    <Text style={styles.tourCardTitle}>4. Ẩm Thực & Khách Sạn</Text>
-                  </View>
-                  <View style={styles.tourCardCol}>
-                    <Text style={styles.tourCardLabel}>• Kế hoạch ẩm thực:</Text>
-                    <Text style={styles.tourCardDesc}>
-                      {fullItin?.mealPlan || 'Trọn gói: Sáng buffet khách sạn; Trưa & tối thưởng thức đặc sản theo thực đơn chuẩn ATTP.'}
-                    </Text>
-                  </View>
-                  <View style={[styles.tourCardCol, { marginTop: 8 }]}>
-                    <Text style={styles.tourCardLabel}>• Tiêu chuẩn khách sạn:</Text>
-                    <Text style={styles.tourCardDesc}>
-                      {fullItin?.accommodationInfo || 'Khách sạn / Resort tiêu chuẩn 3-4 sao trung tâm, 2 khách/phòng tiện nghi.'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Thẻ 5: Dịch vụ bao gồm & Không bao gồm */}
-                <View style={[styles.tourCard, { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' }]}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="check-circle" size={13} color="#059669" style={{ marginRight: 6 }} />
-                    <Text style={[styles.tourCardTitle, { color: '#047857' }]}>5. Dịch Vụ Đã Bao Gồm</Text>
-                  </View>
-                  <Text style={[styles.tourCardDesc, { color: '#065F46' }]}>
-                    {fullItin?.servicesIncluded || '• Xe du lịch máy lạnh suốt tuyến\n• Khách sạn tiêu chuẩn 3-4 sao (2 khách/phòng)\n• Vé vào cổng các điểm tham quan theo tour\n• Ăn sáng và các bữa chính đặc sản theo tour\n• Bảo hiểm du lịch tối đa 50.000.000đ/vụ\n• Nước suối đóng chai 1 chai/khách/ngày'}
-                  </Text>
-                </View>
-
-                <View style={[styles.tourCard, { borderColor: '#FECDD3', backgroundColor: '#FFF1F2' }]}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="times-circle" size={13} color="#E11D48" style={{ marginRight: 6 }} />
-                    <Text style={[styles.tourCardTitle, { color: '#BE123C' }]}>6. Dịch Vụ Chưa Bao Gồm (Tự Túc)</Text>
-                  </View>
-                  <Text style={[styles.tourCardDesc, { color: '#9F1239' }]}>
-                    {fullItin?.servicesExcluded || '• Thuế VAT (8-10%)\n• Đồ uống trong bữa ăn, minibar, giặt ủi\n• Phụ thu phòng đơn nếu ngủ riêng\n• Tiền tip cho HDV và lái xe (tùy tâm)\n• Chi phí cá nhân phát sinh ngoài chương trình'}
-                  </Text>
-                </View>
-
-                {/* Thẻ 6: Chính sách & Hành lý */}
-                <View style={styles.tourCard}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="shield" size={13} color="#D97706" style={{ marginRight: 6 }} />
-                    <Text style={styles.tourCardTitle}>7. Chính Sách Cọc & Hoàn Hủy</Text>
-                  </View>
-                  <Text style={styles.tourCardDesc}>
-                    {fullItin?.cancellationPolicy || '• Đặt cọc 50% khi đăng ký tour\n• Thanh toán phần còn lại trước 03 ngày khởi hành\n• Hủy trước 07 ngày: Hoàn 100% tiền cọc\n• Hủy 03 - 06 ngày: Phạt 50% tiền cọc\n• Hủy trong 48h: Phạt 100% chi phí'}
-                  </Text>
-                </View>
-
-                <View style={styles.tourCard}>
-                  <View style={styles.tourCardHeader}>
-                    <FontAwesome name="suitcase" size={13} color="#0284C7" style={{ marginRight: 6 }} />
-                    <Text style={styles.tourCardTitle}>8. Lưu Ý Hành Lý & Giấy Tờ</Text>
-                  </View>
-                  <Text style={styles.tourCardDesc}>
-                    {fullItin?.packingNotes || '• Mang theo CCCD/Hộ chiếu gốc còn hạn\n• Trang phục lịch sự khi viếng đền chùa di tích\n• Giày thể thao êm chân tiện di chuyển\n• Thuốc men cá nhân và kem chống nắng'}
-                  </Text>
-                </View>
-
-                {/* Nút quay lại timeline */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.tourBackBtn}
-                  onPress={() => setSelectedDay('all')}>
-                  <FontAwesome name="calendar" size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
-                  <Text style={styles.tourBackBtnText}>Xem Lịch Trình Chi Tiết Các Ngày</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* Timeline Stops */
-              <View style={styles.timelineSection}>
+            {/* Timeline Stops */}
+            <View style={styles.timelineSection}>
               {filteredDetails.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <FontAwesome name="calendar-o" size={26} color="#8A7F70" />
@@ -888,7 +694,6 @@ export function ItineraryDetailModal({
                 </>
               )}
             </View>
-            )}
 
             {/* Checklist */}
             <View style={styles.checklistSection}>
@@ -1782,127 +1587,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFDF8',
-  },
-  tourStandardContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-    gap: 12,
-  },
-  tourBannerCard: {
-    backgroundColor: '#D97706',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 4,
-  },
-  tourBannerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  tourBannerBadgeText: {
-    color: '#FEF3C7',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  tourBannerTitle: {
-    color: '#FFFDF8',
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  tourBannerCode: {
-    color: '#FEF3C7',
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  tourCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    padding: 12,
-  },
-  tourCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingBottom: 8,
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3EDE2',
-  },
-  tourCardTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#2B261F',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  tourCardRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 5,
-  },
-  tourCardCol: {
-    marginBottom: 4,
-  },
-  tourCardLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#5A5146',
-    marginRight: 6,
-  },
-  tourCardValue: {
-    flex: 1,
-    fontSize: 12,
-    color: '#2B261F',
-    fontWeight: '500',
-  },
-  tourCardDesc: {
-    fontSize: 12,
-    color: '#5A5146',
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  tourPriceBox: {
-    backgroundColor: '#ECFDF5',
-    padding: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    marginBottom: 8,
-  },
-  tourPriceLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#047857',
-  },
-  tourPriceMain: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#059669',
-    marginTop: 2,
-  },
-  tourBackBtn: {
-    backgroundColor: '#0284C7',
-    borderRadius: 8,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-  },
-  tourBackBtnText: {
-    color: '#FFFDF8',
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

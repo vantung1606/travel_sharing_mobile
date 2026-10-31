@@ -22,6 +22,15 @@ import { SERIF_FONT } from '@/constants/Typography';
 import { ToastHost, showToast } from '@/components/Toast';
 import { RichTextToolbar } from '@/components/community/RichTextToolbar';
 import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
+import {
+  postApi,
+  itineraryApi,
+  placeApi,
+  uploadApi,
+  PostItem,
+  ItineraryItem,
+  PlaceItem,
+} from '@/src/services/api';
 
 interface CreatePostModalProps {
   visible: boolean;

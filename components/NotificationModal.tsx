@@ -20,6 +20,7 @@ import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { notificationApi, NotificationDto } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
+import { formatVietnamRelativeTime } from '@/src/utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -251,22 +252,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   // Format relative time helper
   const formatTime = (timeStr?: string, createdAt?: string) => {
+    if (createdAt) return formatVietnamRelativeTime(createdAt);
     if (timeStr && timeStr.trim().length > 0) return timeStr;
-    if (!createdAt) return 'Vừa xong';
-    try {
-      const date = new Date(createdAt);
-      const diffMs = Date.now() - date.getTime();
-      const diffMinutes = Math.floor(diffMs / 60000);
-      if (diffMinutes < 1) return 'Vừa xong';
-      if (diffMinutes < 60) return `${diffMinutes} phút trước`;
-      const diffHours = Math.floor(diffMinutes / 60);
-      if (diffHours < 24) return `${diffHours} giờ trước`;
-      const diffDays = Math.floor(diffHours / 24);
-      if (diffDays < 7) return `${diffDays} ngày trước`;
-      return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-    } catch {
-      return 'Gần đây';
-    }
+    return 'Vừa xong';
   };
 
   // Filtered notifications

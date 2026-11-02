@@ -38,6 +38,7 @@ import {
 } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
+import { parseVietnamDate } from '@/src/utils/dateUtils';
 import { chatSocket } from '@/src/services/chatSocket';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
@@ -104,15 +105,9 @@ function normalizeVi(value?: string): string {
   }
 }
 
-/** Backend trả LocalDateTime có thể có 4-6 chữ số thập phân -> cắt an toàn cho JS Date. */
+/** Chuẩn hóa an toàn theo múi giờ Việt Nam UTC+7. */
 function parseDateSafe(value?: string): Date | null {
-  if (!value) return null;
-  const normalized = value
-    .trim()
-    .replace(' ', 'T')
-    .replace(/(\.\d{3})\d+/, '$1');
-  const date = new Date(normalized);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseVietnamDate(value);
 }
 
 function formatClock(date: Date): string {

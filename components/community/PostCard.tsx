@@ -136,7 +136,7 @@ export function PostCard({
 
             <View style={[styles.tierPill, { backgroundColor: authorTierObj.badgeBg }]}>
               <Text style={[styles.tierPillText, { color: authorTierObj.avatarRingColor }]}>
-                {authorTierObj.icon} {authorTierObj.nameEn.split(' ')[0]}
+                {authorTierObj.icon} {authorTierObj.name}
               </Text>
             </View>
           </View>

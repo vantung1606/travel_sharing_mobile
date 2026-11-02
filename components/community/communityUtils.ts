@@ -208,13 +208,14 @@ export function filterAndSortPosts(
 }
 
 export const TIER_LABELS: Record<string, string> = {
-  bronze: 'Đồng',
-  silver: 'Bạc',
-  gold: 'Vàng',
-  diamond: 'Kim Cương',
+  bronze: '🥉 Tân Thủ',
+  silver: '🥈 Lữ Hành',
+  gold: '👑 Thám Hiểm',
+  diamond: '💎 Huyền Thoại',
 };
 
 export function getTierLabel(tier?: string | null): string {
-  if (!tier) return 'Thành viên';
-  return TIER_LABELS[tier.toLowerCase()] || tier;
+  if (!tier) return '🥉 Tân Thủ';
+  const key = tier.toLowerCase();
+  return TIER_LABELS[key] || tier;
 }

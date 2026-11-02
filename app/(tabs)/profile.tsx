@@ -1468,7 +1468,7 @@ export default function ProfileScreen() {
             <View style={styles.tiersGrid}>
               {TIERS.map((tier) => {
                 const isCurrent = currentTier.level === tier.level;
-                const isUnlocked = userTotalXP >= tier.minXP;
+                const isUnlocked = userTotalXP >= tier.minXP || tier.level <= currentTier.level || isCurrent;
 
                 return (
                   <View

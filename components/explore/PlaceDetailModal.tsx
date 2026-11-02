@@ -202,6 +202,20 @@ export function PlaceDetailModal({
   const handleSubmitReview = async () => {
     if (!place || submittingReview) return;
     if (!reviewStars || !reviewComment.trim()) return;
+
+    const hasReviewed = !editingReviewId && session && liveReviews.some((r) =>
+      (r.authorId != null && r.authorId === session.id) ||
+      (r.authorEmail && session.email && r.authorEmail.toLowerCase() === session.email.toLowerCase())
+    );
+    if (hasReviewed) {
+      showToast({
+        kind: 'info',
+        title: 'Đã đánh giá',
+        message: 'Mỗi tài khoản chỉ được đánh giá 1 lần duy nhất cho mỗi địa điểm. Bạn có thể chỉnh sửa đánh giá hiện có của mình.',
+      });
+      return;
+    }
+
     setSubmittingReview(true);
     try {
       if (editingReviewId) {
@@ -598,62 +612,101 @@ export function PlaceDetailModal({
                     <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 10 }} />
                   )}
 
-                  {canReview ? (
-                    <View style={styles.reviewForm}>
-                      {editingReviewId ? (
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: WF_COLORS.slate200 }}>
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: WF_COLORS.primary }}>
-                            ✏️ Đang chỉnh sửa nhận xét của bạn
-                          </Text>
-                          <TouchableOpacity onPress={handleCancelEdit}>
-                            <Text style={{ fontSize: 12, color: '#E11D48', fontWeight: '600' }}>Hủy</Text>
-                          </TouchableOpacity>
+                  {canReview ? (() => {
+                    const myExistingReview = !editingReviewId && session && liveReviews.find((r) =>
+                      (r.authorId != null && r.authorId === session.id) ||
+                      (r.authorEmail && session.email && r.authorEmail.toLowerCase() === session.email.toLowerCase())
+                    );
+
+                    if (myExistingReview) {
+                      return (
+                        <View style={[styles.reviewForm, { backgroundColor: '#F8F4EC', borderColor: WF_COLORS.slate200 }]}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                              <Text style={{ fontSize: 12.5, fontWeight: '700', color: WF_COLORS.slate900, marginBottom: 2 }}>
+                                ★ {myExistingReview.rating} sao • Bạn đã đánh giá
+                              </Text>
+                              <Text style={{ fontSize: 11, color: WF_COLORS.slate500, lineHeight: 15 }}>
+                                Mỗi tài khoản được đánh giá 1 lần duy nhất. Bạn có thể sửa nhận xét của mình bên trên.
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={() => handleStartEditReview(myExistingReview)}
+                              style={{
+                                paddingVertical: 6,
+                                paddingHorizontal: 12,
+                                backgroundColor: '#FFFDF8',
+                                borderRadius: 5,
+                                borderWidth: 1,
+                                borderColor: WF_COLORS.slate200,
+                              }}>
+                              <Text style={{ fontSize: 11.5, fontWeight: '700', color: WF_COLORS.primary }}>
+                                ✎ Sửa
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
-                      ) : null}
-                      <View style={styles.starPickerRow}>
-                        <Text style={styles.starPickerLabel}>Chấm điểm:</Text>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <TouchableOpacity
-                            key={star}
-                            onPress={() => setReviewStars(star)}
-                            style={styles.starPickBtn}>
-                            <FontAwesome
-                              name="star"
-                              size={19}
-                              color={star <= reviewStars ? WF_COLORS.amber : WF_COLORS.slate400}
-                            />
-                          </TouchableOpacity>
-                        ))}
+                      );
+                    }
+
+                    return (
+                      <View style={styles.reviewForm}>
+                        {editingReviewId ? (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: WF_COLORS.slate200 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: WF_COLORS.primary }}>
+                              ✏️ Đang chỉnh sửa nhận xét của bạn
+                            </Text>
+                            <TouchableOpacity onPress={handleCancelEdit}>
+                              <Text style={{ fontSize: 12, color: '#E11D48', fontWeight: '600' }}>Hủy</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : null}
+                        <View style={styles.starPickerRow}>
+                          <Text style={styles.starPickerLabel}>Chấm điểm:</Text>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <TouchableOpacity
+                              key={star}
+                              onPress={() => setReviewStars(star)}
+                              style={styles.starPickBtn}>
+                              <FontAwesome
+                                name="star"
+                                size={19}
+                                color={star <= reviewStars ? WF_COLORS.amber : WF_COLORS.slate400}
+                              />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TextInput
+                          value={reviewComment}
+                          onChangeText={setReviewComment}
+                          placeholder="Chia sẻ cảm nhận, góc chụp đẹp hoặc lưu ý cho người đi sau..."
+                          placeholderTextColor={WF_COLORS.slate400}
+                          multiline
+                          numberOfLines={3}
+                          style={styles.reviewInput}
+                        />
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          disabled={submittingReview || !reviewStars || !reviewComment.trim()}
+                          style={[
+                            styles.reviewSubmitBtn,
+                            (submittingReview || !reviewStars || !reviewComment.trim()) &&
+                              styles.reviewSubmitBtnDisabled,
+                          ]}
+                          onPress={handleSubmitReview}>
+                          {submittingReview ? (
+                            <ActivityIndicator size="small" color="#FFFDF8" style={{ marginRight: 6 }} />
+                          ) : (
+                            <FontAwesome name={editingReviewId ? 'check' : 'paper-plane'} size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
+                          )}
+                          <Text style={styles.reviewSubmitText}>
+                            {submittingReview ? 'Đang lưu...' : (editingReviewId ? 'Lưu thay đổi' : 'Gửi nhận xét')}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
-                      <TextInput
-                        value={reviewComment}
-                        onChangeText={setReviewComment}
-                        placeholder="Chia sẻ cảm nhận, góc chụp đẹp hoặc lưu ý cho người đi sau..."
-                        placeholderTextColor={WF_COLORS.slate400}
-                        multiline
-                        numberOfLines={3}
-                        style={styles.reviewInput}
-                      />
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        disabled={submittingReview || !reviewStars || !reviewComment.trim()}
-                        style={[
-                          styles.reviewSubmitBtn,
-                          (submittingReview || !reviewStars || !reviewComment.trim()) &&
-                            styles.reviewSubmitBtnDisabled,
-                        ]}
-                        onPress={handleSubmitReview}>
-                        {submittingReview ? (
-                          <ActivityIndicator size="small" color="#FFFDF8" style={{ marginRight: 6 }} />
-                        ) : (
-                          <FontAwesome name={editingReviewId ? 'check' : 'paper-plane'} size={12} color="#FFFDF8" style={{ marginRight: 6 }} />
-                        )}
-                        <Text style={styles.reviewSubmitText}>
-                          {submittingReview ? 'Đang lưu...' : (editingReviewId ? 'Lưu thay đổi' : 'Gửi nhận xét')}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
+                    );
+                  })() : (
                     <TouchableOpacity
                       style={styles.reviewLoginHint}
                       activeOpacity={0.8}

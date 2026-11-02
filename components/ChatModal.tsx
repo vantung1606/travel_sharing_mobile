@@ -165,6 +165,10 @@ function roomDateGroup(room: ChatRoom): string {
 
 function sortRooms(rooms: ChatRoom[]): ChatRoom[] {
   return [...rooms].sort((a, b) => {
+    const p1 = Boolean((a as any).isPinned || a.type === 'AI');
+    const p2 = Boolean((b as any).isPinned || b.type === 'AI');
+    if (p1 && !p2) return -1;
+    if (!p1 && p2) return 1;
     const ta = parseDateSafe(a.updatedAt || a.lastActiveAt)?.getTime() ?? 0;
     const tb = parseDateSafe(b.updatedAt || b.lastActiveAt)?.getTime() ?? 0;
     return tb - ta;
@@ -652,7 +656,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         const next = [...prev];
         next.splice(index, 1);
         next.unshift(updated);
-        return next;
+        return sortRooms(next);
       });
     },
     []
@@ -1590,7 +1594,8 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
               </Text>
               {isAi && (
                 <View style={styles.roomTypePill}>
-                  <Text style={styles.roomTypePillText}>Trợ lý</Text>
+                  <FontAwesome name="thumb-tack" size={8} color={WF_COLORS.primary} style={{ marginRight: 3 }} />
+                  <Text style={styles.roomTypePillText}>Ghim</Text>
                 </View>
               )}
             </View>

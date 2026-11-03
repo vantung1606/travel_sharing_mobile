@@ -229,6 +229,54 @@ class ChatSocketService {
     }
   }
 
+  subscribeToUserChat(userId: number | string | undefined, userEmail: string | undefined, onUpdate: (room: any) => void): () => void {
+    if (!onUpdate) return () => {};
+    this.connect();
+
+    const subs: StompSubscription[] = [];
+    const doSub = () => {
+      if (!this.client || !this.isConnected) return;
+      if (userId) {
+        try {
+          const s1 = this.client.subscribe(`/topic/user.${userId}.chat`, (msg) => {
+            try {
+              onUpdate(JSON.parse(msg.body));
+            } catch {}
+          });
+          subs.push(s1);
+        } catch {}
+      }
+      if (userEmail) {
+        try {
+          const s2 = this.client.subscribe(`/topic/user.${userEmail.toLowerCase().trim()}.chat`, (msg) => {
+            try {
+              onUpdate(JSON.parse(msg.body));
+            } catch {}
+          });
+          subs.push(s2);
+        } catch {}
+      }
+    };
+
+    if (this.client && this.isConnected) {
+      doSub();
+    } else {
+      const interval = setInterval(() => {
+        if (this.client && this.isConnected) {
+          clearInterval(interval);
+          doSub();
+        }
+      }, 200);
+      setTimeout(() => clearInterval(interval), 5000);
+    }
+
+    return () => {
+      subs.forEach(s => {
+        try { s.unsubscribe(); } catch {}
+      });
+    };
+  }
+
   sendReadReceipt(roomId: number | string, data: { email: string; lastReadMessageId?: number }): void {
     if (!this.client || !this.isConnected || !roomId) return;
     try {

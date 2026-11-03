@@ -861,12 +861,37 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     loadRooms();
   }, [visible, initialRoomId, loadRooms, stopRoomRealtime]);
 
-  // Tự cập nhật danh sách phòng khi đang ở màn hình hộp thư
+  // Tự cập nhật danh sách phòng thời gian thực qua WebSocket STOMP
   useEffect(() => {
-    if (!visible || activeRoom) return;
-    const timer = setInterval(() => loadRooms(true), 30_000);
-    return () => clearInterval(timer);
-  }, [visible, activeRoom, loadRooms]);
+    if (!visible) return;
+    const unsub = chatSocket.subscribeToUserChat(
+      currentUser?.id,
+      currentUser?.email,
+      (updatedRoom) => {
+        if (!updatedRoom?.id) return;
+        setRooms((prev) => {
+          const idx = prev.findIndex((r) => r.id === updatedRoom.id);
+          const isCurrentActive = activeRoom?.id === updatedRoom.id;
+          const merged = {
+            ...(idx !== -1 ? prev[idx] : {}),
+            ...updatedRoom,
+            unread: isCurrentActive ? 0 : (updatedRoom.unread ?? ((prev[idx]?.unread || 0) + 1)),
+          };
+          const next = [...prev];
+          if (idx !== -1) next.splice(idx, 1);
+          if (merged.type === 'AI' || merged.isPinned) {
+            next.unshift(merged);
+          } else {
+            const aiIdx = next.findIndex((r) => r.type === 'AI' || r.isPinned);
+            if (aiIdx === 0) next.splice(1, 0, merged);
+            else next.unshift(merged);
+          }
+          return next;
+        });
+      }
+    );
+    return () => unsub();
+  }, [visible, currentUser?.id, currentUser?.email, activeRoom?.id]);
 
   useEffect(() => {
     if (isAiTyping) {

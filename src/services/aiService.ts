@@ -1,6 +1,6 @@
 import apiClient from './api';
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 export interface GenerateTextParams {
   prompt: string;
@@ -29,7 +29,7 @@ export const aiService = {
     responseMimeType = 'application/json',
   }: GenerateTextParams): Promise<string> {
     let targetModel = model || DEFAULT_MODEL;
-    if (!targetModel.startsWith('gemini-') || targetModel.includes('3.8') || targetModel.includes('3.5')) {
+    if (!targetModel.startsWith('gemini-')) {
       targetModel = DEFAULT_MODEL;
     }
 

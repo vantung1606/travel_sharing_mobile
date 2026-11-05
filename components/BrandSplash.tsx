@@ -26,6 +26,7 @@ interface BrandSplashProps {
  */
 export function BrandSplash({ onFinish }: BrandSplashProps) {
   const insets = useSafeAreaInsets();
+  const safeBottom = (insets && typeof insets.bottom === 'number' && !isNaN(insets.bottom)) ? insets.bottom : 0;
   const { width } = useWindowDimensions();
 
   const overlayOpacity = useRef(new Animated.Value(1)).current;
@@ -132,7 +133,7 @@ export function BrandSplash({ onFinish }: BrandSplashProps) {
         </View>
       </Animated.View>
 
-      <View style={[styles.footer, { bottom: Math.max(insets.bottom, 16) + 46 }]}>
+      <View style={[styles.footer, { bottom: Math.max(safeBottom, 16) + 46 }]}>
         <View style={styles.dotsRow}>
           <Animated.View style={[styles.dot, { opacity: dotOne }]} />
           <Animated.View style={[styles.dot, { opacity: dotTwo }]} />
@@ -141,7 +142,7 @@ export function BrandSplash({ onFinish }: BrandSplashProps) {
         <Text style={styles.loadingText}>ĐANG CHUẨN BỊ HÀNH TRÌNH</Text>
       </View>
 
-      <Text style={[styles.brandFooter, { bottom: Math.max(insets.bottom, 16) + 14 }]}>
+      <Text style={[styles.brandFooter, { bottom: Math.max(safeBottom, 16) + 14 }]}>
         WAYFARE TRAVEL
       </Text>
     </Animated.View>

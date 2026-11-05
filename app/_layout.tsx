@@ -3,7 +3,8 @@ import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { LogBox, StyleSheet, View } from 'react-native';
+import { LogBox, Platform, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { BrandSplash } from '@/components/BrandSplash';
@@ -48,7 +49,8 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
-  const [showLaunchSplash, setShowLaunchSplash] = useState(true);
+  // On web, skip blocking launch splash to avoid animation stalls / hydration freeze
+  const [showLaunchSplash, setShowLaunchSplash] = useState(Platform.OS !== 'web');
 
   const handleSplashFinish = useCallback(() => setShowLaunchSplash(false), []);
 
@@ -68,13 +70,15 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar style={showLaunchSplash ? 'light' : 'dark'} />
-      <RootLayoutNav />
-      <ConfirmHost />
-      <ToastHost />
-      {showLaunchSplash ? <BrandSplash onFinish={handleSplashFinish} /> : null}
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.root}>
+        <StatusBar style={showLaunchSplash ? 'light' : 'dark'} />
+        <RootLayoutNav />
+        <ConfirmHost />
+        <ToastHost />
+        {showLaunchSplash ? <BrandSplash onFinish={handleSplashFinish} /> : null}
+      </View>
+    </SafeAreaProvider>
   );
 }
 

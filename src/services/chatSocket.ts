@@ -35,7 +35,12 @@ class ChatSocketService {
       connectionTimeout: 10000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
-      debug: () => {},
+      forceBinaryWSFrames: false,
+      appendMissingNULLonIncoming: true,
+      webSocketFactory: () => new WebSocket(wsUrl),
+      debug: (msg) => {
+        if (__DEV__) console.log('[STOMP DEBUG]', msg);
+      },
       onConnect: () => {
         this.isConnected = true;
         this.roomSubscriptions.clear();
@@ -47,6 +52,9 @@ class ChatSocketService {
         this.isConnected = false;
         this.roomSubscriptions.clear();
       },
+      onWebSocketError: (event) => {
+        console.warn('[STOMP] WebSocket error:', event);
+      },
       onStompError: (frame) => {
         console.warn('[STOMP] Broker error:', frame.headers['message']);
       },
@@ -55,8 +63,12 @@ class ChatSocketService {
     this.client.activate();
   }
 
+  private isSocketReady(): boolean {
+    return Boolean(this.client && (this.client.connected || this.isConnected));
+  }
+
   private ensureRoomSubscription(roomId: string): void {
-    if (!this.client || !this.isConnected) return;
+    if (!this.isSocketReady() || !this.client) return;
     if (this.roomSubscriptions.has(roomId)) return;
 
     const handlers = this.roomHandlers.get(roomId);
@@ -81,6 +93,7 @@ class ChatSocketService {
         });
       });
       this.roomSubscriptions.set(roomId, sub);
+      if (__DEV__) console.log(`[STOMP] Subscribed successfully to /topic/room.${roomId}`);
     } catch (e) {
       console.warn(`[STOMP] subscribe room ${roomId} failed:`, e);
     }
@@ -100,7 +113,24 @@ class ChatSocketService {
     this.roomHandlers.get(key)!.add(handler);
     this.ensureRoomSubscription(key);
 
+    // Polling retry để đảm bảo chắc chắn subscribe thành công ngay khi socket bắt tay xong (200-500ms)
+    let retryCount = 0;
+    const retryInterval = setInterval(() => {
+      retryCount += 1;
+      if (this.roomSubscriptions.has(key) || retryCount > 40) {
+        clearInterval(retryInterval);
+        return;
+      }
+      if (this.isSocketReady()) {
+        this.ensureRoomSubscription(key);
+        if (this.roomSubscriptions.has(key)) {
+          clearInterval(retryInterval);
+        }
+      }
+    }, 150);
+
     return () => {
+      clearInterval(retryInterval);
       const handlers = this.roomHandlers.get(key);
       if (!handlers) return;
       handlers.delete(handler);
@@ -130,7 +160,7 @@ class ChatSocketService {
     const topic = `/topic/room.${key}/typing`;
 
     const doSub = () => {
-      if (!this.client || !this.isConnected) return;
+      if (!this.isSocketReady() || !this.client) return;
       try {
         sub = this.client.subscribe(topic, (frame: IMessage) => {
           try {
@@ -145,11 +175,11 @@ class ChatSocketService {
       }
     };
 
-    if (this.client && this.isConnected) {
+    if (this.isSocketReady()) {
       doSub();
     } else {
       const interval = setInterval(() => {
-        if (this.client && this.isConnected) {
+        if (this.isSocketReady()) {
           clearInterval(interval);
           doSub();
         }
@@ -179,7 +209,7 @@ class ChatSocketService {
     const topic = `/topic/room.${key}/read`;
 
     const doSub = () => {
-      if (!this.client || !this.isConnected) return;
+      if (!this.isSocketReady() || !this.client) return;
       try {
         sub = this.client.subscribe(topic, (frame: IMessage) => {
           try {
@@ -194,11 +224,11 @@ class ChatSocketService {
       }
     };
 
-    if (this.client && this.isConnected) {
+    if (this.isSocketReady()) {
       doSub();
     } else {
       const interval = setInterval(() => {
-        if (this.client && this.isConnected) {
+        if (this.isSocketReady()) {
           clearInterval(interval);
           doSub();
         }
@@ -218,7 +248,7 @@ class ChatSocketService {
   }
 
   sendTyping(roomId: number | string, data: { email: string; userName?: string; isTyping: boolean }): void {
-    if (!this.client || !this.isConnected || !roomId) return;
+    if (!this.isSocketReady() || !this.client || !roomId) return;
     try {
       this.client.publish({
         destination: '/app/chat.typing',
@@ -235,7 +265,7 @@ class ChatSocketService {
 
     const subs: StompSubscription[] = [];
     const doSub = () => {
-      if (!this.client || !this.isConnected) return;
+      if (!this.isSocketReady() || !this.client) return;
       if (userId) {
         try {
           const s1 = this.client.subscribe(`/topic/user.${userId}.chat`, (msg) => {
@@ -258,11 +288,11 @@ class ChatSocketService {
       }
     };
 
-    if (this.client && this.isConnected) {
+    if (this.isSocketReady()) {
       doSub();
     } else {
       const interval = setInterval(() => {
-        if (this.client && this.isConnected) {
+        if (this.isSocketReady()) {
           clearInterval(interval);
           doSub();
         }
@@ -278,7 +308,7 @@ class ChatSocketService {
   }
 
   sendReadReceipt(roomId: number | string, data: { email: string; lastReadMessageId?: number }): void {
-    if (!this.client || !this.isConnected || !roomId) return;
+    if (!this.isSocketReady() || !this.client || !roomId) return;
     try {
       this.client.publish({
         destination: '/app/chat.read',
@@ -307,7 +337,7 @@ class ChatSocketService {
   }
 
   get connected(): boolean {
-    return this.isConnected;
+    return this.isSocketReady();
   }
 }
 

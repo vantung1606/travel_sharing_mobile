@@ -195,9 +195,13 @@ function messagePreview(message: ChatMessage): string {
   }
 }
 
-function normalizeIncomingMessage(raw: any, myId: number | null): ChatMessage {
+function normalizeIncomingMessage(raw: any, myId: number | null, myEmail?: string | null): ChatMessage {
   const createdAt = raw?.createdAt || '';
   const parsed = parseDateSafe(createdAt);
+  const isMatchId = myId != null && raw?.senderId != null && Number(raw.senderId) === myId;
+  const isMatchEmail = Boolean(myEmail) && Boolean(raw?.senderEmail) &&
+    String(raw.senderEmail).toLowerCase().trim() === String(myEmail).toLowerCase().trim();
+
   return {
     id: raw?.id,
     roomId: raw?.roomId,
@@ -213,7 +217,7 @@ function normalizeIncomingMessage(raw: any, myId: number | null): ChatMessage {
     isMe:
       typeof raw?.isMe === 'boolean'
         ? raw.isMe
-        : myId != null && raw?.senderId != null && Number(raw.senderId) === myId,
+        : isMatchId || isMatchEmail,
   };
 }
 
@@ -664,6 +668,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
 
   const handleSelectRoom = useCallback(
     async (room: ChatRoom) => {
+      activeRoomIdRef.current = String(room.id);
       stopRoomRealtime();
 
       setActiveRoom(room);
@@ -685,7 +690,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       try {
         const history = await chatApi.getRoomMessages(room.id);
         const normalized = history.map((message) =>
-          normalizeIncomingMessage(message, currentUserIdRef.current)
+          normalizeIncomingMessage(message, currentUserIdRef.current, currentUserEmailRef.current)
         );
         setMessages(normalized);
         setTimeout(() => scrollToBottom(false), 120);
@@ -707,7 +712,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       unsubscribeRoomRef.current = chatSocket.subscribeToRoom(room.id, (incoming) => {
         if (activeRoomIdRef.current !== String(room.id)) return;
 
-        const normalized = normalizeIncomingMessage(incoming, currentUserIdRef.current);
+        const normalized = normalizeIncomingMessage(incoming, currentUserIdRef.current, currentUserEmailRef.current);
         if (normalized.id == null) return;
 
         setMessages((prev) => mergeIncomingMessage(prev, normalized));
@@ -796,7 +801,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
           if (activeRoomIdRef.current !== String(room.id)) return;
 
           const normalized = freshHistory.map((message) =>
-            normalizeIncomingMessage(message, currentUserIdRef.current)
+            normalizeIncomingMessage(message, currentUserIdRef.current, currentUserEmailRef.current)
           );
 
           setMessages((prev) => {
@@ -1071,7 +1076,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         }
 
         const saved = await chatApi.sendMessage(room.id, payload, messageType);
-        const normalizedSaved = normalizeIncomingMessage(saved, currentUserIdRef.current);
+        const normalizedSaved = normalizeIncomingMessage(saved, currentUserIdRef.current, currentUserEmailRef.current);
 
         setMessages((prev) => {
           const withoutTemp = prev.filter((message) => message.id !== tempId);

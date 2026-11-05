@@ -34,14 +34,20 @@ export const aiService = {
     }
 
     try {
-      const res = await apiClient.post('/ai/generate', {
-        prompt,
-        systemPrompt,
-        model: targetModel,
-        temperature: Number(temperature) || 0.3,
-        maxTokens: Number(maxTokens) || 8192,
-        responseMimeType,
-      });
+      const res = await apiClient.post(
+        '/ai/generate',
+        {
+          prompt,
+          systemPrompt,
+          model: targetModel,
+          temperature: Number(temperature) || 0.3,
+          maxTokens: Number(maxTokens) || 8192,
+          responseMimeType,
+        },
+        {
+          timeout: 75000, // Cung cấp 75 giây cho tác vụ AI sinh lịch trình chi tiết
+        }
+      );
 
       if (res.data?.success && res.data.data?.text) {
         return res.data.data.text;

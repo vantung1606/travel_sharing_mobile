@@ -1,29 +1,21 @@
 import { Platform } from 'react-native';
 
 /**
- * Modern Native Font Stacks:
- * - SANS_FONT: Crisp, clean native typography for buttons, tabs, inputs, and UI text.
- * - SERIF_FONT: Elegant editorial accent for travel journal titles and hero headers.
+ * Modern Native Font Stacks (Option 1: Modern Wanderlust - Airbnb / Travel Grade):
+ * Crisp, clean typography with 100% complete Vietnamese diacritic / tone mark support.
+ * Eliminates disjointed accents (e.g. sắ́ m -> sắm, kiế́n -> kiến, Tiế́t -> Tiết) caused by legacy serif fallbacks.
  */
 export const SANS_FONT = Platform.select({
-  ios: 'System',
-  android: 'Roboto',
-  web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  ios: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif',
+  android: 'Roboto, "Helvetica Neue", Arial, sans-serif',
+  web: "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
   default: 'sans-serif',
 });
 
-export const SERIF_FONT = Platform.select({
-  ios: 'Georgia',
-  android: 'serif',
-  web: 'Georgia, Cambria, "Times New Roman", Times, serif',
-  default: 'serif',
-});
+// Map SERIF_FONT directly to SANS_FONT so all screens and modals immediately adopt
+// modern, unbroken typography across web and mobile.
+export const SERIF_FONT = SANS_FONT;
 
-/**
- * Typography configuration for Modern Wanderlust UI.
- * Uses clean system sans-serif by default for a crisp native mobile feel,
- * while reserving serif for editorial travel headlines.
- */
 export function applyGlobalSerifTypography() {
-  // Clean native default sans-serif is used by default in React Native.
+  // Uses clean native system sans-serif typography across all platforms.
 }

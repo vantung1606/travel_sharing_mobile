@@ -7,7 +7,7 @@ import { Text as DefaultText, TextInput as DefaultTextInput, View as DefaultView
 import { useColorScheme } from './useColorScheme';
 
 import Colors from '@/constants/Colors';
-import { SERIF_FONT } from '@/constants/Typography';
+import { SANS_FONT } from '@/constants/Typography';
 
 type ThemeProps = {
   lightColor?: string;
@@ -36,7 +36,7 @@ export function Text(props: TextProps) {
   const themedColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
   const color = (lightColor || darkColor) ? themedColor : undefined;
 
-  return <DefaultText style={[{ fontFamily: SERIF_FONT }, color ? { color } : null, style]} {...otherProps} />;
+  return <DefaultText style={[{ fontFamily: SANS_FONT }, color ? { color } : null, style]} {...otherProps} />;
 }
 export type TextInputProps = ThemeProps & React.ComponentProps<typeof DefaultTextInput>;
 
@@ -45,7 +45,7 @@ export function TextInput(props: TextInputProps) {
   const themedColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
   const color = (lightColor || darkColor) ? themedColor : undefined;
 
-  return <DefaultTextInput style={[{ fontFamily: SERIF_FONT }, color ? { color } : null, style]} {...otherProps} />;
+  return <DefaultTextInput style={[{ fontFamily: SANS_FONT }, color ? { color } : null, style]} {...otherProps} />;
 }
 
 export function View(props: ViewProps) {

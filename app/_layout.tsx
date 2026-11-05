@@ -14,7 +14,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { WF_PAPER } from '@/constants/Colors';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
 
-// Initialize global Times New Roman / Serif typography across the entire app
+// Initialize global Wanderlust typography across the entire app
 applyGlobalSerifTypography();
 
 LogBox.ignoreLogs(['Cannot connect to Expo CLI']);

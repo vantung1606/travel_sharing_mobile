@@ -23,6 +23,7 @@ import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { WF_COLORS } from '@/constants/Colors';
+import { SERIF_FONT } from '@/constants/Typography';
 import { ChatModal } from '@/components/ChatModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { BrandedLoading } from '@/components/BrandedLoading';
@@ -39,7 +40,6 @@ import { aiService } from '@/src/services/aiService';
 import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SERIF_FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'serif' });
 
 // ─── PRESET COVERS ──────────────────────────────────────────
 const COVER_PRESETS = [

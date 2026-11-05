@@ -20,6 +20,14 @@ export default function Root({ children }: { children: ReactNode }) {
         */}
         <ScrollViewStyleReset />
 
+        {/* Google Fonts: Plus Jakarta Sans & Inter with complete Vietnamese diacritic glyph support */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+
         {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
         {/* Add any additional <head> elements that you want globally available on web... */}
@@ -30,6 +38,13 @@ export default function Root({ children }: { children: ReactNode }) {
 }
 
 const responsiveBackground = `
-body {
+html, body, #root {
   background-color: #F8F4EC;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+input, textarea, select, button {
+  font-family: inherit;
 }`;

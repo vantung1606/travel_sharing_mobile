@@ -84,13 +84,19 @@ export function BrandSplash({ onFinish }: BrandSplashProps) {
         duration: 430,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: USE_NATIVE_DRIVER,
-      }).start(({ finished }) => {
-        if (finished) onFinish?.();
+      }).start(() => {
+        onFinish?.();
       });
     }, 1250);
 
+    // Fallback safety timeout so splash screen NEVER gets stuck on web or mobile
+    const safetyTimer = setTimeout(() => {
+      onFinish?.();
+    }, 1800);
+
     return () => {
       clearTimeout(exitTimer);
+      clearTimeout(safetyTimer);
       dotTimers.forEach(clearTimeout);
       loops.forEach((loop) => loop.stop());
     };

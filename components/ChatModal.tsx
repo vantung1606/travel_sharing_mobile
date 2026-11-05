@@ -34,6 +34,7 @@ import {
   ChatMessageType,
   ChatRoom,
   ItineraryItem,
+  mapChatRoom,
   uploadApi,
 } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
@@ -877,15 +878,17 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     const unsub = chatSocket.subscribeToUserChat(
       currentUser?.id ?? undefined,
       currentUser?.email ?? undefined,
-      (updatedRoom) => {
-        if (!updatedRoom?.id) return;
+      (rawRoom) => {
+        if (!rawRoom?.id) return;
+        const updatedRoom = mapChatRoom(rawRoom);
         setRooms((prev) => {
-          const idx = prev.findIndex((r) => r.id === updatedRoom.id);
-          const isCurrentActive = activeRoom?.id === updatedRoom.id;
-          const merged = {
+          const idx = prev.findIndex((r) => String(r.id) === String(updatedRoom.id));
+          const isCurrentActive = activeRoomIdRef.current === String(updatedRoom.id);
+          const currentUnread = prev[idx]?.unreadCount || 0;
+          const merged: ChatRoom = {
             ...(idx !== -1 ? prev[idx] : {}),
             ...updatedRoom,
-            unread: isCurrentActive ? 0 : (updatedRoom.unread ?? ((prev[idx]?.unread || 0) + 1)),
+            unreadCount: isCurrentActive ? 0 : (updatedRoom.unreadCount ?? (currentUnread + 1)),
           };
           const next = [...prev];
           if (idx !== -1) next.splice(idx, 1);
@@ -901,7 +904,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       }
     );
     return () => unsub();
-  }, [visible, currentUser?.id, currentUser?.email, activeRoom?.id]);
+  }, [visible, currentUser?.id, currentUser?.email]);
 
   useEffect(() => {
     if (isAiTyping) {

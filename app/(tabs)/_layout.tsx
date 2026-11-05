@@ -11,7 +11,8 @@ import { showToast } from '@/components/Toast';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
-import { notificationApi, chatApi } from '@/src/services/api';
+import { notificationApi, chatApi, mapChatRoom } from '@/src/services/api';
+import { chatSocket } from '@/src/services/chatSocket';
 import { SERIF_FONT } from '@/constants/Typography';
 
 function TabBarIcon(props: {
@@ -144,6 +145,34 @@ export default function TabLayout() {
     });
     return () => subscription.remove();
   }, [currentUser, refreshUnreadCount, refreshUnreadChatCount]);
+
+  // Lắng nghe WebSocket STOMP thời gian thực cho tin nhắn và hộp thư bên ngoài màn hình chat
+  useEffect(() => {
+    if (!currentUser) return;
+    const rawId = (currentUser as any)?.id ?? (currentUser as any)?.userId;
+    const userId = rawId != null ? Number(rawId) : undefined;
+    const userEmail = (currentUser as any)?.email ?? undefined;
+
+    const unsubChat = chatSocket.subscribeToUserChat(userId, userEmail, (rawRoom) => {
+      refreshUnreadChatCount();
+      try {
+        const room = mapChatRoom(rawRoom);
+        // Khi modal chat đang đóng và phòng có tin nhắn mới -> Báo Toast nổi tức thì
+        if (!isChatOpen && room && (room.unreadCount || 0) > 0 && room.lastMessage) {
+          showToast({
+            kind: 'info',
+            title: room.name || 'Tin nhắn mới',
+            message: room.lastMessage,
+            icon: 'comment',
+          });
+        }
+      } catch {
+        // Safe fallback
+      }
+    });
+
+    return () => unsubChat();
+  }, [currentUser, isChatOpen, refreshUnreadChatCount]);
 
   return (
     <>

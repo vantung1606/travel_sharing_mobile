@@ -19,6 +19,11 @@ class ChatSocketService {
   private isConnected = false;
   private roomHandlers = new Map<string, Set<RoomMessageHandler>>();
   private roomSubscriptions = new Map<string, StompSubscription>();
+  private userChatHandlers = new Set<(room: any) => void>();
+  private userChatSubscriptions: StompSubscription[] = [];
+  private currentSubscribedUserKey: string | null = null;
+  private lastUserId: number | string | undefined = undefined;
+  private lastUserEmail: string | undefined = undefined;
 
   connect(onConnected?: () => void): void {
     if (this.client && this.client.active) {
@@ -44,13 +49,22 @@ class ChatSocketService {
       onConnect: () => {
         this.isConnected = true;
         this.roomSubscriptions.clear();
+        this.userChatSubscriptions = [];
+        this.currentSubscribedUserKey = null;
+
         // Re-subscribe các phòng đang mở sau khi (re)connect
         this.roomHandlers.forEach((_handlers, roomId) => this.ensureRoomSubscription(roomId));
+        // Re-subscribe các topic hộp thư user thời gian thực
+        if (this.lastUserId || this.lastUserEmail) {
+          this.ensureUserChatSubscriptions(this.lastUserId, this.lastUserEmail);
+        }
         if (onConnected) onConnected();
       },
       onWebSocketClose: () => {
         this.isConnected = false;
         this.roomSubscriptions.clear();
+        this.userChatSubscriptions = [];
+        this.currentSubscribedUserKey = null;
       },
       onWebSocketError: (event) => {
         console.warn('[STOMP] WebSocket error:', event);
@@ -65,6 +79,65 @@ class ChatSocketService {
 
   private isSocketReady(): boolean {
     return Boolean(this.client && (this.client.connected || this.isConnected));
+  }
+
+  private ensureUserChatSubscriptions(userId?: number | string, userEmail?: string): void {
+    if (!this.isSocketReady() || !this.client) return;
+    if (!userId && !userEmail) return;
+    if (this.userChatHandlers.size === 0) return;
+
+    const userKey = `${userId ?? ''}_${userEmail ? userEmail.toLowerCase().trim() : ''}`;
+    if (this.currentSubscribedUserKey === userKey && this.userChatSubscriptions.length > 0) {
+      return;
+    }
+
+    // Huỷ các subscription cũ nếu đổi tài khoản
+    this.userChatSubscriptions.forEach((s) => {
+      try { s.unsubscribe(); } catch {}
+    });
+    this.userChatSubscriptions = [];
+    this.currentSubscribedUserKey = userKey;
+
+    const dispatch = (raw: any) => {
+      this.userChatHandlers.forEach((handler) => {
+        try {
+          handler(raw);
+        } catch (e) {
+          console.warn('[STOMP] userChat handler error:', e);
+        }
+      });
+    };
+
+    if (userId) {
+      try {
+        const s1 = this.client.subscribe(`/topic/user.${userId}.chat`, (msg: IMessage) => {
+          try {
+            const data = JSON.parse(msg.body);
+            dispatch(data);
+          } catch {}
+        });
+        this.userChatSubscriptions.push(s1);
+      } catch (e) {
+        console.warn(`[STOMP] subscribe /topic/user.${userId}.chat error:`, e);
+      }
+    }
+
+    if (userEmail) {
+      const emailTopic = `/topic/user.${userEmail.toLowerCase().trim()}.chat`;
+      try {
+        const s2 = this.client.subscribe(emailTopic, (msg: IMessage) => {
+          try {
+            const data = JSON.parse(msg.body);
+            dispatch(data);
+          } catch {}
+        });
+        this.userChatSubscriptions.push(s2);
+      } catch (e) {
+        console.warn(`[STOMP] subscribe ${emailTopic} error:`, e);
+      }
+    }
+
+    if (__DEV__) console.log(`[STOMP] Subscribed to user chat realtime topics for ${userKey}`);
   }
 
   private ensureRoomSubscription(roomId: string): void {
@@ -259,51 +332,47 @@ class ChatSocketService {
     }
   }
 
-  subscribeToUserChat(userId: number | string | undefined, userEmail: string | undefined, onUpdate: (room: any) => void): () => void {
+  subscribeToUserChat(
+    userId: number | string | undefined,
+    userEmail: string | undefined,
+    onUpdate: (room: any) => void
+  ): () => void {
     if (!onUpdate) return () => {};
     this.connect();
 
-    const subs: StompSubscription[] = [];
-    const doSub = () => {
-      if (!this.isSocketReady() || !this.client) return;
-      if (userId) {
-        try {
-          const s1 = this.client.subscribe(`/topic/user.${userId}.chat`, (msg) => {
-            try {
-              onUpdate(JSON.parse(msg.body));
-            } catch {}
-          });
-          subs.push(s1);
-        } catch {}
-      }
-      if (userEmail) {
-        try {
-          const s2 = this.client.subscribe(`/topic/user.${userEmail.toLowerCase().trim()}.chat`, (msg) => {
-            try {
-              onUpdate(JSON.parse(msg.body));
-            } catch {}
-          });
-          subs.push(s2);
-        } catch {}
-      }
-    };
+    if (userId) this.lastUserId = userId;
+    if (userEmail) this.lastUserEmail = userEmail;
 
-    if (this.isSocketReady()) {
-      doSub();
-    } else {
-      const interval = setInterval(() => {
-        if (this.isSocketReady()) {
-          clearInterval(interval);
-          doSub();
+    this.userChatHandlers.add(onUpdate);
+    this.ensureUserChatSubscriptions(this.lastUserId, this.lastUserEmail);
+
+    let retryCount = 0;
+    const retryInterval = setInterval(() => {
+      retryCount += 1;
+      if (this.userChatSubscriptions.length > 0 || retryCount > 40) {
+        clearInterval(retryInterval);
+        return;
+      }
+      if (this.isSocketReady()) {
+        this.ensureUserChatSubscriptions(this.lastUserId, this.lastUserEmail);
+        if (this.userChatSubscriptions.length > 0) {
+          clearInterval(retryInterval);
         }
-      }, 200);
-      setTimeout(() => clearInterval(interval), 5000);
-    }
+      }
+    }, 150);
 
     return () => {
-      subs.forEach(s => {
-        try { s.unsubscribe(); } catch {}
-      });
+      clearInterval(retryInterval);
+      this.userChatHandlers.delete(onUpdate);
+      if (this.userChatHandlers.size === 0) {
+        this.userChatSubscriptions.forEach((s) => {
+          try {
+            s.unsubscribe();
+          } catch {}
+        });
+        this.userChatSubscriptions = [];
+        this.currentSubscribedUserKey = null;
+      }
     };
   }
 
@@ -329,6 +398,16 @@ class ChatSocketService {
     });
     this.roomSubscriptions.clear();
     this.roomHandlers.clear();
+
+    this.userChatSubscriptions.forEach((s) => {
+      try {
+        s.unsubscribe();
+      } catch {}
+    });
+    this.userChatSubscriptions = [];
+    this.userChatHandlers.clear();
+    this.currentSubscribedUserKey = null;
+
     if (this.client) {
       this.client.deactivate();
       this.client = null;

@@ -1011,7 +1011,7 @@ const mapChatMember = (raw: any): ChatMember => ({
   lastReadMessageId: raw?.lastReadMessageId ? Number(raw.lastReadMessageId) : undefined,
 });
 
-const mapChatRoom = (raw: any): ChatRoom => {
+export const mapChatRoom = (raw: any): ChatRoom => {
   let lastMessage = raw?.lastMsg ?? raw?.lastMessage;
   // Backend chưa rút gọn preview của tin ITINERARY (JSON thô) -> hiển thị thân thiện hơn.
   if (typeof lastMessage === 'string' && lastMessage.trim().startsWith('{')) {

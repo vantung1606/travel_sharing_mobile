@@ -988,6 +988,8 @@ export interface ChatRoom {
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;
+  unread?: number;
+  isPinned?: boolean;
   membersCount?: number;
   members?: ChatMember[];
   isOnline?: boolean;

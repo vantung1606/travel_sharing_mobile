@@ -506,6 +506,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   const isTypingRef = useRef(false);
   const currentUserEmailRef = useRef<string | null>(null);
   const currentUserNameRef = useRef<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: number | null; email?: string | null; name?: string | null } | null>(null);
 
   const filterPulse = useRef(new Animated.Value(1)).current;
 
@@ -515,9 +516,13 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       .getSession()
       .then((session) => {
         const rawId = (session as any)?.id ?? (session as any)?.userId;
-        currentUserIdRef.current = rawId != null ? Number(rawId) : null;
-        currentUserEmailRef.current = (session as any)?.email ?? null;
-        currentUserNameRef.current = (session as any)?.fullName ?? (session as any)?.name ?? null;
+        const uId = rawId != null ? Number(rawId) : null;
+        const uEmail = (session as any)?.email ?? null;
+        const uName = (session as any)?.fullName ?? (session as any)?.name ?? null;
+        currentUserIdRef.current = uId;
+        currentUserEmailRef.current = uEmail;
+        currentUserNameRef.current = uName;
+        setCurrentUser({ id: uId, email: uEmail, name: uName });
       })
       .catch(() => {});
   }, []);
@@ -865,8 +870,8 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   useEffect(() => {
     if (!visible) return;
     const unsub = chatSocket.subscribeToUserChat(
-      currentUser?.id,
-      currentUser?.email,
+      currentUser?.id ?? undefined,
+      currentUser?.email ?? undefined,
       (updatedRoom) => {
         if (!updatedRoom?.id) return;
         setRooms((prev) => {

@@ -12,7 +12,7 @@ import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
 import { notificationApi, chatApi, mapChatRoom } from '@/src/services/api';
-import { chatSocket } from '@/src/services/chatSocket';
+import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 import { SERIF_FONT } from '@/constants/Typography';
 
 function TabBarIcon(props: {
@@ -154,11 +154,18 @@ export default function TabLayout() {
     const userEmail = (currentUser as any)?.email ?? undefined;
 
     const unsubChat = chatSocket.subscribeToUserChat(userId, userEmail, (rawRoom) => {
+      // 1. Luôn cập nhật badge số đỏ tin nhắn chưa đọc realtime
       refreshUnreadChatCount();
+
+      // 2. Tuyệt đối KHÔNG hiện thông báo Toast khi người dùng đang ở trong trang chat
+      if (chatUiState.isChatOpen || isChatOpen) {
+        return;
+      }
+
       try {
         const room = mapChatRoom(rawRoom);
-        // Khi modal chat đang đóng và phòng có tin nhắn mới -> Báo Toast nổi tức thì
-        if (!isChatOpen && room && (room.unreadCount || 0) > 0 && room.lastMessage) {
+        // Chỉ hiện toast khi người dùng đang ở bên ngoài màn hình chat và có tin nhắn mới
+        if (room && (room.unreadCount || 0) > 0 && room.lastMessage) {
           showToast({
             kind: 'info',
             title: room.name || 'Tin nhắn mới',

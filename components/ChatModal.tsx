@@ -40,7 +40,7 @@ import {
 import { authStorage } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
 import { parseVietnamDate } from '@/src/utils/dateUtils';
-import { chatSocket } from '@/src/services/chatSocket';
+import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 import { NewChatSheet } from './chat/NewChatSheet';
@@ -533,7 +533,19 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   }, []);
 
   useEffect(() => {
+    chatUiState.isChatOpen = visible;
+    if (!visible) {
+      chatUiState.activeRoomId = null;
+    }
+    return () => {
+      chatUiState.isChatOpen = false;
+      chatUiState.activeRoomId = null;
+    };
+  }, [visible]);
+
+  useEffect(() => {
     activeRoomIdRef.current = activeRoom ? String(activeRoom.id) : null;
+    chatUiState.activeRoomId = activeRoom ? String(activeRoom.id) : null;
   }, [activeRoom]);
 
   // ── Realtime cleanup ──────────────────────────────────────
@@ -670,6 +682,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   const handleSelectRoom = useCallback(
     async (room: ChatRoom) => {
       activeRoomIdRef.current = String(room.id);
+      chatUiState.activeRoomId = String(room.id);
       stopRoomRealtime();
 
       setActiveRoom(room);

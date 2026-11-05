@@ -4,6 +4,15 @@ import { API_BASE_URL } from './api';
 type RoomMessageHandler = (message: any) => void;
 
 /**
+ * Trạng thái giao diện Chat toàn cục để ngăn các thông báo Toast
+ * gây gián đoạn khi người dùng đang ở trong trang Chat.
+ */
+export const chatUiState = {
+  isChatOpen: false,
+  activeRoomId: null as string | null,
+};
+
+/**
  * Web dùng STOMP qua `${VITE_WS_URL || API_URL -> ws}/ws/chat`.
  * Mobile dùng đúng endpoint đó nhưng qua WebSocket gốc (không qua SockJS),
  * vì backend đã expose thêm endpoint /ws/chat không SockJS (WebSocketConfig).

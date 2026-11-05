@@ -190,30 +190,30 @@ export default function TabLayout() {
           tabBarInactiveTintColor: WF_PAPER.inkMuted,
           tabBarStyle: {
             backgroundColor: WF_PAPER.card,
-            borderTopColor: WF_PAPER.cardBorder,
+            borderTopColor: 'rgba(15, 23, 42, 0.06)',
             borderTopWidth: 1,
-            height: 62 + Math.max(insets.bottom, 20),
-            paddingBottom: Math.max(insets.bottom, 18) + 4,
-            paddingTop: 7,
-            elevation: 0,
-            shadowColor: '#1E1A15',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.02,
-            shadowRadius: 4,
+            height: 60 + Math.max(insets.bottom, 16),
+            paddingBottom: Math.max(insets.bottom, 14) + 4,
+            paddingTop: 8,
+            elevation: 8,
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: -3 },
+            shadowOpacity: 0.05,
+            shadowRadius: 12,
           },
           tabBarLabelStyle: {
-            fontFamily: SERIF_FONT,
             fontSize: 11,
-            fontWeight: '700',
-            marginTop: 2,
+            fontWeight: '600',
+            marginTop: 3,
+            letterSpacing: 0.2,
           },
           header: () => (
             <View
               style={[
                 styles.customHeader,
                 {
-                  paddingTop: Math.max(insets.top, 6),
-                  paddingBottom: 4,
+                  paddingTop: Math.max(insets.top, 8),
+                  paddingBottom: 8,
                 },
               ]}>
               {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
@@ -241,7 +241,7 @@ export default function TabLayout() {
                     }
                   }}
                   style={styles.notifHeaderBtn}>
-                  <FontAwesome name="bell-o" size={18} color={WF_PAPER.inkSecondary} />
+                  <FontAwesome name="bell-o" size={17} color={WF_PAPER.inkSecondary} />
                   {unreadNotifCount > 0 && (
                     <View style={styles.notifBadge}>
                       <Text style={styles.notifBadgeText}>
@@ -256,7 +256,7 @@ export default function TabLayout() {
                   activeOpacity={0.8}
                   onPress={() => setIsChatOpen(true)}
                   style={styles.chatHeaderBtn}>
-                  <FontAwesome name="comments" size={16} color={WF_PAPER.clay} style={{ marginRight: 6 }} />
+                  <FontAwesome name="comments" size={15} color={WF_PAPER.clay} style={{ marginRight: 6 }} />
                   <Text style={styles.chatHeaderBtnText}>Chat</Text>
                   {unreadChatCount > 0 && (
                     <View style={styles.chatBadge}>
@@ -281,10 +281,10 @@ export default function TabLayout() {
                   {currentUser?.avatar ? (
                     <Image
                       source={{ uri: currentUser.avatar }}
-                      style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: WF_PAPER.clay }}
+                      style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: WF_PAPER.clay }}
                     />
                   ) : (
-                    <FontAwesome name="user-circle" size={24} color={WF_PAPER.inkSecondary} />
+                    <FontAwesome name="user-circle" size={26} color={WF_PAPER.inkSecondary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -394,17 +394,17 @@ const styles = StyleSheet.create({
   customHeader: {
     backgroundColor: WF_PAPER.card,
     borderBottomWidth: 1,
-    borderBottomColor: WF_PAPER.cardBorder,
+    borderBottomColor: 'rgba(15, 23, 42, 0.05)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 4,
-    elevation: 0,
-    shadowColor: '#1E1A15',
+    paddingBottom: 6,
+    elevation: 2,
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
   },
   logoWrapper: {
     flexDirection: 'row',
@@ -412,8 +412,8 @@ const styles = StyleSheet.create({
     height: 38,
   },
   headerLogo: {
-    width: 125,
-    height: 34,
+    width: 128,
+    height: 36,
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -423,21 +423,19 @@ const styles = StyleSheet.create({
   chatHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WF_PAPER.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    backgroundColor: WF_PAPER.clayLight,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
     position: 'relative',
   },
   chatBadge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -4,
+    right: -4,
     backgroundColor: '#EF4444',
-    minWidth: 17,
-    height: 17,
+    minWidth: 18,
+    height: 18,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
@@ -446,36 +444,34 @@ const styles = StyleSheet.create({
     borderColor: WF_PAPER.card,
   },
   chatBadgeText: {
-    color: '#FFFDF8',
+    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
   },
   chatHeaderBtnText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: WF_PAPER.clay,
   },
   avatarHeaderBtn: {
     padding: 2,
   },
   notifHeaderBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 5,
-    backgroundColor: WF_PAPER.bg,
-    borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   notifBadge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -3,
+    right: -3,
     backgroundColor: WF_PAPER.clay,
-    minWidth: 17,
-    height: 17,
+    minWidth: 18,
+    height: 18,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
@@ -484,7 +480,7 @@ const styles = StyleSheet.create({
     borderColor: WF_PAPER.card,
   },
   notifBadgeText: {
-    color: '#FFFDF8',
+    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
   },

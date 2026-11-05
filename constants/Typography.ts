@@ -1,31 +1,29 @@
 import { Platform } from 'react-native';
 
 /**
- * Standard Times New Roman / Serif font resolution across platforms:
- * - iOS: 'Times New Roman'
- * - Android: 'serif' (Android native Times New Roman equivalent)
- * - Web / Desktop: 'Times New Roman, serif'
+ * Modern Native Font Stacks:
+ * - SANS_FONT: Crisp, clean native typography for buttons, tabs, inputs, and UI text.
+ * - SERIF_FONT: Elegant editorial accent for travel journal titles and hero headers.
  */
+export const SANS_FONT = Platform.select({
+  ios: 'System',
+  android: 'Roboto',
+  web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  default: 'sans-serif',
+});
+
 export const SERIF_FONT = Platform.select({
-  ios: 'Times New Roman',
+  ios: 'Georgia',
   android: 'serif',
-  web: 'Times New Roman, serif',
+  web: 'Georgia, Cambria, "Times New Roman", Times, serif',
   default: 'serif',
-}) || 'serif';
+});
 
 /**
- * Safe initializer for typography
+ * Typography configuration for Modern Wanderlust UI.
+ * Uses clean system sans-serif by default for a crisp native mobile feel,
+ * while reserving serif for editorial travel headlines.
  */
 export function applyGlobalSerifTypography() {
-  try {
-    const RN = require('react-native');
-    if (RN?.Text && typeof RN.Text === 'object' && RN.Text.defaultProps) {
-      RN.Text.defaultProps.style = [{ fontFamily: SERIF_FONT }, RN.Text.defaultProps.style];
-    }
-    if (RN?.TextInput && typeof RN.TextInput === 'object' && RN.TextInput.defaultProps) {
-      RN.TextInput.defaultProps.style = [{ fontFamily: SERIF_FONT }, RN.TextInput.defaultProps.style];
-    }
-  } catch {
-    // Safe fallback for Hermes
-  }
+  // Clean native default sans-serif is used by default in React Native.
 }

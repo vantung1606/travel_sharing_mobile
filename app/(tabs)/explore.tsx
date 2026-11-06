@@ -16,10 +16,9 @@ import {
 import { BrandedLoading } from '@/components/BrandedLoading';
 import { Text, TextInput } from '@/components/Themed';
 import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
-import { CuratedCollectionsCarousel, CuratedCollection } from '@/components/explore/CuratedCollectionsCarousel';
 import { ExploreFilterSheet } from '@/components/explore/ExploreFilterSheet';
 import { ExploreMapModal } from '@/components/explore/ExploreMapModal';
-import { FeaturedPlaceCard, GridPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
+import { FeaturedPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
 import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { PLACE_CATEGORIES, matchBudget, parsePriceVND } from '@/components/explore/exploreFilters';
 import { Chip } from '@/components/ui/Chip';
@@ -64,8 +63,6 @@ export default function ExploreScreen() {
   const [viewMode, setViewMode] = useState<'explore' | 'saved'>('explore');
   const [savedDetails, setSavedDetails] = useState<Record<string, PlaceItem>>({});
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
-  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
 
   // Tỉnh/thành đã gặp, tích luỹ qua các lần tải để chip trong sheet không
   // bị co lại còn 1 lựa chọn khi đang lọc theo tỉnh.
@@ -366,20 +363,6 @@ export default function ExploreScreen() {
   const handleResetAllFilters = () => {
     handleResetSheetFilters();
     setSearchQuery('');
-    setSelectedCollectionId(null);
-  };
-
-  const handleSelectCollection = (col: CuratedCollection) => {
-    if (selectedCollectionId === col.id) {
-      setSelectedCollectionId(null);
-      setSelectedCategory(ALL);
-      setSearchQuery('');
-    } else {
-      setSelectedCollectionId(col.id);
-      if (col.category) setSelectedCategory(col.category);
-      if (col.keyword) setSearchQuery(col.keyword);
-    }
-    scrollToTop();
   };
 
   // Hero 16:9 = địa điểm được đánh giá cao nhất, chỉ xuất hiện khi chưa lọc.
@@ -400,12 +383,14 @@ export default function ExploreScreen() {
   );
 
   const exploreRows = useMemo<ExploreRow[]>(() => {
-    const list =
-      heroPlace && !isFiltering
-        ? displayedPlaces.filter((p) => p.id !== heroPlace.id)
-        : displayedPlaces;
-    return list.map((p) => ({ kind: 'place', place: p, key: `place-${p.id}` }));
-  }, [displayedPlaces, heroPlace, isFiltering]);
+    const rows: ExploreRow[] = displayedPlaces
+      .filter((p) => p.id !== heroPlace?.id)
+      .map((p) => ({ kind: 'place', place: p, key: `place-${p.id}` }));
+    if (heroPlace) {
+      rows.unshift({ kind: 'hero', place: heroPlace, key: `hero-${heroPlace.id}` });
+    }
+    return rows;
+  }, [displayedPlaces, heroPlace]);
 
   // Sắp lại danh sách chi tiết "Muốn đi" đúng theo savedIds — hủy tim là mất mục.
   const savedList = useMemo(
@@ -447,15 +432,8 @@ export default function ExploreScreen() {
   };
 
   const renderRow = ({ item }: { item: ExploreRow }) => {
-    if (layoutMode === 'grid') {
-      return (
-        <GridPlaceCard
-          place={item.place}
-          saved={savedIds.includes(item.place.id)}
-          onPress={() => handleOpenPlaceDetail(item.place)}
-          onToggleSave={() => handleToggleSave(item.place)}
-        />
-      );
+    if (item.kind === 'hero') {
+      return <FeaturedPlaceCard place={item.place} onPress={() => handleOpenPlaceDetail(item.place)} />;
     }
     return (
       <PlaceCard
@@ -521,17 +499,15 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       <FlatList
         ref={scrollRef}
-        key={`explore-${layoutMode}`}
         data={viewMode === 'saved' ? savedRows : exploreRows}
         keyExtractor={(item) => item.key}
         renderItem={renderRow}
-        numColumns={layoutMode === 'grid' ? 2 : 1}
-        columnWrapperStyle={layoutMode === 'grid' ? styles.gridRowWrapper : undefined}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />}
         onEndReached={viewMode === 'saved' ? undefined : loadMorePlaces}
         onEndReachedThreshold={0.4}
+        stickyHeaderIndices={[0]}
         ListHeaderComponent={
           <View style={styles.feedHeader}>
             <SegmentedTabs
@@ -593,21 +569,9 @@ export default function ExploreScreen() {
                   <TouchableOpacity
                     style={styles.iconBtn}
                     activeOpacity={0.85}
-                    onPress={() => setLayoutMode((m) => (m === 'grid' ? 'list' : 'grid'))}
-                    accessibilityLabel={layoutMode === 'grid' ? 'Chuyển sang dạng danh sách' : 'Chuyển sang dạng lưới'}>
-                    <FontAwesome
-                      name={layoutMode === 'grid' ? 'th-list' : 'th-large'}
-                      size={15}
-                      color={DS_COLOR.inkSecondary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.iconBtn}
-                    activeOpacity={0.85}
                     onPress={() => setIsMapOpen(true)}
                     accessibilityLabel="Xem bản đồ địa điểm">
-                    <FontAwesome name="map" size={15} color={DS_COLOR.inkSecondary} />
+                    <FontAwesome name="map" size={16} color={DS_COLOR.inkSecondary} />
                   </TouchableOpacity>
                 </View>
 
@@ -627,30 +591,6 @@ export default function ExploreScreen() {
                     />
                   ))}
                 </ScrollView>
-
-                {/* Dải Cuộn Ngang: Bộ Sưu Tập Tuyển Chọn & Đang Thịnh Hành */}
-                <CuratedCollectionsCarousel
-                  selectedId={selectedCollectionId}
-                  onSelect={handleSelectCollection}
-                />
-
-                {/* Hero Billboard cho địa điểm tiêu biểu nếu có */}
-                {heroPlace && !isFiltering && (
-                  <FeaturedPlaceCard
-                    place={heroPlace}
-                    onPress={() => handleOpenPlaceDetail(heroPlace)}
-                  />
-                )}
-
-                {/* Tiêu đề phân đoạn danh sách */}
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionHeaderTitle}>
-                    {isFiltering ? 'Kết Quả Khám Phá' : 'Tọa Độ Nổi Bật'}
-                  </Text>
-                  <Text style={styles.sectionHeaderCount}>
-                    {displayedPlaces.length} điểm đến
-                  </Text>
-                </View>
               </>
             ) : null}
           </View>
@@ -973,29 +913,6 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 96,
-  },
-  gridRowWrapper: {
-    paddingHorizontal: 16,
-    justifyContent: 'space-between',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  sectionHeaderTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: DS_COLOR.ink,
-    letterSpacing: 0.2,
-  },
-  sectionHeaderCount: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: DS_COLOR.inkMuted,
   },
   listFooter: {
     paddingVertical: 12,

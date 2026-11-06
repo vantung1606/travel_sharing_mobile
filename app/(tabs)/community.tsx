@@ -702,6 +702,31 @@ export default function CommunityScreen() {
 
   const scrollRef = useRef<FlatList<PostItem>>(null);
 
+  // ── Theo dõi bài viết đang nằm trong màn hình để tự phát video ──
+  const [activeVisiblePostId, setActiveVisiblePostId] = useState<number | null>(null);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 45,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: any }> }) => {
+      if (viewableItems && viewableItems.length > 0) {
+        // Ưu tiên bài có video đang hiển thị ở giữa màn hình
+        const videoPost = viewableItems.find((v) => v.item && Boolean((v.item as PostItem).videoUrl));
+        if (videoPost?.item) {
+          setActiveVisiblePostId(Number((videoPost.item as PostItem).id));
+        } else {
+          const first = viewableItems[0]?.item as PostItem | undefined;
+          setActiveVisiblePostId(first ? Number(first.id) : null);
+        }
+      } else {
+        setActiveVisiblePostId(null);
+      }
+    }
+  ).current;
+
   const renderPost = ({ item }: { item: PostItem }) => {
     const liked = !!likedPosts[item.id];
     const likes = likesCount[item.id] ?? item.likeCount ?? item.likesCount ?? 0;
@@ -712,6 +737,7 @@ export default function CommunityScreen() {
     return (
       <PostCard
         post={postWithCount}
+        isVideoPlaying={activeVisiblePostId === Number(item.id)}
         liked={liked}
         likeCount={likes}
         bookmarked={!!bookmarkedPosts[item.id]}
@@ -811,6 +837,8 @@ export default function CommunityScreen() {
         data={displayPosts}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderPost}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_PAPER.clay]} />}

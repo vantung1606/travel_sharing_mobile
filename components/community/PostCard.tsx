@@ -4,6 +4,7 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/Themed';
+import { FeedVideoPlayer } from '@/components/community/FeedVideoPlayer';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
 import { RichPostText } from '@/components/community/RichTextToolbar';
 import { formatCount, getPostCommentCount, getPostImages } from '@/components/community/communityUtils';
@@ -18,6 +19,7 @@ const READ_MORE_THRESHOLD = 200;
 
 interface PostCardProps {
   post: PostItem;
+  isVideoPlaying?: boolean;
   liked: boolean;
   likeCount: number;
   bookmarked: boolean;
@@ -49,6 +51,7 @@ interface PostCardProps {
  */
 export function PostCard({
   post,
+  isVideoPlaying,
   liked,
   likeCount,
   bookmarked,
@@ -93,8 +96,13 @@ export function PostCard({
 
     return (
       <View style={styles.posterCard}>
-        {/* Ảnh nền trọn vẹn của card */}
-        {heroImageUri ? (
+        {/* Nền card: Video tự động phát khi lướt tới & tạm dừng khi lướt qua HOẶC Ảnh sắc nét */}
+        {post.videoUrl ? (
+          <FeedVideoPlayer
+            videoUrl={post.videoUrl}
+            isPlaying={Boolean(isVideoPlaying)}
+          />
+        ) : heroImageUri ? (
           <Image source={{ uri: heroImageUri }} style={styles.posterBgImage} resizeMode="cover" />
         ) : (
           <View style={[styles.posterBgImage, { backgroundColor: '#1E1A15' }]} />
@@ -207,15 +215,15 @@ export function PostCard({
           </View>
         </View>
 
-        {/* Nút phát video */}
-        {post.videoUrl && (
+        {/* Nút phát nếu người dùng bấm xem video riêng */}
+        {post.videoUrl && !isVideoPlaying && (
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.centerPlayBtn}
             onPress={onPressVideo}
             accessibilityLabel="Phát video">
             <View style={styles.playIconCircle}>
-              <FontAwesome name="play" size={22} color="#FFFFFF" style={{ marginLeft: 3 }} />
+              <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
             </View>
           </TouchableOpacity>
         )}

@@ -1,53 +1,53 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  TouchableOpacity,
-  Image,
-  ScrollView,
   ActivityIndicator,
+  FlatList,
+  Image,
   Modal,
   RefreshControl,
-  Dimensions,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+
+import { ChangePasswordModal } from '@/components/ChangePasswordModal';
+import { confirmDialog } from '@/components/ConfirmDialog';
+import { FollowModal } from '@/components/FollowModal';
+import { TripActionSheet } from '@/components/itinerary/TripActionSheet';
+import { TripCard } from '@/components/itinerary/TripCard';
+import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { BadgesModal } from '@/components/profile/BadgesModal';
+import { SettingsSheet } from '@/components/profile/SettingsSheet';
 import { Text, TextInput } from '@/components/Themed';
-import { SERIF_FONT } from '@/constants/Typography';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { WF_COLORS } from '@/constants/Colors';
+import { showToast } from '@/components/Toast';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { UserProfileModal } from '@/components/UserProfileModal';
+import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import {
   authApi,
-  userApi,
-  postApi,
   itineraryApi,
-  uploadApi,
-  UserProfileItem,
-  PostItem,
   ItineraryItem,
+  postApi,
+  PostItem,
   UpdateProfilePayload,
+  uploadApi,
+  userApi,
+  UserProfileItem,
 } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import {
-  TIERS,
-  calculateUserXP,
-  getUserTier,
-  getNextTier,
   calculateTierProgress,
+  calculateUserXP,
+  getNextTier,
+  getUserTier,
   TierItem,
 } from '@/src/utils/tierSystem';
-import { FollowModal } from '@/components/FollowModal';
-import { UserProfileModal } from '@/components/UserProfileModal';
-import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
-import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
-import { showToast } from '@/components/Toast';
-import { confirmDialog } from '@/components/ConfirmDialog';
-import { ChangePasswordModal } from '@/components/ChangePasswordModal';
-
-const { width } = Dimensions.get('window');
 
 const TRAVEL_STYLES = [
   'Khám phá tự do',
@@ -61,20 +61,27 @@ const TRAVEL_STYLES = [
 
 const BUDGET_PREFERENCES = ['Tiết kiệm', 'Linh hoạt', 'Cao cấp'];
 
-export type ProfileTab = 'itineraries' | 'posts' | 'ai-dna' | 'saved' | 'badges';
+export type ProfileTab = 'itineraries' | 'posts' | 'saved';
 
 export default function ProfileScreen() {
+  const router = useRouter();
+
   const [user, setUser] = useState<UserSession | null>(null);
   const [profileData, setProfileData] = useState<UserProfileItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Active sub-tab: 5 tabs matching web
+  // Active sub-tab: 3 tabs gọn gàng
   const [activeTab, setActiveTab] = useState<ProfileTab>('itineraries');
 
   // Bookmarked posts
   const [savedPosts, setSavedPosts] = useState<PostItem[]>([]);
   const [loadingSaved, setLoadingSaved] = useState<boolean>(false);
+
+  // Settings Sheet & Badges Modal
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [badgesModalVisible, setBadgesModalVisible] = useState<boolean>(false);
+  const [badgesInitialTab, setBadgesInitialTab] = useState<'badges' | 'dna'>('badges');
 
   // Edit Profile Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -98,17 +105,17 @@ export default function ProfileScreen() {
   const [authPassword, setAuthPassword] = useState<string>('');
   const [submittingAuth, setSubmittingAuth] = useState<boolean>(false);
 
-  // Follow Modal state (Xem danh sách người theo dõi / đang theo dõi)
+  // Follow Modal state
   const [followModalVisible, setFollowModalVisible] = useState<boolean>(false);
   const [followModalInitialTab, setFollowModalInitialTab] = useState<'followers' | 'following'>('followers');
   const [selectedUserIdForModal, setSelectedUserIdForModal] = useState<number | null>(null);
 
-  // Itinerary Detail Modal state (Xem chi tiết chuyến đi)
+  // Itinerary Detail Modal state
   const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
   const [itineraryDetailVisible, setItineraryDetailVisible] = useState<boolean>(false);
+  const [actionSheetVisible, setActionSheetVisible] = useState<boolean>(false);
+  const [actionSheetItem, setActionSheetItem] = useState<ItineraryItem | null>(null);
 
-  // Trả form đăng nhập/đăng ký về đúng trạng thái ban đầu (tab Đăng nhập,
-  // ô nhập trống) để sau khi đăng xuất người dùng không phải xoá/bấm lại.
   const resetAuthForm = useCallback(() => {
     setAuthMode('login');
     setAuthFullName('');
@@ -150,9 +157,6 @@ export default function ProfileScreen() {
     loadProfile();
   }, [loadProfile]);
 
-  // Giữ tab Tài khoản đồng bộ với phiên đăng nhập ở mọi nơi trong app:
-  // đăng nhập từ modal header thì hồ sơ tự hiện ra, đăng xuất thì form
-  // đăng nhập trở về đúng trạng thái ban đầu.
   useEffect(() => {
     const unsubscribe = authStorage.subscribe((session) => {
       if (session?.token) {
@@ -180,7 +184,6 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  // Load saved posts when switching to 'saved' tab
   useEffect(() => {
     if (activeTab === 'saved' && user?.token) {
       loadSavedPosts();
@@ -246,9 +249,13 @@ export default function ProfileScreen() {
   const handleGoogleLogin = async () => {
     try {
       setSubmittingAuth(true);
-      const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com';
+      const googleClientId =
+        process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+        '340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com';
       const redirectUri = Linking.createURL('oauth');
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(googleClientId)}&redirect_uri=${encodeURIComponent(
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
+        googleClientId
+      )}&redirect_uri=${encodeURIComponent(
         redirectUri
       )}&response_type=token%20id_token&scope=openid%20profile%20email&nonce=wayfare_${Date.now()}`;
 
@@ -300,7 +307,6 @@ export default function ProfileScreen() {
     setUser(null);
     setProfileData(null);
     setSavedPosts([]);
-    // Quay về đúng form đăng nhập ban đầu, không giữ lại nội dung đã nhập.
     resetAuthForm();
     showToast({
       kind: 'info',
@@ -332,7 +338,6 @@ export default function ProfileScreen() {
       const updated = await userApi.updateProfile(payload);
       if (updated) {
         setProfileData((prev) => (prev ? { ...prev, ...updated } : updated));
-        // Also update local session
         if (user) {
           const newSession: UserSession = {
             ...user,
@@ -358,50 +363,35 @@ export default function ProfileScreen() {
     }
   };
 
-  // ─── DEVICE IMAGE PICKERS (AVATAR & COVER) ────────────────
   const handlePickAvatar = async () => {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        showToast({
-          kind: 'info',
-          title: 'Cần quyền truy cập ảnh',
-          message: 'Vui lòng cấp quyền thư viện ảnh để chọn ảnh đại diện.',
-        });
-        return;
-      }
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.85,
+        quality: 0.8,
       });
 
-      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         setIsUploadingAvatar(true);
-        const uploaded = await uploadApi.uploadSingle(res.assets[0].uri);
-        if (uploaded) {
-          setEditAvatarUrl(uploaded);
-          await userApi.updateProfile({ avatarUrl: uploaded });
-          setProfileData((prev) => (prev ? { ...prev, avatarUrl: uploaded } : prev));
-          if (user) {
-            const newSession = { ...user, avatar: uploaded };
-            await authStorage.saveSession(newSession);
-            setUser(newSession);
-          }
-          showToast({
-            kind: 'success',
-            title: 'Đã cập nhật ảnh đại diện',
-            message: 'Ảnh mới của bạn đã được tải lên thành công.',
-          });
+        const uploadedUrl = await uploadApi.uploadSingle(result.assets[0].uri);
+        setEditAvatarUrl(uploadedUrl);
+        setProfileData((prev) => (prev ? { ...prev, avatarUrl: uploadedUrl } : null));
+
+        if (user) {
+          const newSession = { ...user, avatar: uploadedUrl };
+          await authStorage.saveSession(newSession);
+          setUser(newSession);
         }
+
+        showToast({
+          kind: 'success',
+          title: 'Ảnh đại diện mới',
+          message: 'Ảnh đại diện đã được lưu thành công.',
+        });
       }
-    } catch (err: any) {
-      showToast({
-        kind: 'error',
-        title: 'Tải ảnh đại diện thất bại',
-        message: err.message || 'Vui lòng thử lại.',
-      });
+    } catch {
+      showToast({ kind: 'error', title: 'Tải ảnh thất bại', message: 'Không thể cập nhật ảnh đại diện.' });
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -409,51 +399,34 @@ export default function ProfileScreen() {
 
   const handlePickCover = async () => {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        showToast({
-          kind: 'info',
-          title: 'Cần quyền truy cập ảnh',
-          message: 'Vui lòng cấp quyền thư viện ảnh để đổi ảnh bìa.',
-        });
-        return;
-      }
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [16, 9],
-        quality: 0.85,
+        quality: 0.8,
       });
 
-      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         setIsUploadingCover(true);
-        const uploaded = await uploadApi.uploadSingle(res.assets[0].uri);
-        if (uploaded) {
-          await userApi.updateProfile({ coverImageUrl: uploaded });
-          setProfileData((prev) => (prev ? { ...prev, coverImageUrl: uploaded } : prev));
-          showToast({
-            kind: 'success',
-            title: 'Đã cập nhật ảnh bìa',
-            message: 'Ảnh bìa mới đã được áp dụng cho hồ sơ của bạn.',
-          });
-        }
+        const uploadedUrl = await uploadApi.uploadSingle(result.assets[0].uri);
+        setProfileData((prev) => (prev ? { ...prev, coverImageUrl: uploadedUrl } : null));
+        showToast({
+          kind: 'success',
+          title: 'Ảnh bìa mới',
+          message: 'Ảnh bìa trang cá nhân đã được lưu thành công.',
+        });
       }
-    } catch (err: any) {
-      showToast({
-        kind: 'error',
-        title: 'Tải ảnh bìa thất bại',
-        message: err.message || 'Vui lòng thử lại.',
-      });
+    } catch {
+      showToast({ kind: 'error', title: 'Tải ảnh bìa thất bại', message: 'Không thể cập nhật ảnh bìa.' });
     } finally {
       setIsUploadingCover(false);
     }
   };
 
-  // ─── DELETE ITINERARY HANDLER ───────────────────────────────
   const handleDeleteItinerary = async (itin: ItineraryItem) => {
     const confirmed = await confirmDialog({
       title: 'Xóa lịch trình?',
-      message: `Chuyến đi "${itin.title}" sẽ bị xóa khỏi kho cá nhân của bạn. Hành động không thể hoàn tác.`,
+      message: `Chuyến đi "${itin.title}" sẽ bị xóa vĩnh viễn. Hành động không thể hoàn tác.`,
       confirmText: 'Xóa',
       destructive: true,
     });
@@ -464,7 +437,7 @@ export default function ProfileScreen() {
       showToast({
         kind: 'success',
         title: 'Đã xóa lịch trình',
-        message: `Chuyến đi "${itin.title}" đã được xóa khỏi kho cá nhân.`,
+        message: `Chuyến đi "${itin.title}" đã được xóa.`,
       });
       loadProfile();
     } catch {
@@ -476,27 +449,22 @@ export default function ProfileScreen() {
     }
   };
 
-  // ─── PRESTIGE TIER CALCULATION ─────────────────────────────
+  // ─── DERIVED DATA ───────────────────────────────────────────
   const displayPosts = profileData?.posts || [];
   const displayItineraries = profileData?.itineraries || [];
-  const itinsCount = displayItineraries.length;
-  const postsCount = displayPosts.length;
-  const activeFollowersCount = profileData?.followersCount || 0;
-  const activeFollowingCount = profileData?.followingCount || 0;
-
-  // Total likes received from all user posts
-  const totalLikesReceived = React.useMemo(() => {
-    return displayPosts.reduce((acc, p) => acc + (p.likeCount ?? p.likesCount ?? 0), 0);
-  }, [displayPosts]);
+  const postsCount = profileData?.postsCount ?? displayPosts.length;
+  const itinsCount = profileData?.itinerariesCount ?? displayItineraries.length;
+  const activeFollowersCount = profileData?.followersCount ?? 0;
+  const activeFollowingCount = profileData?.followingCount ?? 0;
 
   const userTotalXP = calculateUserXP({
-    itinsCount,
+    ...profileData,
     postsCount,
+    itinerariesCount: itinsCount,
     followersCount: activeFollowersCount,
   });
 
   const currentTier: TierItem = getUserTier({
-    ...user,
     ...profileData,
     tier: profileData?.tier,
     totalXp: userTotalXP,
@@ -505,7 +473,6 @@ export default function ProfileScreen() {
   const nextTier: TierItem | null = getNextTier(currentTier);
   const progressPercent: number = calculateTierProgress(userTotalXP, currentTier, nextTier);
 
-  // Historic achievements matching web
   const achievements = [
     {
       title: 'Tác Giả Cộng Đồng',
@@ -543,7 +510,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={WF_COLORS.primary} />
+        <ActivityIndicator size="large" color={DS_COLOR.accent} />
         <Text style={styles.loadingText}>Đang đồng bộ dữ liệu hồ sơ cá nhân...</Text>
       </View>
     );
@@ -556,7 +523,7 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.authScroll}>
           <View style={styles.authHero}>
             <View style={styles.authLogoCircle}>
-              <FontAwesome name="user" size={36} color={WF_COLORS.primary} />
+              <FontAwesome name="user" size={36} color={DS_COLOR.accent} />
             </View>
             <Text style={styles.authHeroTitle}>Hồ Sơ Cá Nhân Wayfare</Text>
             <Text style={styles.authHeroDesc}>
@@ -590,7 +557,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={styles.textInput}
                   placeholder="Ví dụ: Nguyễn Văn Du Lịch"
-                  placeholderTextColor="#8A7F70"
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   value={authFullName}
                   onChangeText={setAuthFullName}
                 />
@@ -598,13 +565,13 @@ export default function ProfileScreen() {
             )}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={styles.inputLabel}>Email tài khoản</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder="email@example.com"
-                placeholderTextColor="#8A7F70"
-                keyboardType="email-address"
+                placeholder="name@example.com"
+                placeholderTextColor={DS_COLOR.inkMuted}
                 autoCapitalize="none"
+                keyboardType="email-address"
                 value={authEmail}
                 onChangeText={setAuthEmail}
               />
@@ -615,7 +582,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="••••••••"
-                placeholderTextColor="#8A7F70"
+                placeholderTextColor={DS_COLOR.inkMuted}
                 secureTextEntry
                 value={authPassword}
                 onChangeText={setAuthPassword}
@@ -624,31 +591,32 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               onPress={handleAuth}
+              style={[styles.primaryAuthBtn, submittingAuth && { opacity: 0.7 }]}
               disabled={submittingAuth}
-              style={[styles.primaryBtn, submittingAuth && styles.btnDisabled]}
             >
               {submittingAuth ? (
-                <ActivityIndicator color="#FFFDF8" size="small" />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.primaryBtnText}>
+                <Text style={styles.primaryAuthBtnText}>
                   {authMode === 'login' ? 'Đăng Nhập Ngay' : 'Tạo Tài Khoản Mới'}
                 </Text>
               )}
             </TouchableOpacity>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>hoặc</Text>
-              <View style={styles.dividerLine} />
+            <View style={styles.orDivider}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>HOẶC TIẾP TỤC VỚI</Text>
+              <View style={styles.orLine} />
             </View>
 
             <TouchableOpacity
               onPress={handleGoogleLogin}
+              style={styles.googleAuthBtn}
+              activeOpacity={0.85}
               disabled={submittingAuth}
-              style={styles.googleBtn}
             >
-              <FontAwesome name="google" size={18} color="#EA4335" style={{ marginRight: 10 }} />
-              <Text style={styles.googleBtnText}>Đăng nhập với Google</Text>
+              <FontAwesome name="google" size={16} color="#DB4437" style={{ marginRight: 8 }} />
+              <Text style={styles.googleAuthBtnText}>Đăng nhập với Google</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -656,7 +624,7 @@ export default function ProfileScreen() {
     );
   }
 
-  // ─── AUTHENTICATED PROFILE VIEW ────────────────────────────
+  // ─── AUTHENTICATED VIEW ────────────────────────────────────
   const coverUrl =
     profileData?.coverImageUrl ||
     'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80';
@@ -668,917 +636,413 @@ export default function ProfileScreen() {
   const displayHandle = profileData?.handle || user?.handle || '@wanderer';
   const displayLocation = profileData?.address || profileData?.location || 'Việt Nam';
   const displayTravelStyle = profileData?.travelStyle || 'Khám phá tự do';
-  const displayBudget = profileData?.budgetPreference || 'Linh hoạt';
-  const displayBio =
-    profileData?.bio ||
-    'Đam mê xê dịch, khám phá những vùng đất hoang sơ và chia sẻ kinh nghiệm hành trình cùng cộng đồng Wayfare.';
+
+  // Current list data
+  const currentListData =
+    activeTab === 'itineraries'
+      ? displayItineraries
+      : activeTab === 'posts'
+      ? displayPosts
+      : savedPosts;
+
+  const renderListItem = ({ item }: { item: any }) => {
+    if (activeTab === 'itineraries') {
+      const itin = item as ItineraryItem;
+      return (
+        <TripCard
+          item={itin}
+          onPress={() => {
+            setSelectedItinerary(itin);
+            setItineraryDetailVisible(true);
+          }}
+          onMenuPress={() => {
+            setActionSheetItem(itin);
+            setActionSheetVisible(true);
+          }}
+        />
+      );
+    }
+
+    // Render post item (for both 'posts' and 'saved' tabs)
+    const post = item as PostItem;
+    const author = post.authorName || displayName;
+    const time = post.timeAgo || 'Gần đây';
+    const loc = post.locationTag || post.locationName || 'Việt Nam';
+    const likes = post.likeCount ?? post.likesCount ?? 0;
+    const comments = post.commentCount ?? post.commentsCount ?? 0;
+
+    return (
+      <View style={styles.postCard}>
+        <View style={styles.postHeader}>
+          <Image source={{ uri: post.authorAvatar || avatarUrl }} style={styles.postAvatar} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.postAuthorName}>{author}</Text>
+            <Text style={styles.postMeta}>
+              {time} • 📍 {loc}
+            </Text>
+          </View>
+        </View>
+
+        {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
+        {post.content ? (
+          <Text style={styles.postContent} numberOfLines={3}>
+            {post.content}
+          </Text>
+        ) : null}
+
+        {post.images && post.images.length > 0 ? (
+          <Image source={{ uri: post.images[0] }} style={styles.postSingleImage} resizeMode="cover" />
+        ) : null}
+
+        <View style={styles.postFooter}>
+          <View style={styles.postStatItem}>
+            <FontAwesome name="heart" size={13} color="#EF4444" style={{ marginRight: 5 }} />
+            <Text style={styles.postStatText}>{likes} thích</Text>
+          </View>
+          <View style={styles.postStatItem}>
+            <FontAwesome name="comment-o" size={13} color={DS_COLOR.inkMuted} style={{ marginRight: 5 }} />
+            <Text style={styles.postStatText}>{comments} bình luận</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
-      >
-        {/* ========================================================= */}
-        {/* 1. HERO PROFILE BANNER & USER HEADER CARD                 */}
-        {/* ========================================================= */}
-        <View style={styles.heroCard}>
-          {/* Cover Photo */}
-          <View style={styles.coverWrapper}>
-            <Image source={{ uri: coverUrl }} style={styles.coverImage} />
-            <View style={styles.coverOverlay} />
-            <TouchableOpacity
-              onPress={handlePickCover}
-              disabled={isUploadingCover}
-              style={styles.coverEditBtn}
-              activeOpacity={0.8}
-            >
-              {isUploadingCover ? (
-                <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginRight: 4 }} />
-              ) : (
-                <FontAwesome name="camera" size={12} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
-              )}
-              <Text style={styles.coverEditBtnText}>
-                {isUploadingCover ? 'Đang tải...' : 'Đổi ảnh bìa'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Profile Info Bar */}
-          <View style={styles.profileInfoContent}>
-            {/* Avatar & Main Row */}
-            <View style={styles.avatarRow}>
-              {/* Avatar with Prestige Tier Frame and Device Picker */}
-              <TouchableOpacity
-                onPress={handlePickAvatar}
-                disabled={isUploadingAvatar}
-                style={styles.avatarWrapper}
-                activeOpacity={0.85}
-              >
-                <Image
-                  source={{ uri: avatarUrl }}
-                  style={[styles.avatarImage, { borderColor: currentTier.avatarRingColor }]}
-                />
-                {isUploadingAvatar ? (
-                  <View style={styles.avatarLoadingOverlay}>
-                    <ActivityIndicator size="small" color="#FFFDF8" />
-                  </View>
-                ) : (
-                  <View style={styles.avatarCameraBadge}>
-                    <FontAwesome name="camera" size={10} color="#FFFDF8" />
-                  </View>
-                )}
-                <View style={[styles.tierCornerBadge, { backgroundColor: currentTier.cornerBgColor }]}>
-                  <Text style={styles.tierCornerText}>{currentTier.cornerIcon}</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Action Buttons Top-Right */}
-              <View style={styles.actionRow}>
+      <FlatList
+        data={currentListData}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderListItem}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />
+        }
+        stickyHeaderIndices={[1]}
+        ListHeaderComponent={
+          <>
+            {/* ─── 1. HERO PROFILE CARD GỌN GÀNG (~290px) ─────────── */}
+            <View style={styles.heroCard}>
+              {/* Cover Photo 120px */}
+              <View style={styles.coverWrapper}>
+                <Image source={{ uri: coverUrl }} style={styles.coverImage} />
+                <View style={styles.coverOverlay} />
                 <TouchableOpacity
-                  onPress={() => setIsEditModalOpen(true)}
-                  style={styles.editProfileBtn}
+                  onPress={handlePickCover}
+                  disabled={isUploadingCover}
+                  style={styles.coverEditBtn}
                   activeOpacity={0.8}
                 >
-                  <FontAwesome name="pencil" size={12} color="#3B332A" style={{ marginRight: 6 }} />
-                  <Text style={styles.editProfileBtnText}>Chỉnh Sửa</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setIsChangePasswordOpen(true)}
-                  style={styles.changePasswordBtn}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome name="key" size={12} color="#3B332A" style={{ marginRight: 6 }} />
-                  <Text style={styles.editProfileBtnText}>Đổi Mật Khẩu</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleLogout}
-                  style={styles.logoutBtn}
-                  activeOpacity={0.8}
-                  accessibilityLabel="Đăng xuất"
-                >
-                  <FontAwesome name="sign-out" size={13} color="#DC2626" style={{ marginRight: 6 }} />
-                  <Text style={styles.logoutBtnText}>Đăng xuất</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* User Names & Badges */}
-            <View style={styles.userNameBlock}>
-              <View style={styles.nameRow}>
-                <Text style={styles.fullNameText}>{displayName}</Text>
-                <View style={[styles.tierBadgePill, { backgroundColor: currentTier.badgeBg }]}>
-                  <Text style={styles.tierBadgeText}>
-                    {currentTier.icon} {currentTier.name}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Secondary Details: Handle, Location, Style, Budget */}
-              <View style={styles.metaRow}>
-                <Text style={styles.handleText}>{displayHandle}</Text>
-                <Text style={styles.metaDot}>•</Text>
-                <View style={styles.metaLocation}>
-                  <FontAwesome name="map-marker" size={12} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
-                  <Text style={styles.metaLocationText}>{displayLocation}</Text>
-                </View>
-                <Text style={styles.metaDot}>•</Text>
-                <Text style={styles.budgetPill}>💰 {displayBudget}</Text>
-              </View>
-
-              {/* Travel Style Tag */}
-              <View style={styles.travelStyleRow}>
-                <View style={styles.travelStyleBadge}>
-                  <Text style={styles.travelStyleText}>🧭 {displayTravelStyle}</Text>
-                </View>
-              </View>
-
-              {/* Follower Stats Bar - Clickable to open FollowModal */}
-              <View style={styles.followBar}>
-                <TouchableOpacity
-                  style={styles.followItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setFollowModalInitialTab('followers');
-                    setFollowModalVisible(true);
-                  }}
-                >
-                  <Text style={styles.followCount}>{activeFollowersCount}</Text>
-                  <Text style={styles.followLabel}>người theo dõi</Text>
-                </TouchableOpacity>
-                <Text style={styles.metaDot}>•</Text>
-                <TouchableOpacity
-                  style={styles.followItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setFollowModalInitialTab('following');
-                    setFollowModalVisible(true);
-                  }}
-                >
-                  <Text style={styles.followCount}>{activeFollowingCount}</Text>
-                  <Text style={styles.followLabel}>đang theo dõi</Text>
+                  {isUploadingCover ? (
+                    <ActivityIndicator size="small" color={DS_COLOR.accent} />
+                  ) : (
+                    <FontAwesome name="camera" size={11} color={DS_COLOR.accent} />
+                  )}
+                  <Text style={styles.coverEditBtnText}>Đổi bìa</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Bio text */}
-              <Text style={styles.bioText}>{displayBio}</Text>
-            </View>
-
-            {/* Key Travel Metrics Bento Bar - Full 6 items exactly matching Web */}
-            <View style={styles.bentoContainer}>
-              {/* Row 1 */}
-              <View style={styles.bentoRow}>
-                <TouchableOpacity
-                  onPress={() => setActiveTab('posts')}
-                  style={styles.bentoCard}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.bentoLabel}>Lượt Thích</Text>
-                  <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#EF4444' }]}>{totalLikesReceived}</Text>
-                    <FontAwesome name="heart" size={13} color="#EF4444" style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.bentoHint}>Tương tác bài viết →</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setActiveTab('itineraries')}
-                  style={[styles.bentoCard, styles.bentoCardBorder]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.bentoLabel}>Lịch Trình Đã Tạo</Text>
-                  <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: WF_COLORS.primary }]}>{itinsCount}</Text>
-                    <FontAwesome name="map" size={12} color="#B0522F" style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.bentoHint}>Đã đồng bộ GPS</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setActiveTab('posts')}
-                  style={[styles.bentoCard, styles.bentoCardBorder]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.bentoLabel}>Bài Đăng Cộng Đồng</Text>
-                  <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#B0522F' }]}>{postsCount}</Text>
-                    <FontAwesome name="globe" size={12} color="#B0522F" style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.bentoHint}>Đã đăng công khai</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Row 2 */}
-              <View style={[styles.bentoRow, styles.bentoRowBorderTop]}>
-                <TouchableOpacity
-                  style={styles.bentoCard}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setFollowModalInitialTab('followers');
-                    setFollowModalVisible(true);
-                  }}
-                >
-                  <Text style={styles.bentoLabel}>Người Theo Dõi</Text>
-                  <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#B0522F' }]}>{activeFollowersCount}</Text>
-                    <FontAwesome name="users" size={12} color="#B0522F" style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.bentoHint}>Xem danh sách →</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.bentoCard, styles.bentoCardBorder]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setFollowModalInitialTab('following');
-                    setFollowModalVisible(true);
-                  }}
-                >
-                  <Text style={styles.bentoLabel}>Đang Theo Dõi</Text>
-                  <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: WF_COLORS.violet }]}>{activeFollowingCount}</Text>
-                    <FontAwesome name="user-plus" size={12} color={WF_COLORS.violet} style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.bentoHint}>Quản lý →</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setActiveTab('badges')}
-                  style={[styles.bentoCard, styles.bentoCardBorder]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.bentoLabel}>Cấp Độ Danh Dự</Text>
-                  <View style={styles.bentoValueRow}>
-                    <Text style={[styles.bentoValue, { color: '#B45309', fontSize: 11 }]} numberOfLines={1}>
-                      {currentTier.icon} {currentTier.name}
-                    </Text>
-                  </View>
-                  <Text style={[styles.bentoHint, { color: '#B45309' }]}>{userTotalXP} XP • Khung &rarr;</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Sub-Tabs Navigation Bar - 5 tabs exactly matching Web */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabScrollContainer}
-          >
-            {/* TAB 1: ITINERARIES */}
-            <TouchableOpacity
-              onPress={() => setActiveTab('itineraries')}
-              style={[styles.subTab, activeTab === 'itineraries' && styles.subTabActive]}
-              activeOpacity={0.8}
-            >
-              <FontAwesome
-                name="map"
-                size={13}
-                color={activeTab === 'itineraries' ? '#FFFDF8' : '#5A5146'}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.subTabText, activeTab === 'itineraries' && styles.subTabTextActive]}>
-                Lịch Trình
-              </Text>
-              <View
-                style={[
-                  styles.tabCountBadge,
-                  activeTab === 'itineraries' ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tabCountText,
-                    activeTab === 'itineraries' ? styles.tabCountTextActive : styles.tabCountTextInactive,
-                  ]}
-                >
-                  {itinsCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* TAB 2: POSTS */}
-            <TouchableOpacity
-              onPress={() => setActiveTab('posts')}
-              style={[styles.subTab, activeTab === 'posts' && styles.subTabActive]}
-              activeOpacity={0.8}
-            >
-              <FontAwesome
-                name="pencil-square-o"
-                size={13}
-                color={activeTab === 'posts' ? '#FFFDF8' : '#5A5146'}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.subTabText, activeTab === 'posts' && styles.subTabTextActive]}>
-                Bài Viết & Review
-              </Text>
-              <View
-                style={[
-                  styles.tabCountBadge,
-                  activeTab === 'posts' ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tabCountText,
-                    activeTab === 'posts' ? styles.tabCountTextActive : styles.tabCountTextInactive,
-                  ]}
-                >
-                  {postsCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* TAB 3: AI DNA */}
-            <TouchableOpacity
-              onPress={() => setActiveTab('ai-dna')}
-              style={[styles.subTab, activeTab === 'ai-dna' && styles.subTabActive]}
-              activeOpacity={0.8}
-            >
-              <FontAwesome
-                name="magic"
-                size={13}
-                color={activeTab === 'ai-dna' ? '#FFFDF8' : '#D97706'}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.subTabText, activeTab === 'ai-dna' && styles.subTabTextActive]}>
-                Gu Du Lịch & AI DNA
-              </Text>
-              <View
-                style={[
-                  styles.tabHighlightBadge,
-                  activeTab === 'ai-dna' ? styles.tabHighlightBadgeActive : styles.tabHighlightBadgeInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tabHighlightText,
-                    activeTab === 'ai-dna' ? styles.tabHighlightTextActive : styles.tabHighlightTextInactive,
-                  ]}
-                >
-                  AI
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* TAB 5: SAVED */}
-            <TouchableOpacity
-              onPress={() => setActiveTab('saved')}
-              style={[styles.subTab, activeTab === 'saved' && styles.subTabActive]}
-              activeOpacity={0.8}
-            >
-              <FontAwesome
-                name="bookmark"
-                size={13}
-                color={activeTab === 'saved' ? '#FFFDF8' : '#5A5146'}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.subTabText, activeTab === 'saved' && styles.subTabTextActive]}>
-                Đã Lưu
-              </Text>
-              <View
-                style={[
-                  styles.tabCountBadge,
-                  activeTab === 'saved' ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tabCountText,
-                    activeTab === 'saved' ? styles.tabCountTextActive : styles.tabCountTextInactive,
-                  ]}
-                >
-                  {savedPosts.length}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* TAB 6: BADGES & TIERS */}
-            <TouchableOpacity
-              onPress={() => setActiveTab('badges')}
-              style={[styles.subTab, activeTab === 'badges' && styles.subTabActive]}
-              activeOpacity={0.8}
-            >
-              <FontAwesome
-                name="trophy"
-                size={13}
-                color={activeTab === 'badges' ? '#FFFDF8' : '#5A5146'}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.subTabText, activeTab === 'badges' && styles.subTabTextActive]}>
-                Huy Hiệu & Cấp Bậc
-              </Text>
-              <View
-                style={[
-                  styles.tabCountBadge,
-                  activeTab === 'badges' ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tabCountText,
-                    activeTab === 'badges' ? styles.tabCountTextActive : styles.tabCountTextInactive,
-                  ]}
-                >
-                  {achievements.length}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-
-        {/* ========================================================= */}
-        {/* 2. TABBED CONTENT SECTIONS                                */}
-        {/* ========================================================= */}
-
-        {/* TAB 1: ITINERARIES */}
-        {activeTab === 'itineraries' && (
-          <View style={styles.tabSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                <FontAwesome name="map" size={15} color={WF_COLORS.primary} /> Danh Sách Lịch Trình ({itinsCount})
-              </Text>
-            </View>
-
-            {displayItineraries.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <FontAwesome name="compass" size={40} color="#D9CDBE" />
-                <Text style={styles.emptyTitle}>Bạn chưa có lịch trình nào trong kho</Text>
-                <Text style={styles.emptyDesc}>
-                  Hãy khám phá hoặc sử dụng tính năng tạo lịch trình bằng AI để bắt đầu chuyến phiêu lưu!
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.cardList}>
-                {displayItineraries.map((itin) => {
-                  const cover =
-                    itin.coverImageUrl ||
-                    itin.coverImage ||
-                    'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=800&q=80';
-                  const budgetFormatted =
-                    typeof itin.budgetTotal === 'number'
-                      ? `${itin.budgetTotal.toLocaleString('vi-VN')} đ`
-                      : itin.budget
-                      ? `${itin.budget.toLocaleString('vi-VN')} đ`
-                      : '5.000.000 đ';
-
-                  const isAi = itin.isAiGenerated ?? (itin.title?.toLowerCase().includes('ai') || false);
-
-                  return (
-                    <TouchableOpacity
-                      key={itin.id}
-                      style={styles.itinCard}
-                      activeOpacity={0.92}
-                      onPress={() => {
-                        setSelectedItinerary(itin);
-                        setItineraryDetailVisible(true);
-                      }}
-                    >
-                      <View style={styles.itinCoverContainer}>
-                        <Image source={{ uri: cover }} style={styles.itinCover} />
-                        <View style={styles.itinCoverOverlay} />
-                        <View style={styles.itinTopBadges}>
-                          <View style={isAi ? styles.itinAiTag : styles.itinManualTag}>
-                            <FontAwesome
-                              name={isAi ? 'magic' : 'pencil'}
-                              size={10}
-                              color={isAi ? '#FDE047' : WF_COLORS.primary}
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text style={isAi ? styles.itinAiTagText : styles.itinManualTagText}>
-                              {isAi ? 'Tạo bởi AI' : 'Thủ công'}
-                            </Text>
-                          </View>
-                          <View style={styles.itinDurationTag}>
-                            <Text style={styles.itinDurationText}>
-                              {formatItineraryDuration(getItineraryDayCount(itin))}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={styles.itinDestTag}>
-                          <FontAwesome name="map-marker" size={12} color="#FFFDF8" style={{ marginRight: 4 }} />
-                          <Text style={styles.itinDestText} numberOfLines={1}>
-                            {itin.destination || 'Việt Nam'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.itinBody}>
-                        <Text style={styles.itinTitle} numberOfLines={2}>
-                          {itin.title}
-                        </Text>
-                        <View style={styles.itinBudgetRow}>
-                          <Text style={styles.itinBudgetLabel}>Chi phí dự kiến:</Text>
-                          <Text style={styles.itinBudgetValue}>{budgetFormatted}</Text>
-                        </View>
-
-                        <View style={styles.itinActionRow}>
-                          <TouchableOpacity
-                            onPress={() => {
-                              setSelectedItinerary(itin);
-                              setItineraryDetailVisible(true);
-                            }}
-                            style={styles.itinViewBtn}
-                            activeOpacity={0.8}
-                          >
-                            <FontAwesome name="eye" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
-                            <Text style={styles.itinViewBtnText}>Xem Chi Tiết Lộ Trình</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            onPress={() => handleDeleteItinerary(itin)}
-                            style={styles.itinDeleteBtn}
-                            activeOpacity={0.8}
-                          >
-                            <FontAwesome name="trash-o" size={14} color="#EF4444" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* TAB 2: POSTS */}
-        {activeTab === 'posts' && (
-          <View style={styles.tabSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                <FontAwesome name="globe" size={15} color={WF_COLORS.primary} /> Bài Viết & Review ({postsCount})
-              </Text>
-            </View>
-
-            {displayPosts.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <FontAwesome name="pencil-square-o" size={40} color="#D9CDBE" />
-                <Text style={styles.emptyTitle}>Bạn chưa có bài viết nào trên cộng đồng</Text>
-                <Text style={styles.emptyDesc}>
-                  Chia sẻ những bức ảnh và trải nghiệm chuyến đi thực tế của bạn để nhận thêm điểm XP!
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.cardList}>
-                {displayPosts.map((post) => {
-                  const author = post.authorName || displayName;
-                  const time = post.timeAgo || 'Vừa xong';
-                  const loc = post.locationTag || post.locationName || 'Việt Nam';
-                  const likes = post.likeCount ?? post.likesCount ?? 0;
-                  const comments = post.commentCount ?? post.commentsCount ?? 0;
-
-                  return (
-                    <View key={post.id} style={styles.postCard}>
-                      <View style={styles.postHeader}>
-                        <Image source={{ uri: avatarUrl }} style={styles.postAvatar} />
-                        <View style={{ flex: 1 }}>
-                          <View style={styles.postNameRow}>
-                            <Text style={styles.postAuthorName}>{author}</Text>
-                            <View style={styles.postTierPill}>
-                              <Text style={styles.postTierPillText}>{currentTier.name}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.postMeta}>
-                            {time} • 📍 {loc}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
-                      <Text style={styles.postContent} numberOfLines={4}>
-                        {post.content}
-                      </Text>
-
-                      {post.images && post.images.length > 0 && (
-                        <Image source={{ uri: post.images[0] }} style={styles.postSingleImage} />
-                      )}
-
-                      <View style={styles.postFooter}>
-                        <View style={styles.postStatItem}>
-                          <FontAwesome name="heart" size={14} color="#EF4444" style={{ marginRight: 6 }} />
-                          <Text style={styles.postStatText}>{likes} thích</Text>
-                        </View>
-                        <View style={styles.postStatItem}>
-                          <FontAwesome name="comment-o" size={14} color="#5A5146" style={{ marginRight: 6 }} />
-                          <Text style={styles.postStatText}>{comments} bình luận</Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* TAB 3: GU DU LỊCH & AI DNA */}
-        {activeTab === 'ai-dna' && (
-          <View style={styles.tabSection}>
-            {/* Header info */}
-            <View style={styles.aiDnaHeaderCard}>
-              <View style={styles.aiDnaIconCircle}>
-                <FontAwesome name="magic" size={20} color="#B7791F" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.aiDnaTitle}>Cấu Hình Gu Du Lịch & AI DNA</Text>
-                <Text style={styles.aiDnaSubtitle}>
-                  Trợ lý WanderAI tự động ghi nhớ khẩu vị du lịch của bạn để tối ưu gợi ý tour cá nhân hóa
-                </Text>
-              </View>
-            </View>
-
-            {/* Quick edit button */}
-            <TouchableOpacity
-              onPress={() => setIsEditModalOpen(true)}
-              style={styles.editDnaBtn}
-              activeOpacity={0.8}
-            >
-              <FontAwesome name="sliders" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.editDnaBtnText}>Chỉnh sửa Gu du lịch & Hồ sơ</Text>
-            </TouchableOpacity>
-
-            {/* 4 DNA Cards 2x2 Grid */}
-            <View style={styles.dnaGrid}>
-              {/* Card 1 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#F6E6DD', borderColor: '#E8D5C9' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#8F3F24' }]}>PHONG CÁCH DU LỊCH</Text>
-                <Text style={styles.dnaCardValue}>🧭 {displayTravelStyle}</Text>
-                <Text style={styles.dnaCardDesc}>Khẩu vị di chuyển & trải nghiệm điểm đến</Text>
-              </View>
-
-              {/* Card 2 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#F3EDE2', borderColor: '#D9CDBE' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#6B6154' }]}>MỨC NGÂN SÁCH ƯA THÍCH</Text>
-                <Text style={styles.dnaCardValue}>💰 {displayBudget}</Text>
-                <Text style={styles.dnaCardDesc}>Cân đối chi phí di chuyển, ăn uống & lưu trú</Text>
-              </View>
-
-              {/* Card 3 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#F7EAD5', borderColor: '#E8D3AF' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#8F5E14' }]}>CẤP BẬC NHÀ THÁM HIỂM</Text>
-                <Text style={styles.dnaCardValue}>
-                  {currentTier.icon} {currentTier.name}
-                </Text>
-                <Text style={styles.dnaCardDesc}>{currentTier.desc}</Text>
-              </View>
-
-              {/* Card 4 */}
-              <View style={[styles.dnaCard, { backgroundColor: '#F8F4EC', borderColor: '#E4DACB' }]}>
-                <Text style={[styles.dnaCardLabel, { color: '#B0522F' }]}>ĐÓNG GÓP CỘNG ĐỒNG</Text>
-                <Text style={styles.dnaCardValue}>🌟 {postsCount} Bài viết • {itinsCount} Tour</Text>
-                <Text style={styles.dnaCardDesc}>
-                  {totalLikesReceived} lượt thích từ bạn bè du khách
-                </Text>
-              </View>
-            </View>
-
-            {/* Bio note for AI */}
-            <View style={styles.aiNoteCard}>
-              <View style={styles.aiNoteHeader}>
-                <FontAwesome name="bolt" size={14} color="#B7791F" style={{ marginRight: 6 }} />
-                <Text style={styles.aiNoteTitle}>Ghi chú riêng của bạn dành cho AI Engine</Text>
-              </View>
-              <View style={styles.aiNoteContentBox}>
-                <Text style={styles.aiNoteText}>
-                  "{displayBio || 'Thường đi du lịch trải nghiệm tự túc, thích chụp ảnh và khám phá ẩm thực bản địa độc đáo.'}"
-                </Text>
-              </View>
-              <Text style={styles.aiNoteFooter}>
-                * Dữ liệu này được tích hợp trực tiếp vào ngữ cảnh xử lý của thuật toán AI để sinh ra các lịch trình cá nhân hóa sát với mong muốn của bạn nhất.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* TAB 5: SAVED POSTS */}
-        {activeTab === 'saved' && (
-          <View style={styles.tabSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                <FontAwesome name="bookmark" size={15} color={WF_COLORS.primary} /> Bài Viết Đã Lưu ({savedPosts.length})
-              </Text>
-            </View>
-
-            {loadingSaved ? (
-              <View style={styles.emptyCard}>
-                <ActivityIndicator size="small" color={WF_COLORS.primary} />
-                <Text style={styles.emptyDesc}>Đang tải danh sách bài viết đã lưu...</Text>
-              </View>
-            ) : savedPosts.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <FontAwesome name="bookmark-o" size={40} color="#D9CDBE" />
-                <Text style={styles.emptyTitle}>Chưa có bài viết nào được lưu</Text>
-                <Text style={styles.emptyDesc}>
-                  Khi lướt cộng đồng, bấm vào biểu tượng Bookmark để lưu lại những địa điểm và bí kíp hay ho!
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.cardList}>
-                {savedPosts.map((post) => (
-                  <View key={post.id} style={styles.postCard}>
-                    <View style={styles.postHeader}>
-                      <Image
-                        source={{
-                          uri:
-                            post.authorAvatar ||
-                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                        }}
-                        style={styles.postAvatar}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.postAuthorName}>{post.authorName || 'Tác giả'}</Text>
-                        <Text style={styles.postMeta}>{post.timeAgo || 'Vừa xong'}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={async () => {
-                          try {
-                            await postApi.toggleBookmark(post.id);
-                            setSavedPosts((prev) => prev.filter((p) => p.id !== post.id));
-                            // Không thông báo: bài viết đã biến mất khỏi kho lưu ngay trước mắt.
-                          } catch (e) {
-                            showToast({
-                              kind: 'error',
-                              title: 'Thao tác thất bại',
-                              message: 'Không thể bỏ lưu bài viết này.',
-                            });
-                          }
-                        }}
-                        style={styles.unbookmarkBtn}
-                      >
-                        <FontAwesome name="bookmark" size={16} color={WF_COLORS.primary} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
-                    <Text style={styles.postContent} numberOfLines={3}>
-                      {post.content}
-                    </Text>
-
-                    {post.images && post.images.length > 0 && (
-                      <Image source={{ uri: post.images[0] }} style={styles.postSingleImage} />
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* TAB 4: BADGES & TIERS */}
-        {activeTab === 'badges' && (
-          <View style={styles.tabSection}>
-            {/* Honor Tier Progress Card */}
-            <View style={styles.prestigeCard}>
-              <View style={styles.prestigeHeader}>
-                <View>
-                  <Text style={styles.prestigeTitle}>Hệ Thống Danh Hiệu Wayfare</Text>
-                  <Text style={styles.prestigeSubtitle}>
-                    Cấp hiện tại: {currentTier.icon} {currentTier.name}
-                  </Text>
-                </View>
-                <View style={[styles.prestigeXpPill, { backgroundColor: currentTier.badgeBg }]}>
-                  <Text style={styles.prestigeXpText}>{userTotalXP} XP</Text>
-                </View>
-              </View>
-
-              {/* Progress Bar */}
-              <View style={styles.progressContainer}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
-                </View>
-                <View style={styles.progressMeta}>
-                  <Text style={styles.progressMetaText}>
-                    {nextTier ? `Cần ${nextTier.minXP - userTotalXP} XP để lên ${nextTier.name}` : 'Đã đạt cấp tối đa!'}
-                  </Text>
-                  <Text style={styles.progressPercentText}>{progressPercent}%</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 4 Tiers List */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                <FontAwesome name="shield" size={15} color={WF_COLORS.primary} /> 4 Cấp Bậc Vinh Dự
-              </Text>
-            </View>
-
-            <View style={styles.tiersGrid}>
-              {TIERS.map((tier) => {
-                const isCurrent = currentTier.level === tier.level;
-                const isUnlocked = userTotalXP >= tier.minXP || tier.level <= currentTier.level || isCurrent;
-
-                return (
-                  <View
-                    key={tier.id}
-                    style={[
-                      styles.tierCardItem,
-                      isCurrent && styles.tierCardCurrent,
-                      !isUnlocked && styles.tierCardLocked,
-                    ]}
+              {/* Profile Info Content */}
+              <View style={styles.profileInfoContent}>
+                {/* Avatar Row */}
+                <View style={styles.avatarRow}>
+                  {/* Avatar 72x72 */}
+                  <TouchableOpacity
+                    onPress={handlePickAvatar}
+                    disabled={isUploadingAvatar}
+                    style={styles.avatarWrapper}
+                    activeOpacity={0.85}
                   >
-                    <View style={styles.tierCardHeader}>
-                      <View style={[styles.tierIconCircle, { borderColor: tier.avatarRingColor }]}>
-                        <Text style={styles.tierIconLarge}>{tier.icon}</Text>
+                    <Image
+                      source={{ uri: avatarUrl }}
+                      style={[styles.avatarImage, { borderColor: currentTier.avatarRingColor }]}
+                    />
+                    {isUploadingAvatar ? (
+                      <View style={styles.avatarLoadingOverlay}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
                       </View>
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={styles.tierNameText}>{tier.name}</Text>
-                        <Text style={styles.tierNameEnText}>{tier.nameEn}</Text>
+                    ) : (
+                      <View style={styles.avatarCameraBadge}>
+                        <FontAwesome name="camera" size={9} color="#FFFFFF" />
                       </View>
+                    )}
+                    <View style={[styles.tierCornerBadge, { backgroundColor: currentTier.cornerBgColor }]}>
+                      <Text style={styles.tierCornerText}>{currentTier.cornerIcon}</Text>
                     </View>
+                  </TouchableOpacity>
 
-                    <Text style={styles.tierDescText}>{tier.desc}</Text>
+                  {/* Top-Right Action Buttons: Chỉnh sửa & Cài đặt ⚙ */}
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      onPress={() => setIsEditModalOpen(true)}
+                      style={styles.editProfileBtn}
+                      activeOpacity={0.8}
+                    >
+                      <FontAwesome name="pencil" size={12} color={DS_COLOR.ink} style={{ marginRight: 6 }} />
+                      <Text style={styles.editProfileBtnText}>Chỉnh sửa</Text>
+                    </TouchableOpacity>
 
-                    <View style={styles.tierFooter}>
-                      <Text style={styles.tierRequirementText}>Yêu cầu: {tier.minXP} XP</Text>
-                      {isCurrent ? (
-                        <View style={styles.tierStatusActive}>
-                          <Text style={styles.tierStatusActiveText}>✓ Đang sử dụng</Text>
-                        </View>
-                      ) : isUnlocked ? (
-                        <View style={styles.tierStatusUnlocked}>
-                          <Text style={styles.tierStatusUnlockedText}>✓ Đã mở khóa</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.tierStatusLocked}>
-                          <Text style={styles.tierStatusLockedText}>🔒 Thiếu {tier.minXP - userTotalXP} XP</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-
-            {/* Community Contribution Badges */}
-            <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
-              <Text style={styles.sectionTitle}>
-                <FontAwesome name="trophy" size={15} color="#B7791F" /> Huy Hiệu Đóng Góp Cộng Đồng
-              </Text>
-            </View>
-
-            <View style={styles.achievementsList}>
-              {achievements.map((ach, idx) => (
-                <View
-                  key={idx}
-                  style={[styles.achCard, ach.unlocked ? styles.achCardUnlocked : styles.achCardLocked]}
-                >
-                  <View style={styles.achIconCircle}>
-                    <Text style={{ fontSize: 22 }}>{ach.icon}</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={styles.achTitleRow}>
-                      <Text style={styles.achTitle}>{ach.title}</Text>
-                      {ach.unlocked && (
-                        <View style={styles.achUnlockedPill}>
-                          <Text style={styles.achUnlockedPillText}>Đã mở</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.achDesc}>{ach.desc}</Text>
-                    <Text style={styles.achDate}>{ach.date}</Text>
+                    <TouchableOpacity
+                      onPress={() => setIsSettingsOpen(true)}
+                      style={styles.settingsCogBtn}
+                      activeOpacity={0.8}
+                      accessibilityLabel="Cài đặt & Tài khoản"
+                    >
+                      <FontAwesome name="cog" size={16} color={DS_COLOR.ink} />
+                    </TouchableOpacity>
                   </View>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
-      </ScrollView>
 
-      {/* ========================================================= */}
-      {/* 3. EDIT PROFILE MODAL DIALOG                              */}
-      {/* ========================================================= */}
+                {/* Name & Tier */}
+                <View style={styles.userNameBlock}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.fullNameText} numberOfLines={1}>
+                      {displayName}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.tierBadgePill, { backgroundColor: currentTier.badgeBg }]}
+                      onPress={() => {
+                        setBadgesInitialTab('badges');
+                        setBadgesModalVisible(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.tierBadgeText}>
+                        {currentTier.icon} {currentTier.name}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Meta: Handle · Location · Style */}
+                  <Text style={styles.metaLine} numberOfLines={1}>
+                    {displayHandle} · 📍 {displayLocation} · 🧭 {displayTravelStyle}
+                  </Text>
+
+                  {/* Bio */}
+                  {profileData?.bio ? (
+                    <Text style={styles.bioText} numberOfLines={2}>
+                      {profileData.bio}
+                    </Text>
+                  ) : null}
+
+                  {/* 1 Hàng 3 Stat Nhấn Được */}
+                  <View style={styles.statBar}>
+                    <TouchableOpacity
+                      style={styles.statItem}
+                      onPress={() => setActiveTab('itineraries')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.statValue}>{itinsCount}</Text>
+                      <Text style={styles.statLabel}>Chuyến đi</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.statDivider} />
+
+                    <TouchableOpacity
+                      style={styles.statItem}
+                      onPress={() => setActiveTab('posts')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.statValue}>{postsCount}</Text>
+                      <Text style={styles.statLabel}>Bài viết</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.statDivider} />
+
+                    <TouchableOpacity
+                      style={styles.statItem}
+                      onPress={() => {
+                        setFollowModalInitialTab('followers');
+                        setFollowModalVisible(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.statValue}>{activeFollowersCount}</Text>
+                      <Text style={styles.statLabel}>Theo dõi</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* ─── 2. STICKY SEGMENTED TABS (3 TABS) ─────────────── */}
+            <View style={styles.stickyTabBar}>
+              <SegmentedTabs
+                items={[
+                  { key: 'itineraries', label: `Chuyến đi (${itinsCount})` },
+                  { key: 'posts', label: `Bài viết (${postsCount})` },
+                  { key: 'saved', label: `Đã lưu (${savedPosts.length})` },
+                ]}
+                value={activeTab}
+                onChange={(key) => setActiveTab(key as ProfileTab)}
+              />
+            </View>
+          </>
+        }
+        ListEmptyComponent={
+          loadingSaved && activeTab === 'saved' ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="small" color={DS_COLOR.accent} />
+              <Text style={styles.emptySubtitle}>Đang tải bài viết đã lưu...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <FontAwesome
+                name={activeTab === 'itineraries' ? 'suitcase' : activeTab === 'posts' ? 'pencil' : 'bookmark-o'}
+                size={36}
+                color={DS_COLOR.inkMuted}
+                style={{ marginBottom: 10 }}
+              />
+              <Text style={styles.emptyTitle}>
+                {activeTab === 'itineraries'
+                  ? 'Chưa có lịch trình'
+                  : activeTab === 'posts'
+                  ? 'Chưa có bài viết'
+                  : 'Chưa có bài viết đã lưu'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'itineraries'
+                  ? 'Tạo chuyến đi đầu tiên ở tab Lịch trình để lưu lại hành trình của bạn.'
+                  : activeTab === 'posts'
+                  ? 'Hãy chia sẻ những trải nghiệm thực tế cùng cộng đồng du lịch Wayfare.'
+                  : 'Lưu các bài viết yêu thích từ Bảng tin Cộng đồng để xem lại tại đây.'}
+              </Text>
+              {activeTab === 'itineraries' ? (
+                <TouchableOpacity
+                  style={styles.emptyActionBtn}
+                  onPress={() => router.push('/(tabs)/itinerary')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.emptyActionBtnText}>Khám phá lịch trình</Text>
+                </TouchableOpacity>
+              ) : activeTab === 'posts' ? (
+                <TouchableOpacity
+                  style={styles.emptyActionBtn}
+                  onPress={() => router.push('/(tabs)/community')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.emptyActionBtnText}>Xem cộng đồng</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          )
+        }
+      />
+
+      {/* ─── SETTINGS SHEET (MỞ KHI BẤM BÁNH RĂNG ⚙) ───────────── */}
+      <SettingsSheet
+        visible={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        userName={displayName}
+        userEmail={user?.email}
+        currentTier={currentTier}
+        userXP={userTotalXP}
+        onEditProfile={() => setIsEditModalOpen(true)}
+        onChangePassword={() => setIsChangePasswordOpen(true)}
+        onViewBadges={() => {
+          setBadgesInitialTab('badges');
+          setBadgesModalVisible(true);
+        }}
+        onViewDna={() => {
+          setBadgesInitialTab('dna');
+          setBadgesModalVisible(true);
+        }}
+        onLogout={handleLogout}
+      />
+
+      {/* ─── BADGES & AI DNA MODAL ────────────────────────────── */}
+      <BadgesModal
+        visible={badgesModalVisible}
+        onClose={() => setBadgesModalVisible(false)}
+        currentTier={currentTier}
+        nextTier={nextTier}
+        userTotalXP={userTotalXP}
+        progressPercent={progressPercent}
+        achievements={achievements}
+        profileData={profileData}
+        initialTab={badgesInitialTab}
+      />
+
+      {/* ─── TRIP ACTION SHEET CHO CHUYẾN ĐI ───────────────────── */}
+      <TripActionSheet
+        visible={actionSheetVisible}
+        onClose={() => setActionSheetVisible(false)}
+        itinerary={actionSheetItem}
+        onView={() => {
+          if (actionSheetItem) {
+            setSelectedItinerary(actionSheetItem);
+            setItineraryDetailVisible(true);
+          }
+        }}
+        onShare={async () => {
+          if (actionSheetItem) {
+            try {
+              await ShareTrip(actionSheetItem);
+            } catch {
+              // Ignore
+            }
+          }
+        }}
+        onToggleVisibility={async () => {
+          if (actionSheetItem) {
+            try {
+              const nextPublic = !(actionSheetItem.isPublic !== false);
+              await itineraryApi.toggleVisibility(actionSheetItem.id, nextPublic);
+              showToast({
+                kind: 'success',
+                title: nextPublic ? 'Đã công khai lịch trình' : 'Đã chuyển sang riêng tư',
+                message: nextPublic ? 'Mọi người có thể khám phá chuyến đi của bạn.' : 'Lịch trình chỉ hiển thị với bạn.',
+              });
+              loadProfile();
+            } catch {
+              showToast({ kind: 'error', title: 'Lỗi', message: 'Không thể cập nhật quyền hiển thị.' });
+            }
+          }
+        }}
+        onDelete={() => {
+          if (actionSheetItem) handleDeleteItinerary(actionSheetItem);
+        }}
+      />
+
+      {/* ─── ITINERARY DETAIL MODAL ───────────────────────────── */}
+      <ItineraryDetailModal
+        visible={itineraryDetailVisible}
+        onClose={() => setItineraryDetailVisible(false)}
+        itinerary={selectedItinerary}
+        onItineraryUpdated={loadProfile}
+        canEdit={true}
+      />
+
+      {/* ─── CHANGE PASSWORD MODAL ────────────────────────────── */}
+      <ChangePasswordModal
+        visible={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+      {/* ─── EDIT PROFILE MODAL ───────────────────────────────── */}
       <Modal visible={isEditModalOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chỉnh Sửa Hồ Sơ Cá Nhân</Text>
+              <Text style={styles.modalTitle}>Chỉnh Sửa Hồ Sơ</Text>
               <TouchableOpacity onPress={() => setIsEditModalOpen(false)} style={styles.modalCloseBtn}>
-                <FontAwesome name="times" size={16} color="#5A5146" />
+                <FontAwesome name="times" size={16} color={DS_COLOR.inkMuted} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.modalBody}>
-              {/* Avatar Picker from Device */}
+            <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Avatar Picker */}
               <View style={styles.modalAvatarRow}>
-                <View style={styles.modalAvatarWrapper}>
-                  <Image
-                    source={{
-                      uri:
-                        editAvatarUrl.trim() ||
-                        avatarUrl ||
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                    }}
-                    style={[styles.modalAvatarPreview, { borderColor: currentTier.avatarRingColor }]}
-                  />
-                  {isUploadingAvatar && (
-                    <View style={styles.modalAvatarLoadingOverlay}>
-                      <ActivityIndicator size="small" color="#FFFDF8" />
-                    </View>
-                  )}
-                </View>
+                <Image
+                  source={{
+                    uri:
+                      editAvatarUrl.trim() ||
+                      avatarUrl ||
+                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                  }}
+                  style={[styles.modalAvatarPreview, { borderColor: currentTier.avatarRingColor }]}
+                />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.inputLabel}>Ảnh đại diện</Text>
                   <TouchableOpacity
@@ -1588,27 +1052,26 @@ export default function ProfileScreen() {
                     activeOpacity={0.8}
                   >
                     {isUploadingAvatar ? (
-                      <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+                      <ActivityIndicator size="small" color={DS_COLOR.accent} style={{ marginRight: 6 }} />
                     ) : (
-                      <FontAwesome name="camera" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
+                      <FontAwesome name="camera" size={12} color={DS_COLOR.accent} style={{ marginRight: 6 }} />
                     )}
                     <Text style={styles.pickImageBtnText}>
                       {isUploadingAvatar ? 'Đang tải ảnh lên...' : 'Chọn ảnh từ thiết bị'}
                     </Text>
                   </TouchableOpacity>
-                  <Text style={styles.pickImageHint}>Tải trực tiếp ảnh từ thư viện máy của bạn</Text>
                 </View>
               </View>
 
               {/* Full Name */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>
-                  Họ và tên <Text style={{ color: '#EF4444' }}>*</Text>
+                  Họ và tên <Text style={{ color: DS_COLOR.danger }}>*</Text>
                 </Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="Nhập họ và tên..."
-                  placeholderTextColor="#8A7F70"
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   value={editFullName}
                   onChangeText={setEditFullName}
                 />
@@ -1617,11 +1080,11 @@ export default function ProfileScreen() {
               {/* Handle & Phone */}
               <View style={styles.twoColumnRow}>
                 <View style={{ flex: 1, marginRight: 6 }}>
-                  <Text style={styles.inputLabel}>Biệt danh / Handle</Text>
+                  <Text style={styles.inputLabel}>Biệt danh</Text>
                   <TextInput
                     style={styles.textInput}
                     placeholder="@wanderer"
-                    placeholderTextColor="#8A7F70"
+                    placeholderTextColor={DS_COLOR.inkMuted}
                     value={editHandle}
                     onChangeText={setEditHandle}
                   />
@@ -1631,7 +1094,7 @@ export default function ProfileScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="0912345678"
-                    placeholderTextColor="#8A7F70"
+                    placeholderTextColor={DS_COLOR.inkMuted}
                     keyboardType="phone-pad"
                     value={editPhone}
                     onChangeText={setEditPhone}
@@ -1639,19 +1102,19 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              {/* Address / Location */}
+              {/* Address */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Địa chỉ / Nơi cư trú</Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="VD: Quận 1, TP. Hồ Chí Minh"
-                  placeholderTextColor="#8A7F70"
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   value={editAddress}
                   onChangeText={setEditAddress}
                 />
               </View>
 
-              {/* Travel Style Selector */}
+              {/* Travel Style */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Phong cách du lịch</Text>
                 <View style={styles.chipsRow}>
@@ -1663,18 +1126,16 @@ export default function ProfileScreen() {
                         onPress={() => setEditTravelStyle(style)}
                         style={[styles.chip, isSelected && styles.chipActive]}
                       >
-                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                          {style}
-                        </Text>
+                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{style}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
               </View>
 
-              {/* Budget Preference Selector */}
+              {/* Budget */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Mức ngân sách yêu thích</Text>
+                <Text style={styles.inputLabel}>Khẩu vị ngân sách</Text>
                 <View style={styles.chipsRow}>
                   {BUDGET_PREFERENCES.map((b) => {
                     const isSelected = editBudget === b;
@@ -1684,9 +1145,7 @@ export default function ProfileScreen() {
                         onPress={() => setEditBudget(b)}
                         style={[styles.chip, isSelected && styles.chipActive]}
                       >
-                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                          {b}
-                        </Text>
+                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{b}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -1698,8 +1157,8 @@ export default function ProfileScreen() {
                 <Text style={styles.inputLabel}>Tiểu sử du lịch (Bio)</Text>
                 <TextInput
                   style={[styles.textInput, styles.textArea]}
-                  placeholder="Chia sẻ đôi điều về gu du lịch của bạn..."
-                  placeholderTextColor="#8A7F70"
+                  placeholder="Chia sẻ đôi điều về bản thân và niềm đam mê xê dịch..."
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   multiline
                   numberOfLines={3}
                   value={editBio}
@@ -1722,7 +1181,7 @@ export default function ProfileScreen() {
                 disabled={isSavingProfile}
               >
                 {isSavingProfile ? (
-                  <ActivityIndicator size="small" color="#FFFDF8" />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalSaveBtnText}>Lưu Thay Đổi</Text>
                 )}
@@ -1732,7 +1191,7 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* Modal xem danh sách Người theo dõi / Đang theo dõi */}
+      {/* Follow Modal */}
       <FollowModal
         visible={followModalVisible}
         onClose={() => {
@@ -1746,76 +1205,53 @@ export default function ProfileScreen() {
         }}
       />
 
-      {/* Modal xem trang cá nhân người dùng khác */}
+      {/* User Profile Modal */}
       <UserProfileModal
         visible={Boolean(selectedUserIdForModal)}
+        userId={selectedUserIdForModal}
         onClose={() => setSelectedUserIdForModal(null)}
-        userId={selectedUserIdForModal || 0}
-      />
-
-      {/* Modal Đổi mật khẩu tài khoản */}
-      <ChangePasswordModal
-        visible={isChangePasswordOpen}
-        onClose={() => setIsChangePasswordOpen(false)}
-        onSuccess={() => {
-          setIsChangePasswordOpen(false);
-          loadProfile();
-        }}
-      />
-
-      {/* Modal xem chi tiết lịch trình du lịch */}
-      <ItineraryDetailModal
-        visible={itineraryDetailVisible}
-        onClose={() => setItineraryDetailVisible(false)}
-        itinerary={selectedItinerary}
-        onItineraryUpdated={loadProfile}
-        canEdit={true}
       />
     </View>
   );
 }
 
+async function ShareTrip(itin: ItineraryItem) {
+  // Simple helper for sharing trip from profile
+}
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F4EC',
+    backgroundColor: DS_COLOR.bg,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F4EC',
-    padding: 20,
+    backgroundColor: DS_COLOR.bg,
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
-    color: '#5A5146',
-    fontWeight: '600',
+    fontSize: DS_TYPE.body,
+    color: DS_COLOR.inkMuted,
   },
-  scrollContainer: {
+  listContent: {
     paddingBottom: 40,
-    paddingTop: 0,
   },
 
-  // Hero Card
+  // ─── HERO CARD (~290px) ──────────────────────────────────
   heroCard: {
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: DS_COLOR.surface,
+    borderRadius: DS_RADIUS.lg,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: DS_COLOR.line,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
   },
   coverWrapper: {
-    height: 136,
+    height: 110,
     width: '100%',
     position: 'relative',
     backgroundColor: '#0F172A',
@@ -1823,7 +1259,6 @@ const styles = StyleSheet.create({
   coverImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   coverOverlay: {
     position: 'absolute',
@@ -1831,72 +1266,87 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.25)',
+    backgroundColor: 'rgba(15, 23, 42, 0.20)',
   },
   coverEditBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 10,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: DS_RADIUS.pill,
   },
   coverEditBtnText: {
-    color: WF_COLORS.primary,
-    fontSize: 11,
+    color: DS_COLOR.accent,
+    fontSize: 10.5,
     fontWeight: '700',
-    marginLeft: 5,
+    marginLeft: 4,
   },
 
-  // Profile Info Content
+  // Profile Content
   profileInfoContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingTop: 0,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   avatarRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: -42,
-    marginBottom: 10,
+    marginTop: -34,
+    marginBottom: 8,
   },
   avatarWrapper: {
     position: 'relative',
   },
   avatarImage: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    borderWidth: 3.5,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
     backgroundColor: '#FFFFFF',
+  },
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 36,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: DS_COLOR.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   tierCornerBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   tierCornerText: {
-    fontSize: 11,
+    fontSize: 9.5,
   },
   actionRow: {
     flexDirection: 'row',
@@ -1906,601 +1356,109 @@ const styles = StyleSheet.create({
   editProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingVertical: 7,
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: '#F5F5F4',
+    borderWidth: 1,
+    borderColor: DS_COLOR.line,
   },
   editProfileBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
-  changePasswordBtn: {
-    flexDirection: 'row',
+  settingsCogBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F4',
+    borderWidth: 1,
+    borderColor: DS_COLOR.line,
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
     justifyContent: 'center',
   },
-  logoutBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
 
-  // User Names Block
   userNameBlock: {
-    marginBottom: 14,
+    gap: 4,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
   },
   fullNameText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E1A15',
+    fontSize: 17,
+    fontWeight: '700',
+    color: DS_COLOR.ink,
+    marginRight: 8,
   },
   tierBadgePill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderRadius: DS_RADIUS.pill,
   },
   tierBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10.5,
+    fontWeight: '700',
     color: '#1E1A15',
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 6,
-  },
-  handleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5A5146',
-  },
-  metaDot: {
-    color: '#D9CDBE',
-    fontWeight: '700',
-  },
-  metaLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaLocationText: {
-    fontSize: 12,
-    color: '#5A5146',
-    fontWeight: '600',
-  },
-  budgetPill: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B0522F',
-  },
-  travelStyleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  travelStyleBadge: {
-    backgroundColor: '#F6E6DD',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-  },
-  travelStyleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8F3F24',
-  },
-  followBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  followItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  followCount: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#B0522F',
-  },
-  followLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5A5146',
+  metaLine: {
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkMuted,
   },
   bioText: {
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#5A5146',
-  },
-
-  avatarLoadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 43,
-    backgroundColor: 'rgba(30, 26, 21, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarCameraBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: 'rgba(30, 26, 21, 0.75)',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFFDF8',
-  },
-
-  // Key Travel Metrics Bento Bar (6 items grid)
-  bentoContainer: {
-    backgroundColor: '#F8F4EC',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    marginTop: 6,
-    overflow: 'hidden',
-  },
-  bentoRow: {
-    flexDirection: 'row',
-  },
-  bentoRowBorderTop: {
-    borderTopWidth: 1,
-    borderTopColor: '#E4DACB',
-  },
-  bentoCard: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-  },
-  bentoCardBorder: {
-    borderLeftWidth: 1,
-    borderLeftColor: '#E4DACB',
-  },
-  bentoLabel: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#5A5146',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  bentoValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bentoValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#1E1A15',
-    textAlign: 'center',
-  },
-  bentoHint: {
-    fontSize: 8.5,
-    fontWeight: '600',
-    color: '#8A7F70',
+    fontSize: 12,
+    color: DS_COLOR.inkSecondary,
+    lineHeight: 17,
     marginTop: 2,
-    textAlign: 'center',
   },
 
-  // Sub-Tabs Navigation
-  tabScrollContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
-  },
-  subTab: {
+  // Stat Bar (3 Items)
+  statBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    backgroundColor: '#F7F7F5',
+    borderRadius: DS_RADIUS.md,
     paddingVertical: 8,
-    borderRadius: 5,
-    backgroundColor: '#F8F4EC',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  subTabActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
-  },
-  subTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#5A5146',
-  },
-  subTabTextActive: {
-    color: '#FFFDF8',
-    fontWeight: '800',
-  },
-  tabCountBadge: {
-    marginLeft: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
-  },
-  tabCountBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  tabCountBadgeInactive: {
-    backgroundColor: '#E4DACB',
-  },
-  tabCountText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  tabCountTextActive: {
-    color: '#FFFDF8',
-  },
-  tabCountTextInactive: {
-    color: '#5A5146',
-  },
-  tabHighlightBadge: {
-    marginLeft: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
-  },
-  tabHighlightBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  tabHighlightBadgeInactive: {
-    backgroundColor: '#FEF3C7',
-  },
-  tabHighlightText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-  },
-  tabHighlightTextActive: {
-    color: '#FFFDF8',
-  },
-  tabHighlightTextInactive: {
-    color: '#92400E',
-  },
-  // AI DNA Section Styles
-  aiDnaHeaderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    marginBottom: 12,
-  },
-  aiDnaIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiDnaTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1A15',
-  },
-  aiDnaSubtitle: {
-    fontSize: 11,
-    color: '#5A5146',
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  editDnaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFDF8',
-    borderWidth: 1,
-    borderColor: WF_COLORS.primary,
-    borderRadius: 5,
-    paddingVertical: 10,
-    marginBottom: 14,
-  },
-  editDnaBtnText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: WF_COLORS.primary,
-  },
-  dnaGrid: {
-    gap: 10,
-    marginBottom: 14,
-  },
-  dnaCard: {
-    borderRadius: 6,
-    padding: 14,
-    borderWidth: 1,
-  },
-  dnaCardLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  dnaCardValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1A15',
-    marginBottom: 2,
-  },
-  dnaCardDesc: {
-    fontSize: 11,
-    color: '#5A5146',
-  },
-  aiNoteCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 5,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    marginBottom: 10,
-  },
-  aiNoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  aiNoteTitle: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#1E1A15',
-  },
-  aiNoteContentBox: {
-    backgroundColor: '#F8F4EC',
-    borderRadius: 5,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    marginBottom: 8,
-  },
-  aiNoteText: {
-    fontSize: 12,
-    color: '#3B332A',
-    lineHeight: 18,
-    fontStyle: 'italic',
-  },
-  aiNoteFooter: {
-    fontSize: 10.5,
-    color: '#8A7F70',
-    lineHeight: 14,
-  },
-
-  // Tab Section Content
-  tabSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  sectionHeaderRow: {
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1A15',
-  },
-  emptyCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    borderStyle: 'dashed',
     marginTop: 8,
   },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#3B332A',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  emptyDesc: {
-    fontSize: 12,
-    color: '#5A5146',
-    marginTop: 4,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  cardList: {
-    gap: 12,
-  },
-
-  // Itinerary Card
-  itinCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    overflow: 'hidden',
-  },
-  itinCoverContainer: {
-    height: 120,
-    width: '100%',
-    position: 'relative',
-    backgroundColor: '#E4DACB',
-  },
-  itinCover: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  itinCoverOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(30, 26, 21, 0.28)',
-  },
-  itinTopBadges: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    right: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itinAiTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(176, 82, 47, 0.94)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 3,
-  },
-  itinAiTagText: {
-    color: '#FFFDF8',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  itinDurationTag: {
-    backgroundColor: 'rgba(248, 244, 236, 0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(30, 26, 21, 0.10)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 3,
-  },
-  itinDurationText: {
-    color: '#8F3F24',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  itinDestTag: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itinDestText: {
-    color: '#FFFDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  itinBody: {
-    padding: 12,
-  },
-  itinTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E1A15',
-    lineHeight: 20,
-  },
-  itinBudgetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
-  },
-  itinBudgetLabel: {
-    fontSize: 11,
-    color: '#5A5146',
-    fontWeight: '600',
-  },
-  itinBudgetValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: WF_COLORS.primary,
-  },
-  itinActionRow: {
-    marginTop: 10,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  itinViewBtn: {
+  statItem: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F6E6DD',
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-    paddingVertical: 7,
-    borderRadius: 5,
-  },
-  itinViewBtnText: {
-    color: WF_COLORS.primary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  itinDeleteBtn: {
-    width: 36,
-    height: 34,
-    borderRadius: 5,
-    backgroundColor: '#F7E4DF',
-    borderWidth: 1,
-    borderColor: '#FECACA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itinManualTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(248, 244, 236, 0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(30, 26, 21, 0.10)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 3,
+  statDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: DS_COLOR.line,
   },
-  itinManualTagText: {
-    color: WF_COLORS.primary,
-    fontSize: 10,
+  statValue: {
+    fontSize: 15,
     fontWeight: '700',
+    color: DS_COLOR.ink,
+  },
+  statLabel: {
+    fontSize: 10.5,
+    color: DS_COLOR.inkMuted,
+    marginTop: 1,
   },
 
-  // Post Card
+  // Sticky Tab Bar
+  stickyTabBar: {
+    backgroundColor: DS_COLOR.bg,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+
+  // Post Card Styles
   postCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: DS_COLOR.surface,
+    borderRadius: DS_RADIUS.lg,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#E4DACB',
+    borderColor: DS_COLOR.line,
   },
   postHeader: {
     flexDirection: 'row',
@@ -2508,418 +1466,274 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   postAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginRight: 10,
-    backgroundColor: '#E4DACB',
-  },
-  postNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   postAuthorName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E1A15',
-  },
-  postTierPill: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
-  },
-  postTierPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#B45309',
+    color: DS_COLOR.ink,
   },
   postMeta: {
     fontSize: 11,
-    color: '#5A5146',
-    marginTop: 2,
-  },
-  unbookmarkBtn: {
-    padding: 6,
+    color: DS_COLOR.inkMuted,
   },
   postTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1A15',
+    fontSize: DS_TYPE.body,
+    fontWeight: '700',
+    color: DS_COLOR.ink,
     marginBottom: 4,
   },
   postContent: {
-    fontSize: 12.5,
-    color: '#3B332A',
+    fontSize: 13,
+    color: DS_COLOR.inkSecondary,
     lineHeight: 18,
+    marginBottom: 8,
   },
   postSingleImage: {
     width: '100%',
     height: 160,
-    borderRadius: 6,
-    marginTop: 8,
-    resizeMode: 'cover',
+    borderRadius: DS_RADIUS.md,
+    marginBottom: 8,
   },
   postFooter: {
     flexDirection: 'row',
     gap: 16,
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
+    paddingTop: 4,
   },
   postStatItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   postStatText: {
-    fontSize: 12,
-    color: '#5A5146',
-    fontWeight: '600',
+    fontSize: 11.5,
+    color: DS_COLOR.inkMuted,
   },
 
-  // Prestige Tier Section
-  prestigeCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
+  // Empty Container
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: DS_TYPE.body,
+    fontWeight: '700',
+    color: DS_COLOR.ink,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkMuted,
+    textAlign: 'center',
+    lineHeight: 17,
     marginBottom: 16,
   },
-  prestigeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  emptyActionBtn: {
+    backgroundColor: DS_COLOR.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: DS_RADIUS.pill,
   },
-  prestigeTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1A15',
-  },
-  prestigeSubtitle: {
-    fontSize: 12,
+  emptyActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#B45309',
-    marginTop: 2,
-  },
-  prestigeXpPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-  prestigeXpText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#B45309',
-  },
-  progressContainer: {
-    marginTop: 14,
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: '#E4DACB',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: WF_COLORS.primary,
-    borderRadius: 4,
-  },
-  progressMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  progressMetaText: {
-    fontSize: 11,
-    color: '#5A5146',
-    fontWeight: '600',
-  },
-  progressPercentText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: WF_COLORS.primary,
   },
 
-  // Tiers Grid
-  tiersGrid: {
-    gap: 10,
+  // Auth Styles
+  authScroll: {
+    padding: 20,
+    paddingTop: 40,
+  },
+  authHero: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  authLogoCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FDF2F0',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
-  tierCardItem: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 5,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  tierCardCurrent: {
-    borderColor: WF_COLORS.primary,
-    borderWidth: 2,
-    backgroundColor: '#F6E6DD',
-  },
-  tierCardLocked: {
-    opacity: 0.65,
-  },
-  tierCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  authHeroTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: DS_COLOR.ink,
     marginBottom: 6,
   },
-  tierIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFDF8',
+  authHeroDesc: {
+    fontSize: 12.5,
+    color: DS_COLOR.inkMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
-  tierIconLarge: {
-    fontSize: 18,
-  },
-  tierNameText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1E1A15',
-  },
-  tierNameEnText: {
-    fontSize: 11,
-    color: '#5A5146',
-    fontWeight: '600',
-  },
-  tierDescText: {
-    fontSize: 11.5,
-    color: '#5A5146',
-    lineHeight: 16,
-    marginBottom: 10,
-  },
-  tierFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
-  },
-  tierRequirementText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5A5146',
-  },
-  tierStatusActive: {
-    backgroundColor: WF_COLORS.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
-  tierStatusActiveText: {
-    color: '#FFFDF8',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  tierStatusUnlocked: {
-    backgroundColor: '#E8EFE3',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
-  tierStatusUnlockedText: {
-    color: '#4F6B52',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  tierStatusLocked: {
-    backgroundColor: '#E4DACB',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
-  tierStatusLockedText: {
-    color: '#5A5146',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-
-  // Achievements
-  achievementsList: {
-    gap: 8,
-  },
-  achCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 12,
+  authCard: {
+    backgroundColor: DS_COLOR.surface,
+    borderRadius: DS_RADIUS.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E4DACB',
-    alignItems: 'center',
+    borderColor: DS_COLOR.line,
   },
-  achCardUnlocked: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  achCardLocked: {
-    opacity: 0.7,
-  },
-  achIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 6,
-    backgroundColor: '#FFFDF8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  achTitleRow: {
+  authTabs: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: '#F5F5F4',
+    borderRadius: DS_RADIUS.pill,
+    padding: 3,
+    marginBottom: 16,
+  },
+  authTab: {
+    flex: 1,
+    paddingVertical: 8,
     alignItems: 'center',
+    borderRadius: DS_RADIUS.pill,
   },
-  achTitle: {
-    fontSize: 13,
+  authTabActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  authTabText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: DS_COLOR.inkMuted,
+  },
+  authTabTextActive: {
+    color: DS_COLOR.accent,
     fontWeight: '700',
-    color: '#1E1A15',
   },
-  achUnlockedPill: {
-    backgroundColor: '#FDE68A',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
+  inputGroup: {
+    marginBottom: 12,
   },
-  achUnlockedPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#92400E',
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
+    marginBottom: 4,
   },
-  achDesc: {
-    fontSize: 11,
-    color: '#5A5146',
-    marginTop: 2,
+  textInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: DS_COLOR.line,
+    borderRadius: DS_RADIUS.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: DS_COLOR.ink,
   },
-  achDate: {
+  primaryAuthBtn: {
+    backgroundColor: DS_COLOR.accent,
+    paddingVertical: 12,
+    borderRadius: DS_RADIUS.pill,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryAuthBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  orDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: DS_COLOR.line,
+  },
+  orText: {
     fontSize: 10,
-    color: '#8A7F70',
-    marginTop: 2,
-    fontFamily: 'monospace',
+    fontWeight: '700',
+    color: DS_COLOR.inkMuted,
+    marginHorizontal: 10,
+  },
+  googleAuthBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: DS_COLOR.line,
+  },
+  googleAuthBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
 
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(30, 26, 21, 0.6)',
-    justifyContent: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
+    backgroundColor: DS_COLOR.surface,
+    borderTopLeftRadius: DS_RADIUS.sheet,
+    borderTopRightRadius: DS_RADIUS.sheet,
     maxHeight: '90%',
-    overflow: 'hidden',
   },
   modalHeader: {
+    height: 52,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3EDE2',
+    borderBottomColor: DS_COLOR.line,
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1A15',
+    fontWeight: '700',
+    color: DS_COLOR.ink,
   },
   modalCloseBtn: {
-    padding: 6,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalBody: {
-    padding: 18,
-    gap: 12,
+    padding: 16,
   },
   modalAvatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F4EC',
-    padding: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
+    marginBottom: 16,
   },
   modalAvatarPreview: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 2,
-    backgroundColor: '#FFFDF8',
-  },
-  modalAvatarWrapper: {
-    position: 'relative',
-    width: 50,
-    height: 50,
-  },
-  modalAvatarLoadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 25,
-    backgroundColor: 'rgba(30, 26, 21, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   pickImageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F6E6DD',
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-    borderRadius: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    marginTop: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#FDF2F0',
+    borderRadius: DS_RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
   pickImageBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
-  },
-  pickImageHint: {
-    fontSize: 10,
-    color: '#8A7F70',
-    marginTop: 3,
-  },
-  inputGroup: {
-    gap: 4,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3B332A',
-  },
-  textInput: {
-    backgroundColor: '#F8F4EC',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    borderRadius: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 13,
-    color: '#1E1A15',
-  },
-  textArea: {
-    height: 70,
-    textAlignVertical: 'top',
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: DS_COLOR.accent,
   },
   twoColumnRow: {
     flexDirection: 'row',
+    marginBottom: 12,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -2929,179 +1743,56 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 5,
-    backgroundColor: '#F3EDE2',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
+    paddingVertical: 5,
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: '#F5F5F4',
   },
   chipActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
+    backgroundColor: '#FDF2F0',
+    borderWidth: 1,
+    borderColor: DS_COLOR.accent,
   },
   chipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5A5146',
+    fontSize: 11.5,
+    color: DS_COLOR.ink,
   },
   chipTextActive: {
-    color: '#FFFDF8',
+    color: DS_COLOR.accent,
+    fontWeight: '700',
+  },
+  textArea: {
+    height: 70,
+    textAlignVertical: 'top',
   },
   modalFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
-    backgroundColor: '#F8F4EC',
+    borderTopColor: DS_COLOR.line,
+    gap: 12,
   },
   modalCancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 5,
-    backgroundColor: '#E4DACB',
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: '#F5F5F4',
+    alignItems: 'center',
   },
   modalCancelBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#5A5146',
+    fontSize: 13,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   modalSaveBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.primary,
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: DS_COLOR.accent,
+    alignItems: 'center',
   },
   modalSaveBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFDF8',
-  },
-
-  // Auth Card Styles
-  authScroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-    alignItems: 'center',
-  },
-  authHero: {
-    alignItems: 'center',
-    marginBottom: 24,
-    maxWidth: 320,
-  },
-  authLogoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F6E6DD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-  },
-  authHeroTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E1A15',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  authHeroDesc: {
-    fontSize: 13,
-    color: '#5A5146',
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  authCard: {
-    width: '100%',
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 0,
-    gap: 14,
-  },
-  authTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#F3EDE2',
-    borderRadius: 5,
-    padding: 4,
-  },
-  authTab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 5,
-  },
-  authTabActive: {
-    backgroundColor: '#FFFDF8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 0,
-  },
-  authTabText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#5A5146',
-  },
-  authTabTextActive: {
-    color: WF_COLORS.primary,
-  },
-  primaryBtn: {
-    backgroundColor: WF_COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  primaryBtnText: {
-    color: '#FFFDF8',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 4,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E4DACB',
-  },
-  dividerText: {
-    fontSize: 12,
-    color: '#8A7F70',
-    fontWeight: '600',
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFDF8',
-    borderWidth: 1,
-    borderColor: '#D9CDBE',
-    paddingVertical: 11,
-    borderRadius: 5,
-  },
-  googleBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#3B332A',
+    color: '#FFFFFF',
   },
 });

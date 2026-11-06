@@ -77,10 +77,12 @@ export function PostCard({
   const [expanded, setExpanded] = useState(false);
 
   const images = useMemo(() => getPostImages(post), [post]);
-  const hasMedia = images.length > 0 || Boolean(post.videoUrl);
+  const hasMedia = !post.sharedPost && (images.length > 0 || Boolean(post.videoUrl));
   const commentCount = getPostCommentCount(post);
   const isOwner = post.isOwner ?? (currentUserId != null && post.authorId === currentUserId);
-  const isPrivate = (post.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE';
+  const visibilityUpper = (post.visibility || 'PUBLIC').toUpperCase();
+  const isPrivate = visibilityUpper === 'PRIVATE';
+  const isFriends = visibilityUpper === 'FRIENDS';
   const isPending = post.status === 'PENDING_REVIEW';
   const content = post.content || '';
   const canTruncate = content.length > READ_MORE_THRESHOLD;
@@ -176,6 +178,11 @@ export function PostCard({
                   <>
                     <Text style={styles.posterMetaDot}>·</Text>
                     <FontAwesome name="lock" size={10} color="#CBD5E1" />
+                  </>
+                ) : isFriends ? (
+                  <>
+                    <Text style={styles.posterMetaDot}>·</Text>
+                    <FontAwesome name="users" size={10} color="#CBD5E1" />
                   </>
                 ) : null}
               </View>
@@ -355,6 +362,10 @@ export function PostCard({
               </Text>
             </TouchableOpacity>
 
+            {post.sharedPost ? (
+              <Text style={styles.sharedActionText}>đã chia sẻ bài viết</Text>
+            ) : null}
+
             {isOwner ? (
               <Text style={styles.youTag}>(Bạn)</Text>
             ) : onToggleFollow ? (
@@ -395,6 +406,11 @@ export function PostCard({
               <>
                 <Text style={styles.metaDot}>·</Text>
                 <FontAwesome name="lock" size={10} color={DS_COLOR.inkMuted} />
+              </>
+            ) : isFriends ? (
+              <>
+                <Text style={styles.metaDot}>·</Text>
+                <FontAwesome name="users" size={10} color={DS_COLOR.inkMuted} />
               </>
             ) : null}
           </View>
@@ -461,6 +477,15 @@ export function PostCard({
             </Text>
           ) : null}
           <RichPostText content={post.sharedPost.content} style={styles.sharedContent} numberOfLines={3} />
+          {(() => {
+            const sharedImg =
+              post.sharedPost.imageUrl ||
+              post.sharedPost.coverImage ||
+              (post.sharedPost.images && post.sharedPost.images[0]);
+            return sharedImg ? (
+              <Image source={{ uri: sharedImg }} style={styles.sharedMediaThumb} resizeMode="cover" />
+            ) : null;
+          })()}
         </View>
       ) : null}
 
@@ -934,6 +959,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: DS_COLOR.accent,
   },
+  sharedActionText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: DS_COLOR.inkMuted,
+    fontStyle: 'italic',
+  },
   sharedBox: {
     marginHorizontal: 14,
     marginBottom: 12,
@@ -969,6 +1000,13 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: DS_COLOR.inkSecondary,
     lineHeight: 18,
+  },
+  sharedMediaThumb: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginTop: 8,
+    backgroundColor: '#E2E8F0',
   },
   itineraryWrap: {
     paddingHorizontal: 14,

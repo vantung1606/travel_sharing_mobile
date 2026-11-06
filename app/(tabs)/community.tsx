@@ -727,11 +727,25 @@ export default function CommunityScreen() {
     const commentCount = commentOverrides[item.id] ?? item.commentCount ?? item.commentsCount ?? 0;
     const postWithCount: PostItem = { ...item, commentCount, likeCount: likes, isLiked: liked };
     const canFollow = session && !(item.isOwner ?? (session.id != null && item.authorId === session.id)) && item.authorId != null;
+    const isAnyModalOpen = Boolean(
+      detailPost ||
+      composerVisible ||
+      editingPost ||
+      menuPost ||
+      reportTarget ||
+      lightbox ||
+      itineraryVisible ||
+      placeDetailVisible ||
+      selectedPostForLikers ||
+      selectedUserId ||
+      shareTarget ||
+      filterSheetVisible
+    );
 
     return (
       <PostCard
         post={postWithCount}
-        isVideoPlaying={activeVisiblePostId === Number(item.id)}
+        isVideoPlaying={!isAnyModalOpen && activeVisiblePostId === Number(item.id)}
         liked={liked}
         likeCount={likes}
         bookmarked={!!bookmarkedPosts[item.id]}

@@ -106,6 +106,7 @@ export function PostDetailModal({
   const [commentCount, setCommentCount] = useState(0);
   const isOwner = !!post && (post.isOwner ?? (currentUserId != null && post.authorId === currentUserId));
   const isPrivate = (post?.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE';
+  const isFriends = (post?.visibility || 'PUBLIC').toUpperCase() === 'FRIENDS';
 
   const loadComments = useCallback(async (postId: number) => {
     setLoadingComments(true);
@@ -367,14 +368,24 @@ export function PostDetailModal({
                           </TouchableOpacity>
                         </>
                       ) : null}
-                      <View style={[styles.visibilityPill, isPrivate && styles.visibilityPillPrivate]}>
+                      <View
+                        style={[
+                          styles.visibilityPill,
+                          isPrivate && styles.visibilityPillPrivate,
+                          isFriends && styles.visibilityPillFriends,
+                        ]}>
                         <FontAwesome
-                          name={isPrivate ? 'lock' : 'globe'}
+                          name={isPrivate ? 'lock' : isFriends ? 'users' : 'globe'}
                           size={9}
-                          color={isPrivate ? '#B45309' : WF_PAPER.clay}
+                          color={isPrivate ? '#B45309' : isFriends ? '#0284C7' : WF_PAPER.clay}
                         />
-                        <Text style={[styles.visibilityText, isPrivate && { color: '#B45309' }]}>
-                          {isPrivate ? 'Chỉ mình tôi' : 'Công khai'}
+                        <Text
+                          style={[
+                            styles.visibilityText,
+                            isPrivate && { color: '#B45309' },
+                            isFriends && { color: '#0284C7' },
+                          ]}>
+                          {isPrivate ? 'Chỉ mình tôi' : isFriends ? 'Bạn bè' : 'Công khai'}
                         </Text>
                       </View>
                     </View>
@@ -690,6 +701,9 @@ const styles = StyleSheet.create({
   },
   visibilityPillPrivate: {
     backgroundColor: WF_PAPER.pillBg,
+  },
+  visibilityPillFriends: {
+    backgroundColor: '#E0F2FE',
   },
   visibilityText: {
     fontSize: 9.5,

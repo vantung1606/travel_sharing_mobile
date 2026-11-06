@@ -1,6 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/Themed';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
@@ -42,9 +43,9 @@ interface PostCardProps {
 
 /**
  * Card bài viết phong cách Immersive Travel Poster (Ý tưởng 1):
- * - Nếu có ảnh/video: Poster điện ảnh tràn viền, ảnh là nhân vật chính,
- *   thông tin và tương tác phủ chìm bằng scrim gradient kính mờ siêu sang.
- * - Nếu chỉ có chữ: Thẻ ký sự du ký (Editorial Note) thanh lịch trên nền giấy ấm.
+ * - Dùng ĐÚNG 1 LỚP LinearGradient trong suốt mượt mà phủ toàn card (không dùng nhiều ô mờ/dải đen chắp vá).
+ * - Thông tin tác giả & công cụ nổi tự nhiên trên gradient, không bọc ô đen vụn vặt.
+ * - Đảm bảo thanh tương tác ở đáy thoáng đãng, sắc sảo và thanh lịch.
  */
 export function PostCard({
   post,
@@ -92,24 +93,34 @@ export function PostCard({
 
     return (
       <View style={styles.posterCard}>
-        {/* Ảnh nền phủ trọn khung poster */}
+        {/* Ảnh nền trọn vẹn của card */}
         {heroImageUri ? (
           <Image source={{ uri: heroImageUri }} style={styles.posterBgImage} resizeMode="cover" />
         ) : (
           <View style={[styles.posterBgImage, { backgroundColor: '#1E1A15' }]} />
         )}
 
-        {/* Lớp phủ Scrim Gradient mờ mịn đa tầng */}
-        <View style={styles.posterScrimTop} />
-        <View style={styles.posterScrimBottomSoft} />
-        <View style={styles.posterScrimBottomDeep} />
+        {/* DUY NHẤT 1 LỚP GRADIENT MỜ TRONG SUỐT LIỀN MẠCH TOÀN CARD */}
+        <LinearGradient
+          colors={[
+            'rgba(15, 23, 42, 0.70)',
+            'rgba(15, 23, 42, 0.18)',
+            'transparent',
+            'rgba(15, 23, 42, 0.45)',
+            'rgba(15, 23, 42, 0.85)',
+            'rgba(15, 23, 42, 0.98)',
+          ]}
+          locations={[0, 0.18, 0.38, 0.65, 0.84, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
 
-        {/* Thanh Header nổi: Tác giả (Glass Pill) + Nút Bookmark & 3 Chấm */}
+        {/* Thanh Header nổi: Tác giả tự nhiên & Nút Bookmark, 3 Chấm */}
         <View style={styles.posterTopRow}>
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={onPressAuthor}
-            style={styles.posterAuthorPill}
+            style={styles.posterAuthorRow}
             accessibilityLabel={`Xem hồ sơ ${post.authorName || 'thành viên'}`}>
             <Image
               source={{ uri: post.authorAvatar || FALLBACK_AVATAR }}
@@ -169,7 +180,7 @@ export function PostCard({
                 activeOpacity={0.8}
                 onPress={() => onPressImage(0)}
                 style={styles.photoCountBadge}>
-                <FontAwesome name="image" size={10} color="#FFFFFF" />
+                <FontAwesome name="image" size={11} color="#FFFFFF" />
                 <Text style={styles.photoCountText}>{images.length}</Text>
               </TouchableOpacity>
             )}
@@ -181,7 +192,7 @@ export function PostCard({
               accessibilityLabel={bookmarked ? 'Bỏ lưu' : 'Lưu bài viết'}>
               <FontAwesome
                 name={bookmarked ? 'bookmark' : 'bookmark-o'}
-                size={14}
+                size={15}
                 color={bookmarked ? '#F59E0B' : '#FFFFFF'}
               />
             </TouchableOpacity>
@@ -191,12 +202,12 @@ export function PostCard({
               onPress={onOpenMenu}
               activeOpacity={0.8}
               accessibilityLabel="Tùy chọn bài viết">
-              <FontAwesome name="ellipsis-h" size={14} color="#FFFFFF" />
+              <FontAwesome name="ellipsis-h" size={15} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Nút phát nếu có video */}
+        {/* Nút phát video */}
         {post.videoUrl && (
           <TouchableOpacity
             activeOpacity={0.85}
@@ -204,7 +215,7 @@ export function PostCard({
             onPress={onPressVideo}
             accessibilityLabel="Phát video">
             <View style={styles.playIconCircle}>
-              <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+              <FontAwesome name="play" size={22} color="#FFFFFF" style={{ marginLeft: 3 }} />
             </View>
           </TouchableOpacity>
         )}
@@ -225,9 +236,9 @@ export function PostCard({
             accessibilityRole="button"
             accessibilityLabel={`Xem chi tiết bài viết ${post.title || ''}`}>
             {locationText && (
-              <View style={styles.posterLocationPill}>
-                <FontAwesome name="map-marker" size={11} color="#FBBF24" />
-                <Text style={styles.posterLocationPillText} numberOfLines={1}>
+              <View style={styles.posterLocationRow}>
+                <FontAwesome name="map-marker" size={12} color="#FBBF24" />
+                <Text style={styles.posterLocationTagText} numberOfLines={1}>
                   {locationText}
                 </Text>
               </View>
@@ -254,11 +265,11 @@ export function PostCard({
               style={styles.posterItinPill}
               accessibilityRole="button"
               accessibilityLabel="Xem lịch trình đính kèm">
-              <FontAwesome name="calendar-check-o" size={12} color="#F59E0B" />
+              <FontAwesome name="calendar-check-o" size={12} color="#FBBF24" />
               <Text style={styles.posterItinText} numberOfLines={1}>
                 Chuyến đi đính kèm · Xem lịch trình
               </Text>
-              <FontAwesome name="angle-right" size={12} color="#F59E0B" />
+              <FontAwesome name="angle-right" size={12} color="#FBBF24" />
             </TouchableOpacity>
           )}
 
@@ -271,7 +282,7 @@ export function PostCard({
               accessibilityLabel={liked ? 'Bỏ thích' : 'Thích bài viết'}>
               <FontAwesome
                 name={liked ? 'heart' : 'heart-o'}
-                size={17}
+                size={18}
                 color={liked ? '#EF4444' : '#FFFFFF'}
               />
               <Text style={[styles.posterActionText, liked && styles.posterActionTextLiked]}>
@@ -284,7 +295,7 @@ export function PostCard({
               onPress={onOpenComments}
               activeOpacity={0.7}
               accessibilityLabel="Bình luận">
-              <FontAwesome name="comment-o" size={16} color="#FFFFFF" />
+              <FontAwesome name="comment-o" size={17} color="#FFFFFF" />
               <Text style={styles.posterActionText}>{formatCount(commentCount)}</Text>
             </TouchableOpacity>
 
@@ -293,7 +304,7 @@ export function PostCard({
               onPress={onShare}
               activeOpacity={0.7}
               accessibilityLabel="Chia sẻ">
-              <FontAwesome name="share-alt" size={15} color="#FFFFFF" />
+              <FontAwesome name="share-alt" size={16} color="#FFFFFF" />
               <Text style={styles.posterActionText}>Chia sẻ</Text>
             </TouchableOpacity>
 
@@ -506,9 +517,9 @@ export function PostCard({
 }
 
 const styles = StyleSheet.create({
-  // ── 1. STYLES CHO IMMERSIVE POSTER CARD ─────────────────────
+  // ── 1. STYLES CHO IMMERSIVE POSTER CARD (Ý TƯỞNG 1 TINH GỌN) ──
   posterCard: {
-    height: 440,
+    height: 470,
     marginHorizontal: 16,
     marginBottom: 18,
     borderRadius: 24,
@@ -529,30 +540,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  posterScrimTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-    backgroundColor: 'rgba(15, 23, 42, 0.42)',
-  },
-  posterScrimBottomSoft: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '70%',
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-  },
-  posterScrimBottomDeep: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '45%',
-    backgroundColor: 'rgba(15, 23, 42, 0.68)',
-  },
   posterTopRow: {
     position: 'absolute',
     top: 14,
@@ -563,24 +550,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 10,
   },
-  posterAuthorPill: {
+  posterAuthorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     flexShrink: 1,
-    maxWidth: '72%',
+    maxWidth: '75%',
   },
   posterAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
-    marginRight: 7,
+    marginRight: 8,
   },
   posterAuthorTextWrap: {
     flexShrink: 1,
@@ -592,9 +573,12 @@ const styles = StyleSheet.create({
   },
   posterAuthorName: {
     color: '#FFFFFF',
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
     flexShrink: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   posterYouTag: {
     color: '#93C5FD',
@@ -615,37 +599,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    marginTop: 1,
   },
   posterMetaText: {
-    color: '#CBD5E1',
-    fontSize: 10.5,
+    color: '#E2E8F0',
+    fontSize: 11,
     fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.65)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   posterMetaDot: {
-    color: '#94A3B8',
+    color: '#CBD5E1',
     fontSize: 10,
   },
   posterLocationText: {
     color: '#FDE68A',
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '600',
-    maxWidth: 110,
+    maxWidth: 120,
+    textShadowColor: 'rgba(0, 0, 0, 0.65)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   posterTopRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 8,
   },
   photoCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   photoCountText: {
     color: '#FFFFFF',
@@ -653,12 +642,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   glassCircleBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -674,7 +661,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     alignItems: 'center',
@@ -682,7 +669,7 @@ const styles = StyleSheet.create({
   },
   posterPendingBanner: {
     position: 'absolute',
-    top: 58,
+    top: 56,
     left: 14,
     right: 14,
     flexDirection: 'row',
@@ -701,43 +688,41 @@ const styles = StyleSheet.create({
   },
   posterBottomContent: {
     position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 12,
+    left: 16,
+    right: 16,
+    bottom: 14,
     zIndex: 10,
   },
-  posterLocationPill: {
+  posterLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    gap: 5,
     marginBottom: 6,
   },
-  posterLocationPillText: {
+  posterLocationTagText: {
     color: '#FDE68A',
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
     letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   posterTitle: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
-    lineHeight: 23,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    lineHeight: 24,
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
     marginBottom: 4,
   },
   posterSnippet: {
     color: '#E2E8F0',
-    fontSize: 12.5,
+    fontSize: 13,
     lineHeight: 18,
-    textShadowColor: 'rgba(0, 0, 0, 0.65)',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
     marginBottom: 10,
@@ -746,24 +731,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(245, 158, 11, 0.22)',
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.5)',
+    borderColor: 'rgba(245, 158, 11, 0.45)',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
     marginBottom: 10,
     alignSelf: 'flex-start',
   },
   posterItinText: {
     color: '#FEF3C7',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
   },
   posterActionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.15)',
@@ -771,12 +756,15 @@ const styles = StyleSheet.create({
   posterActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
   posterActionText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.65)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   posterActionTextLiked: {
     color: '#FCA5A5',
@@ -789,13 +777,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
-    paddingHorizontal: 11,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 999,
   },
   posterExploreText: {
     color: '#FFFFFF',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
   },
 

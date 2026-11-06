@@ -5,7 +5,7 @@ import { AppState, Image, View, StyleSheet, TouchableOpacity } from 'react-nativ
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_PAPER } from '@/constants/Colors';
-import { ChatModal } from '@/components/ChatModal';
+import { ChatModal } from '../../components/ChatModal';
 import { NotificationModal } from '@/components/NotificationModal';
 import { showToast } from '@/components/Toast';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';

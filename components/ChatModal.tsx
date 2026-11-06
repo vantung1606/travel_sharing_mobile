@@ -43,6 +43,7 @@ import { parseVietnamDate } from '@/src/utils/dateUtils';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
+import { UserProfileModal } from './UserProfileModal';
 import { NewChatSheet } from './chat/NewChatSheet';
 import { ConfirmHost, confirmDialog } from './ConfirmDialog';
 import { ToastHost, showToast } from './Toast';
@@ -488,6 +489,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedItinForModal, setSelectedItinForModal] = useState<ItineraryItem | null>(null);
   const [itinModalVisible, setItinModalVisible] = useState(false);
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<number | null>(null);
 
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
@@ -648,6 +650,54 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
       setNewMessageCount(0);
     }
   };
+
+  // ── Profile View Helpers ─────────────────────────────────
+  const getPartnerUserId = useCallback(
+    (room: ChatRoom | null): number | null => {
+      if (!room || room.type === 'AI') return null;
+
+      // 1. Kiểm tra từ members của phòng chat
+      if (room.members && room.members.length > 0) {
+        const myId = currentUserIdRef.current;
+        const myEmail = currentUserEmailRef.current?.toLowerCase();
+        const partner = room.members.find(
+          (m) =>
+            (myId && m.userId && Number(m.userId) !== Number(myId)) ||
+            (myEmail && m.email && m.email.toLowerCase() !== myEmail)
+        );
+        if (partner?.userId) return Number(partner.userId);
+      }
+
+      // 2. Tìm người gửi khác từ danh sách tin nhắn
+      const otherMsg = messages.find((m) => !m.isMe && m.senderId);
+      if (otherMsg?.senderId) return Number(otherMsg.senderId);
+
+      return null;
+    },
+    [messages]
+  );
+
+  const handleOpenPartnerProfile = useCallback(() => {
+    const partnerId = getPartnerUserId(activeRoom);
+    if (partnerId) {
+      setSelectedProfileUserId(partnerId);
+    } else {
+      showToast({ title: 'Không tìm thấy hồ sơ', message: 'Người dùng tạm thời không khả dụng', kind: 'error' });
+    }
+  }, [activeRoom, getPartnerUserId]);
+
+  const handleOpenSenderProfile = useCallback(
+    (msg: ChatMessage) => {
+      if (activeRoom?.type === 'AI') return;
+      const targetId = msg.senderId ? Number(msg.senderId) : getPartnerUserId(activeRoom);
+      if (targetId) {
+        setSelectedProfileUserId(targetId);
+      } else {
+        showToast({ title: 'Không tìm thấy hồ sơ', message: 'Người dùng tạm thời không khả dụng', kind: 'error' });
+      }
+    },
+    [activeRoom, getPartnerUserId]
+  );
 
   // ── Rooms ─────────────────────────────────────────────────
   const updateRoomFromMessage = useCallback(
@@ -1486,12 +1536,27 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         {!isMe && (
           <View style={styles.avatarSlot}>
             {showAvatar ? (
-              <Image
-                source={{
-                  uri: message.senderAvatar || activeRoom?.avatarUrl || FALLBACK_AVATAR,
-                }}
-                style={styles.messageAvatar}
-              />
+              activeRoom?.type !== 'AI' ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleOpenSenderProfile(message)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xem hồ sơ của ${senderName}`}>
+                  <Image
+                    source={{
+                      uri: message.senderAvatar || activeRoom?.avatarUrl || FALLBACK_AVATAR,
+                    }}
+                    style={styles.messageAvatar}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <Image
+                  source={{
+                    uri: message.senderAvatar || activeRoom?.avatarUrl || FALLBACK_AVATAR,
+                  }}
+                  style={styles.messageAvatar}
+                />
+              )
             ) : null}
           </View>
         )}
@@ -1499,9 +1564,21 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         <View style={[styles.messageColumn, isMe && styles.messageColumnMe]}>
           {showSenderName && (
             <View style={styles.senderRow}>
-              <Text style={styles.senderName} numberOfLines={1}>
-                {senderName}
-              </Text>
+              {activeRoom?.type !== 'AI' ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleOpenSenderProfile(message)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xem hồ sơ của ${senderName}`}>
+                  <Text style={[styles.senderName, { textDecorationLine: 'underline' }]} numberOfLines={1}>
+                    {senderName}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.senderName} numberOfLines={1}>
+                  {senderName}
+                </Text>
+              )}
               {activeRoom?.type === 'AI' && !message.isMe && (
                 <View style={styles.assistantBadge}>
                   <FontAwesome name="compass" size={7} color="#B45309" />
@@ -1701,7 +1778,13 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                 <FontAwesome name="chevron-left" size={15} color={WF_COLORS.slate700} />
               </TouchableOpacity>
 
-              <View style={styles.threadHeaderCenter}>
+              <TouchableOpacity
+                style={styles.threadHeaderCenter}
+                activeOpacity={activeRoom.type === 'DIRECT' ? 0.7 : 1}
+                disabled={activeRoom.type !== 'DIRECT'}
+                onPress={handleOpenPartnerProfile}
+                accessibilityRole={activeRoom.type === 'DIRECT' ? 'button' : undefined}
+                accessibilityLabel={activeRoom.type === 'DIRECT' ? `Xem trang cá nhân của ${activeRoom.name}` : undefined}>
                 <View style={styles.threadAvatarWrap}>
                   <Image
                     source={{ uri: activeRoom.avatarUrl || FALLBACK_AVATAR }}
@@ -1720,7 +1803,18 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
                     {threadSubtitle}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
+
+              {activeRoom.type === 'DIRECT' && (
+                <TouchableOpacity
+                  style={styles.headerIconBtn}
+                  activeOpacity={0.8}
+                  onPress={handleOpenPartnerProfile}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xem trang cá nhân của ${activeRoom.name}`}>
+                  <FontAwesome name="user-circle-o" size={17} color={WF_COLORS.slate700} />
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.headerIconBtn}
@@ -2169,6 +2263,13 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
             canEdit={false}
           />
         )}
+
+        {/* User Profile Modal */}
+        <UserProfileModal
+          visible={Boolean(selectedProfileUserId)}
+          userId={selectedProfileUserId}
+          onClose={() => setSelectedProfileUserId(null)}
+        />
 
         {/* Thông báo & hộp xác nhận nằm trong chính modal để không bị lớp phủ che */}
         <ConfirmHost enabled={visible} />

@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -53,6 +54,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
   const [category, setCategory] = useState<string>('Ẩm thực & Check-in');
   const [videoUrl, setVideoUrl] = useState('');
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
+  const [commentLocked, setCommentLocked] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [itineraryId, setItineraryId] = useState<number | null>(null);
   const [myItineraries, setMyItineraries] = useState<ItineraryItem[]>([]);
@@ -72,6 +74,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
       setCategory(editingPost.category || 'Ẩm thực & Check-in');
       setVideoUrl(editingPost.videoUrl || '');
       setVisibility((editingPost.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC');
+      setCommentLocked(Boolean(editingPost.commentLocked));
       setImages(editingPost.images?.length ? editingPost.images : editingPost.imageUrl ? [editingPost.imageUrl] : []);
       setItineraryId(editingPost.itineraryId ?? null);
       if (editingPost.placeId) {
@@ -95,6 +98,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
       setCategory('Ẩm thực & Check-in');
       setVideoUrl('');
       setVisibility('PUBLIC');
+      setCommentLocked(false);
       setImages([]);
       setItineraryId(null);
       setPlaceId(initialPlaceId ?? null);
@@ -249,6 +253,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
         images,
         videoUrl: videoUrl.trim() || undefined,
         visibility,
+        commentLocked,
         itineraryId: itineraryId ?? undefined,
         placeId: placeId ?? undefined,
       };
@@ -328,6 +333,22 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                     </Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              {/* Comment Lock Toggle */}
+              <View style={styles.commentLockContainer}>
+                <View style={styles.visibilityLabelGroup}>
+                  <Text style={styles.visibilityTitle}>Tắt tính năng bình luận</Text>
+                  <Text style={styles.visibilitySubtitle}>
+                    {commentLocked ? 'Không cho phép bình luận 🔒' : 'Mọi người có thể bình luận 💬'}
+                  </Text>
+                </View>
+                <Switch
+                  value={commentLocked}
+                  onValueChange={setCommentLocked}
+                  trackColor={{ false: WF_PAPER.cardBorder, true: '#F59E0B' }}
+                  thumbColor={commentLocked ? '#B45309' : '#FFFFFF'}
+                />
               </View>
 
               <Text style={styles.label}>Tiêu đề</Text>
@@ -681,6 +702,18 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   visibilityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: WF_PAPER.bg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    marginBottom: 10,
+  },
+  commentLockContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

@@ -280,15 +280,17 @@ export function PostDetailModal({
           </View>
         <Text style={styles.commentText}>{comment.content}</Text>
         <View style={styles.commentActions}>
-          <TouchableOpacity
-            onPress={() =>
-              setReplyTarget({
-                id: parentId ?? comment.id,
-                name: comment.authorName || comment.userName || 'thành viên',
-              })
-            }>
-            <Text style={styles.commentActionText}>Trả lời</Text>
-          </TouchableOpacity>
+          {!post.commentLocked ? (
+            <TouchableOpacity
+              onPress={() =>
+                setReplyTarget({
+                  id: parentId ?? comment.id,
+                  name: comment.authorName || comment.userName || 'thành viên',
+                })
+              }>
+              <Text style={styles.commentActionText}>Trả lời</Text>
+            </TouchableOpacity>
+          ) : null}
           {canDelete(comment) ? (
             <TouchableOpacity onPress={() => handleDelete(comment, parentId)}>
               <Text style={[styles.commentActionText, { color: '#E11D48' }]}>Xóa</Text>
@@ -524,40 +526,49 @@ export function PostDetailModal({
               )}
             </ScrollView>
 
-            {/* Comment input */}
-            <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-              {replyTarget ? (
-                <View style={styles.replyHint}>
-                  <Text style={styles.replyHintText} numberOfLines={1}>
-                    Đang trả lời {replyTarget.name}
-                  </Text>
-                  <TouchableOpacity onPress={() => setReplyTarget(null)}>
-                    <FontAwesome name="times" size={13} color={WF_PAPER.inkMuted} />
+            {/* Comment input or Locked Notice */}
+            {post.commentLocked ? (
+              <View style={[styles.lockedBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                <FontAwesome name="lock" size={14} color="#B45309" />
+                <Text style={styles.lockedText}>
+                  Tác giả đã tắt tính năng bình luận cho bài viết này.
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+                {replyTarget ? (
+                  <View style={styles.replyHint}>
+                    <Text style={styles.replyHintText} numberOfLines={1}>
+                      Đang trả lời {replyTarget.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => setReplyTarget(null)}>
+                      <FontAwesome name="times" size={13} color={WF_PAPER.inkMuted} />
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={session ? 'Viết bình luận...' : 'Đăng nhập để bình luận'}
+                    placeholderTextColor={WF_PAPER.inkMuted}
+                    value={input}
+                    onChangeText={setInput}
+                    multiline
+                    editable={!!session}
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendBtn, (!input.trim() || submitting) && { opacity: 0.5 }]}
+                    onPress={handleSend}
+                    disabled={!input.trim() || submitting}>
+                    {submitting ? (
+                      <ActivityIndicator size="small" color={WF_PAPER.card} />
+                    ) : (
+                      <FontAwesome name="paper-plane" size={14} color={WF_PAPER.card} />
+                    )}
                   </TouchableOpacity>
                 </View>
-              ) : null}
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.input}
-                  placeholder={session ? 'Viết bình luận...' : 'Đăng nhập để bình luận'}
-                  placeholderTextColor={WF_PAPER.inkMuted}
-                  value={input}
-                  onChangeText={setInput}
-                  multiline
-                  editable={!!session}
-                />
-                <TouchableOpacity
-                  style={[styles.sendBtn, (!input.trim() || submitting) && { opacity: 0.5 }]}
-                  onPress={handleSend}
-                  disabled={!input.trim() || submitting}>
-                  {submitting ? (
-                    <ActivityIndicator size="small" color={WF_PAPER.card} />
-                  ) : (
-                    <FontAwesome name="paper-plane" size={14} color={WF_PAPER.card} />
-                  )}
-                </TouchableOpacity>
               </View>
-            </View>
+            )}
           </KeyboardAvoidingView>
         </View>
 
@@ -958,5 +969,21 @@ const styles = StyleSheet.create({
     backgroundColor: WF_PAPER.clay,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lockedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(15, 23, 42, 0.08)',
+    backgroundColor: '#FEF3C7',
+  },
+  lockedText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#92400E',
+    flex: 1,
   },
 });

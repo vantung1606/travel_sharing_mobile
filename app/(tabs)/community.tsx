@@ -498,6 +498,28 @@ export default function CommunityScreen() {
     }
   };
 
+  const handleToggleCommentLock = async (post: PostItem) => {
+    try {
+      const updated = await postApi.toggleCommentLock(post.id);
+      const isLocked = Boolean(updated?.commentLocked ?? !post.commentLocked);
+      patchPost(post.id, { commentLocked: isLocked });
+      showToast({
+        kind: 'success',
+        title: isLocked ? 'Đã tắt bình luận' : 'Đã mở lại bình luận',
+        message: isLocked
+          ? 'Người khác sẽ không thể bình luận vào bài viết này.'
+          : 'Mọi người đã có thể tiếp tục bình luận vào bài viết.',
+        icon: isLocked ? 'lock' : 'comments',
+      });
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Thao tác thất bại',
+        message: err?.response?.data?.message || 'Không thể đổi trạng thái bình luận.',
+      });
+    }
+  };
+
   const patchPost = (postId: number, patch: Partial<PostItem>) => {
     setPagedPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)));
     setFullPosts((prev) => (prev ? prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)) : prev));
@@ -616,6 +638,12 @@ export default function CommunityScreen() {
         label: isPrivate ? 'Chuyển sang Công khai' : 'Chuyển sang Chỉ mình tôi',
         icon: isPrivate ? 'globe' : 'lock',
         onPress: () => changeVisibility(post),
+      });
+      options.push({
+        key: 'comment_lock',
+        label: post.commentLocked ? 'Mở lại bình luận' : 'Tắt tính năng bình luận',
+        icon: post.commentLocked ? 'comments' : 'lock',
+        onPress: () => handleToggleCommentLock(post),
       });
     } else {
       if (session && post.authorId != null) {

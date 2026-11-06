@@ -176,6 +176,7 @@ export interface PostItem {
   isLiked?: boolean;
   isBookmarked?: boolean;
   isOwner?: boolean;
+  commentLocked?: boolean;
   createdAt?: string;
   timeAgo?: string;
   formattedDate?: string;
@@ -498,6 +499,7 @@ export interface CreatePostPayload {
   images?: string[];
   videoUrl?: string;
   visibility?: string;
+  commentLocked?: boolean;
   itineraryId?: number;
   placeId?: number;
   sharedPostId?: number;
@@ -626,6 +628,11 @@ export const postApi = {
       params: { visibility },
     });
     return res.data.data;
+  },
+
+  async toggleCommentLock(id: number): Promise<PostItem> {
+    const res = await apiClient.patch<ApiResponse<PostItem>>(`/posts/${id}/toggle-comment-lock`);
+    return normalizePost(res.data.data);
   },
 
   async deletePost(id: number): Promise<void> {

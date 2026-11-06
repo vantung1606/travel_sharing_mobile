@@ -312,6 +312,9 @@ export function PostCard({
               accessibilityLabel="Bình luận">
               <FontAwesome name="comment-o" size={17} color="#FFFFFF" />
               <Text style={styles.posterActionText}>{formatCount(commentCount)}</Text>
+              {post.commentLocked ? (
+                <FontAwesome name="lock" size={11} color="#F59E0B" style={{ marginLeft: -2 }} />
+              ) : null}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -520,6 +523,9 @@ export function PostCard({
           accessibilityLabel="Xem bình luận">
           <FontAwesome name="comment-o" size={18} color={DS_COLOR.inkMuted} />
           <Text style={styles.actionText}>{formatCount(commentCount)}</Text>
+          {post.commentLocked ? (
+            <FontAwesome name="lock" size={12} color="#B45309" style={{ marginLeft: -2 }} />
+          ) : null}
         </TouchableOpacity>
 
         <TouchableOpacity

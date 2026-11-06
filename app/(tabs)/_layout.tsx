@@ -14,11 +14,32 @@ import { authPrompt } from '@/src/services/authPrompt';
 import { notificationApi, chatApi, mapChatRoom } from '@/src/services/api';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 
-function TabBarIcon(props: {
+function DynamicTabIcon({
+  name,
+  focused,
+  avatarUrl,
+}: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: any;
+  focused: boolean;
+  avatarUrl?: string | null;
 }) {
-  return <FontAwesome size={21} style={{ marginBottom: -2 }} {...props} />;
+  if (avatarUrl) {
+    return (
+      <View style={[styles.tabAvatarWrap, focused && styles.tabAvatarWrapActive]}>
+        <Image source={{ uri: avatarUrl }} style={styles.tabAvatarImg} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.tabCapsule, focused && styles.tabCapsuleActive]}>
+      <FontAwesome
+        name={name}
+        size={focused ? 18 : 17}
+        color={focused ? WF_PAPER.clay : '#64748B'}
+      />
+    </View>
+  );
 }
 
 export const unstable_settings = {
@@ -186,28 +207,28 @@ export default function TabLayout() {
         backBehavior="initialRoute"
         screenOptions={{
           tabBarActiveTintColor: WF_PAPER.clay,
-          tabBarInactiveTintColor: WF_PAPER.inkMuted,
+          tabBarInactiveTintColor: '#64748B',
           tabBarStyle: {
-            backgroundColor: WF_PAPER.card,
-            borderTopColor: 'rgba(15, 23, 42, 0.06)',
+            backgroundColor: '#FFFFFF',
+            borderTopColor: 'rgba(15, 23, 42, 0.07)',
             borderTopWidth: 1,
-            height: 60 + Math.max(insets.bottom, 16),
-            paddingBottom: Math.max(insets.bottom, 14) + 4,
+            height: 62 + Math.max(insets.bottom, 12),
+            paddingBottom: Math.max(insets.bottom, 10) + 2,
             paddingTop: 8,
-            elevation: 8,
+            elevation: 12,
             shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: -3 },
-            shadowOpacity: 0.05,
-            shadowRadius: 12,
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
           },
-          tabBarLabelStyle: {
-            fontSize: 11,
-            lineHeight: 15,
-            fontWeight: '600',
-            marginTop: 2,
-            letterSpacing: 0.2,
-            flexShrink: 0,
-          },
+          tabBarLabel: ({ focused, children }) => (
+            <View style={styles.tabLabelWrap}>
+              <Text style={[styles.tabLabelText, focused && styles.tabLabelTextActive]}>
+                {typeof children === 'string' ? children : ''}
+              </Text>
+              {focused ? <View style={styles.tabActiveDot} /> : <View style={styles.tabDotPlaceholder} />}
+            </View>
+          ),
           header: () => (
             <View
               style={[
@@ -287,7 +308,9 @@ export default function TabLayout() {
           name="community"
           options={{
             title: 'Cộng đồng',
-            tabBarIcon: ({ color }) => <TabBarIcon name="globe" color={color} />,
+            tabBarIcon: ({ focused }) => (
+              <DynamicTabIcon name="globe" focused={focused} />
+            ),
           }}
         />
 
@@ -296,7 +319,9 @@ export default function TabLayout() {
           name="explore"
           options={{
             title: 'Khám phá',
-            tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
+            tabBarIcon: ({ focused }) => (
+              <DynamicTabIcon name="compass" focused={focused} />
+            ),
           }}
         />
 
@@ -305,16 +330,27 @@ export default function TabLayout() {
           name="itinerary"
           options={{
             title: 'Lịch trình',
-            tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
+            tabBarIcon: ({ focused }) => (
+              <DynamicTabIcon
+                name={focused ? 'calendar' : 'calendar-o'}
+                focused={focused}
+              />
+            ),
           }}
         />
 
-        {/* 5. TÀI KHOẢN */}
+        {/* 5. TÀI KHOẢN (Hiển thị Avatar thật của user nếu đã đăng nhập) */}
         <Tabs.Screen
           name="profile"
           options={{
             title: 'Tài khoản',
-            tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+            tabBarIcon: ({ focused }) => (
+              <DynamicTabIcon
+                name="user"
+                focused={focused}
+                avatarUrl={currentUser?.avatarUrl}
+              />
+            ),
           }}
         />
       </Tabs>
@@ -429,6 +465,72 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
+  },
+  // ── DYNAMIC CAPSULE TAB BAR STYLES ────────────────────────
+  tabCapsule: {
+    width: 44,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    backgroundColor: 'transparent',
+  },
+  tabCapsuleActive: {
+    backgroundColor: 'rgba(217, 107, 67, 0.12)',
+  },
+  tabAvatarWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F1F5F9',
+    overflow: 'hidden',
+  },
+  tabAvatarWrapActive: {
+    borderColor: WF_PAPER.clay,
+    borderWidth: 2,
+    shadowColor: WF_PAPER.clay,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tabAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+  },
+  tabLabelWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabelText: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '600',
+    color: '#64748B',
+    letterSpacing: 0.1,
+  },
+  tabLabelTextActive: {
+    fontWeight: '800',
+    color: WF_PAPER.clay,
+  },
+  tabActiveDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: WF_PAPER.clay,
+    marginTop: 2,
+  },
+  tabDotPlaceholder: {
+    width: 4,
+    height: 4,
+    marginTop: 2,
   },
 });
 

@@ -1,45 +1,42 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  StyleSheet,
-  View,
-  FlatList,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  ScrollView,
-  Share,
-  Dimensions,
-  Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  Linking,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Text, TextInput } from '@/components/Themed';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { WF_COLORS } from '@/constants/Colors';
-import { SERIF_FONT } from '@/constants/Typography';
-import { ChatModal } from '@/components/ChatModal';
-import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { BrandedLoading } from '@/components/BrandedLoading';
-import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { CreateTripActionSheet } from '@/components/itinerary/CreateTripActionSheet';
+import { TripActionSheet } from '@/components/itinerary/TripActionSheet';
+import { TripCard } from '@/components/itinerary/TripCard';
+import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { Text, TextInput } from '@/components/Themed';
+import { showToast } from '@/components/Toast';
+import { Chip } from '@/components/ui/Chip';
+import { FAB } from '@/components/ui/FAB';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import {
   itineraryApi,
-  ItineraryItem,
   ItineraryDetailItem,
+  ItineraryItem,
   webItineraryUrl,
 } from '@/src/services/api';
-import { authStorage, UserSession } from '@/src/services/authStorage';
 import { aiService } from '@/src/services/aiService';
+import { authStorage, UserSession } from '@/src/services/authStorage';
 import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─── PRESET COVERS ──────────────────────────────────────────
 const COVER_PRESETS = [
@@ -83,15 +80,6 @@ const BUDGET_TIERS = [
   { id: 4, label: 'Nghỉ dưỡng VIP', range: '15.0+ Triệu VNĐ', budgetVal: 16000000 },
 ];
 
-const PACKING_CHECKLIST = [
-  { id: 'c1', label: 'Căn cước công dân / Hộ chiếu gốc' },
-  { id: 'c2', label: 'Vé máy bay / Đặt phòng khách sạn' },
-  { id: 'c3', label: 'Sạc dự phòng & Dây cáp điện thoại' },
-  { id: 'c4', label: 'Kem chống nắng & Kính râm' },
-  { id: 'c5', label: 'Thuốc y tế cá nhân (dị ứng, đau bụng, cảm)' },
-  { id: 'c6', label: 'Quần áo phù hợp thời tiết điểm đến' },
-];
-
 // Format số tiền có dấu phẩy hàng nghìn
 function formatCurrency(num: number | string): string {
   if (!num) return '0';
@@ -101,28 +89,22 @@ function formatCurrency(num: number | string): string {
 }
 
 export default function ItineraryScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-
-  // ─── FLOATING NAVBAR DYNAMIC STATE ───────────────────────
-  const [isScrolled, setIsScrolled] = useState<boolean>(false);
-  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
-
   // ─── MAIN DATA STATE ─────────────────────────────────────
   const [itineraries, setItineraries] = useState<ItineraryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'drafts' | 'all'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilterTag, setActiveFilterTag] = useState<string>('all');
+
+  // ─── ACTION SHEETS STATE ─────────────────────────────────
+  const [actionSheetVisible, setActionSheetVisible] = useState<boolean>(false);
+  const [actionSheetItem, setActionSheetItem] = useState<ItineraryItem | null>(null);
+  const [createSheetVisible, setCreateSheetVisible] = useState<boolean>(false);
 
   // ─── MODAL DETAIL STATE ──────────────────────────────────
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
   const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
-
-  const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
-  const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
 
   // ─── MODAL MANUAL TRIP STATE ─────────────────────────────
   const [manualModalVisible, setManualModalVisible] = useState<boolean>(false);
@@ -188,12 +170,10 @@ export default function ItineraryScreen() {
     }
   }, [aiStartDate, aiEndDate]);
 
-  // ─── DATA FETCHING (CHỈ LẤY LỊCH TRÌNH CỦA TÔI TỪ CSDL) ───
+  // ─── DATA FETCHING (LẤY TỪ CSDL MYSQL QUA API) ─────────────
   const fetchItineraries = useCallback(async () => {
     try {
       const session = await authStorage.getSession();
-      setCurrentUser(session);
-
       let list: ItineraryItem[] = [];
       if (session?.email) {
         list = await itineraryApi.getMyItineraries();
@@ -212,72 +192,25 @@ export default function ItineraryScreen() {
 
   useEffect(() => {
     setLoading(true);
-    authStorage.getSession().then((session) => {
-      setCurrentUser(session);
-    });
     fetchItineraries();
   }, [fetchItineraries]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    authStorage.getSession().then((session) => {
-      setCurrentUser(session);
-    });
     fetchItineraries();
   };
-
-  // ─── SCROLL HANDLER ĐỂ THAY ĐỔI NAVBAR TRONG SUỐT / NỀN TRẮNG (KHỚP 100% VỚI WEB) ───
-  const isScrolledRef = React.useRef<boolean>(false);
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const scrollY = event.nativeEvent.contentOffset.y;
-    const shouldBeScrolled = scrollY > 20;
-    if (shouldBeScrolled !== isScrolledRef.current) {
-      isScrolledRef.current = shouldBeScrolled;
-      setIsScrolled(shouldBeScrolled);
-    }
-  }, []);
-
-  // ─── STATS DASHBOARD KPIS ────────────────────────────────
-  const statsKPI = useMemo(() => {
-    const list = itineraries || [];
-    const totalTrips = list.length;
-    const totalStops = list.reduce((acc, curr) => {
-      const stopsInDetails = curr.details?.length || 0;
-      const count = curr.placesCount || stopsInDetails || (curr.placesList ? curr.placesList.length : 3);
-      return acc + count;
-    }, 0);
-
-    const totalBudgetSum = list.reduce((acc, curr) => {
-      const b = curr.budgetTotal || (curr.budgetPerPerson ? curr.budgetPerPerson * 2 : 3500000);
-      return acc + b;
-    }, 0);
-
-    const totalBudgetMil = (totalBudgetSum / 1000000).toFixed(1);
-    const nextDestination = list[0]?.destination || 'Chưa có lịch';
-    const nextDuration = list[0] ? formatItineraryDuration(getItineraryDayCount(list[0])) : 'Sẵn sàng';
-
-    return {
-      totalTrips,
-      totalStops,
-      totalBudgetMil,
-      nextDestination,
-      nextDuration,
-    };
-  }, [itineraries]);
 
   // ─── TAB COUNTS ──────────────────────────────────────────
   const tabCounts = useMemo(() => {
     const list = itineraries || [];
+    const upcomingCount = list.filter(i => {
+      const s = (i.status || '').toLowerCase();
+      return s === 'upcoming' || s === 'active' || s === 'planning' || !s;
+    }).length;
+    const completedCount = list.filter(i => (i.status || '').toLowerCase() === 'completed').length;
     return {
-      upcoming: list.filter(i => {
-        const s = (i.status || '').toLowerCase();
-        return s === 'upcoming' || s === 'active' || s === 'planning' || !s;
-      }).length,
-      completed: list.filter(i => (i.status || '').toLowerCase() === 'completed').length,
-      drafts: list.filter(i => {
-        const s = (i.status || '').toLowerCase();
-        return s === 'draft' || s === 'drafts' || Boolean(i.isAiGenerated);
-      }).length,
+      upcoming: upcomingCount,
+      completed: completedCount,
       all: list.length,
     };
   }, [itineraries]);
@@ -286,14 +219,11 @@ export default function ItineraryScreen() {
   const filteredItineraries = useMemo(() => {
     return (itineraries || []).filter(itin => {
       const statusLower = (itin.status || '').toLowerCase();
+      const isCompleted = statusLower === 'completed';
 
       // Tab match
-      if (activeTab === 'upcoming' && statusLower === 'completed') return false;
-      if (activeTab === 'completed' && statusLower !== 'completed') return false;
-      if (activeTab === 'drafts') {
-        const isDraft = statusLower === 'draft' || statusLower === 'drafts' || Boolean(itin.isAiGenerated);
-        if (!isDraft) return false;
-      }
+      if (activeTab === 'upcoming' && isCompleted) return false;
+      if (activeTab === 'completed' && !isCompleted) return false;
 
       // Filter tag
       if (activeFilterTag === 'ai' && !itin.isAiGenerated) return false;
@@ -317,7 +247,6 @@ export default function ItineraryScreen() {
   const handleOpenDetail = async (itin: ItineraryItem) => {
     setSelectedItinerary(itin);
     setDetailModalVisible(true);
-    setLoadingDetail(true);
     try {
       const full = await itineraryApi.getItineraryById(itin.id);
       if (full) {
@@ -325,8 +254,6 @@ export default function ItineraryScreen() {
       }
     } catch (e) {
       console.warn('Fetch detail error:', e);
-    } finally {
-      setLoadingDetail(false);
     }
   };
 
@@ -339,57 +266,6 @@ export default function ItineraryScreen() {
       });
     } catch {
       // Ignore
-    }
-  };
-
-  const handleCloneTrip = async (itin: ItineraryItem) => {
-    const session = await authStorage.getSession();
-    if (!session) {
-      showToast({
-        kind: 'info',
-        title: 'Yêu cầu đăng nhập',
-        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để sao chép lịch trình này.',
-        icon: 'lock',
-      });
-      return;
-    }
-
-    const isOwner =
-      (itin.creatorId && session.id && itin.creatorId === session.id) ||
-      (itin.creatorEmail && session.email && itin.creatorEmail === session.email);
-
-    if (isOwner) {
-      showToast({
-        kind: 'info',
-        title: 'Không thể sao chép',
-        message: 'Bạn là tác giả của lịch trình này nên không thể tự sao chép.',
-      });
-      return;
-    }
-
-    const confirmed = await confirmDialog({
-      title: 'Sao chép lịch trình?',
-      message: `Chuyến đi "${itin.title}" sẽ được sao chép vào kho cá nhân của bạn.`,
-      confirmText: 'Sao chép',
-      icon: 'copy',
-      accent: 'primary',
-    });
-    if (!confirmed) return;
-
-    try {
-      await itineraryApi.cloneItinerary(itin.id);
-      showToast({
-        kind: 'success',
-        title: 'Đã sao chép lịch trình',
-        message: `Chuyến đi "${itin.title}" đã nằm trong kho của bạn.`,
-      });
-      fetchItineraries();
-    } catch (err: any) {
-      showToast({
-        kind: 'error',
-        title: 'Sao chép thất bại',
-        message: err.response?.data?.message || err.message || 'Không thể sao chép lịch trình.',
-      });
     }
   };
 
@@ -407,7 +283,7 @@ export default function ItineraryScreen() {
       showToast({
         kind: 'success',
         title: 'Đã xóa lịch trình',
-        message: `Chuyến đi "${itin.title}" đã được xóa.`,
+        message: `Chuyến đi "${itin.title}" đã được xóa khỏi tài khoản.`,
       });
       if (selectedItinerary?.id === itin.id) {
         setDetailModalVisible(false);
@@ -448,58 +324,21 @@ export default function ItineraryScreen() {
   // ─── CHỌN ẢNH TỪ MÁY DÙNG EXPO-IMAGE-PICKER ────────────────
   const handlePickCoverImage = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        showToast({
-          kind: 'info',
-          title: 'Cần quyền truy cập ảnh',
-          message: 'Vui lòng cấp quyền thư viện ảnh để chọn ảnh bìa chuyến đi.',
-        });
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [16, 9],
-        quality: 0.85,
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setManualCover(result.assets[0].uri);
       }
-    } catch (e) {
-      console.warn('Pick image error', e);
-      showToast({
-        kind: 'error',
-        title: 'Không mở được thư viện ảnh',
-        message: 'Vui lòng thử lại sau ít phút.',
-      });
-    }
-  };
-
-  const handleDeleteStop = async (detailId?: number) => {
-    if (!detailId) return;
-
-    const confirmed = await confirmDialog({
-      title: 'Xóa trạm dừng?',
-      message: 'Trạm dừng này sẽ được xóa khỏi lịch trình của bạn.',
-      confirmText: 'Xóa',
-      destructive: true,
-    });
-    if (!confirmed) return;
-
-    try {
-      await itineraryApi.deleteDetail(detailId);
-      if (selectedItinerary) {
-        const full = await itineraryApi.getItineraryById(selectedItinerary.id);
-        setSelectedItinerary(full);
-      }
     } catch {
       showToast({
         kind: 'error',
-        title: 'Xóa thất bại',
-        message: 'Không thể xóa trạm dừng này.',
+        title: 'Lỗi chọn ảnh',
+        message: 'Không thể mở thư viện ảnh trên thiết bị.',
       });
     }
   };
@@ -528,11 +367,7 @@ export default function ItineraryScreen() {
 
     try {
       setSubmittingManual(true);
-      const days = Number(manualDays) || 3;
       const rawBudget = parseFloat(manualBudgetFormatted.replace(/,/g, '')) || 4000000;
-
-      // Tạo chuyến đi thủ công: hoàn toàn để trống để người dùng tự điền mốc giờ và hoạt động
-      const manualActivities: ItineraryDetailItem[] = [];
 
       const created = await itineraryApi.createItinerary({
         title: manualTitle.trim(),
@@ -544,7 +379,7 @@ export default function ItineraryScreen() {
         status: 'UPCOMING',
         isAiGenerated: false,
         groupType: manualGroup,
-        details: manualActivities,
+        details: [],
       });
 
       showToast({
@@ -586,7 +421,6 @@ export default function ItineraryScreen() {
       return;
     }
 
-    // Kiểm tra tính hợp lệ của ngày đi và ngày về
     if (aiStartDate && aiEndDate) {
       const d1 = new Date(aiStartDate);
       const d2 = new Date(aiEndDate);
@@ -600,107 +434,85 @@ export default function ItineraryScreen() {
       }
     }
 
-    // Kiểm tra người dùng đã đăng nhập chưa để lưu vào CSDL
     const session = await authStorage.getSession();
     if (!session) {
       showToast({
         kind: 'info',
         title: 'Yêu cầu đăng nhập',
-        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để WanderAI lưu lịch trình vào CSDL.',
+        message: 'Vui lòng đăng nhập ở tab "Tài khoản" để AI có thể lưu tour vào tài khoản.',
         icon: 'lock',
       });
       return;
     }
 
     setIsAiGenerating(true);
-    setAiProgress(15);
-    setAiCurrentStep('Khởi tạo kết nối & Định vị địa lý...');
+    setAiProgress(10);
+    setAiCurrentStep('Khởi động động cơ Gemini AI...');
 
-    let progressTimer: any = null;
+    const companionObj = COMPANION_OPTIONS.find(c => c.id === aiCompanion) || COMPANION_OPTIONS[1];
+    const budgetOption = BUDGET_TIERS.find(b => b.id === aiBudgetTier) || BUDGET_TIERS[1];
+    const interestLabels = aiSelectedInterests
+      .map(id => AI_INTEREST_OPTIONS.find(o => o.id === id)?.label)
+      .filter(Boolean)
+      .join(', ');
 
-    try {
-      progressTimer = setInterval(() => {
-        setAiProgress(prev => {
-          if (prev < 40) {
-            setAiCurrentStep(`Nghiên cứu danh lam, di tích thực tế tại ${aiDest}...`);
-            return prev + 15;
-          }
-          if (prev < 75) {
-            setAiCurrentStep(`Khảo sát ẩm thực & quán ăn đặc sản bản địa tại ${aiDest}...`);
-            return prev + 12;
-          }
-          if (prev < 90) {
-            setAiCurrentStep(`Tối ưu lộ trình từng ngày & cân đối ngân sách...`);
-            return prev + 5;
-          }
-          return prev;
-        });
-      }, 700);
+    const promptText = `
+Bạn là Trợ lý Lập trình Du lịch Tinh nhuệ "WanderAI" của Wayfare Travel.
+Hãy kiến tạo một lịch trình du lịch chuyên sâu, đầy cảm xúc và tối ưu tuyệt đối cho chuyến đi sau:
+- Điểm đến: "${aiDest}"
+- Thời lượng: ${aiDays} ngày (${aiStartDate || 'ngày 1'} đến ${aiEndDate || 'ngày ' + aiDays})
+- Đối tượng đồng hành: ${companionObj.label}
+- Phong cách / Sở thích chính: ${interestLabels || 'Khám phá toàn diện & Ẩm thực'}
+- Hạn mức ngân sách: ${budgetOption.label} (${budgetOption.range})
+${aiCustomNote ? `- Yêu cầu đặc biệt từ người dùng: "${aiCustomNote}"` : ''}
 
-      const budgetOption = BUDGET_TIERS.find(b => b.id === aiBudgetTier) || BUDGET_TIERS[1];
-      const companionObj = COMPANION_OPTIONS.find(c => c.id === aiCompanion) || COMPANION_OPTIONS[1];
-      const interestLabels = aiSelectedInterests
-        .map(id => AI_INTEREST_OPTIONS.find(o => o.id === id)?.label)
-        .filter(Boolean)
-        .join(', ');
+QUY TẮC BẮT BUỘC VỀ ĐỊA ĐIỂM & ĐỊA CHỈ:
+1. Mỗi ngày phải có chính xác 4 trạm dừng tiêu biểu theo dòng thời gian hợp lý (Sáng: 08:00, Trưa: 11:30, Chiều: 14:30, Tối: 18:30).
+2. Tên trạm dừng (location) và Địa chỉ cụ thể (address) PHẢI là địa danh có thật, nổi tiếng và đang hoạt động tại ${aiDest}.
+3. Trường "address" bắt buộc ghi rõ Số nhà/Tên đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố (ví dụ: "Số 1 Trần Hưng Đạo, Phường 10, TP. Đà Lạt, Lâm Đồng"). Không được ghi chung chung như "Trung tâm thành phố" hay "Tại khách sạn".
+4. Chi phí (cost) cho mỗi trạm phải là số nguyên VNĐ thực tế (ví dụ: 50000, 120000).
 
-      // Build Prompt chi tiết, chuyên sâu cho Gemini 3.8 Flash
-      const prompt = `Bạn là chuyên gia cố vấn du lịch bản địa hàng đầu tại Việt Nam.
-Hãy nghiên cứu và phân tích điểm đến: "${aiDest}".
-Lập lịch trình du lịch ${aiDays} ngày với các danh lam thắng cảnh, di tích lịch sử và quán ăn đặc sản có thật 100% tại "${aiDest}".
-Thông tin chuyến đi:
-- Điểm đến: ${aiDest}
-- Thời lượng: ${aiDays} ngày (${aiDays}N${Math.max(1, aiDays - 1)}Đ)
-- Đối tượng: ${companionObj.label}
-- Ngân sách: ${budgetOption.label} (${budgetOption.range})
-- Gu trải nghiệm: ${interestLabels || 'Khám phá, Ẩm thực'}
-${aiCustomNote ? `- Yêu cầu thêm: ${aiCustomNote}` : ''}
-
-QUY TẮC BẮT BUỘC:
-1. Nghiên cứu chính xác các địa điểm, quán ăn có thật 100% tại "${aiDest}". Tuyệt đối không dùng văn mẫu chung chung.
-2. Mỗi ngày có 3-4 hoạt động sắp xếp từ sáng đến tối.
-3. BẮT BUỘC VỀ ĐỊA CHỈ ("address"): Tra cứu và ghi ĐỊA CHỈ CỤ THỂ CHI TIẾT CÓ THẬT của từng quán ăn, địa danh (gồm Số nhà/Tên đường - Phường/Xã/Quận/Huyện - Tỉnh/Thành phố tại "${aiDest}"). TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ ghi tên đường cộc lốc (như "202 Chương Dương") hay chỉ ghi tên tỉnh thành chung chung như "${aiDest}" hay "Việt Nam".
-Ví dụ chuẩn:
-- Quán ăn: "202 Chương Dương - Sơn Trà - Đà Nẵng" hoặc "Số 48 Ngô Đức Kế, P. Hồng Sơn, TP. Vinh, Nghệ An"
-- Danh lam/Di tích: "Làng Sen & Hoàng Trù, xã Kim Liên, huyện Nam Đàn, Nghệ An"
-- Trải nghiệm: "Đập Cầu Cau, xã Thanh An, huyện Thanh Chương, Nghệ An"
-4. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:
+BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙNG BACKTICKS MARKDOWN, KHÔNG CHÈN TEXT GIẢI THÍCH):
 {
-  "title": "Tên chuyến đi hấp dẫn do AI sáng tạo (VD: Đà Lạt: Chuyến Đi Lãng Mạn Cho Cặp Đôi)",
-  "summaryTip": "Mẹo du lịch bản địa ngắn gọn...",
-  "placesList": ["Tên điểm thật 1", "Tên điểm thật 2", "Tên điểm thật 3", "Tên điểm thật 4"],
+  "title": "${aiDest}: Lịch Trình Chữa Lành & Trải Nghiệm ${aiDays}N${Math.max(1, aiDays - 1)}Đ",
+  "summaryTip": "Lời khuyên cô đọng giúp chuyến đi ${aiDest} của ${companionObj.label} trọn vẹn nhất",
   "days": [
     {
       "dayNumber": 1,
-      "title": "Chủ đề ngày...",
+      "theme": "Chủ đề ngày 1",
       "activities": [
         {
           "time": "08:00",
+          "location": "Tên địa điểm cụ thể",
+          "address": "Số nhà, Tên đường, Phường, Quận, Tỉnh/Thành",
           "category": "Ẩm thực",
-          "location": "Tên địa danh hoặc quán ăn cụ thể",
-          "address": "Số nhà, tên đường, phường/xã, quận/huyện cụ thể tại ${aiDest}",
-          "note": "Kinh nghiệm ngắn gọn",
-          "cost": 50000,
-          "transit": "15 phút"
+          "cost": 60000,
+          "note": "Kinh nghiệm thực địa hữu ích"
         }
       ]
     }
   ]
-}`;
+}
+`;
 
-      // GỌI GOOGLE GEMINI 2.5 FLASH THỰC TẾ
-      const rawAiResponse = await aiService.generateText({
-        prompt,
-        model: 'gemini-2.5-flash',
-        maxTokens: 8192,
-        temperature: 0.3,
-      });
+    let progressTimer: any = null;
+    try {
+      progressTimer = setInterval(() => {
+        setAiProgress(prev => {
+          if (prev >= 88) return prev;
+          if (prev === 20) setAiCurrentStep(`Đang phân tích các tọa độ nổi tiếng tại ${aiDest}...`);
+          if (prev === 45) setAiCurrentStep(`Tối ưu lộ trình và cung đường di chuyển ${aiDays} ngày...`);
+          if (prev === 70) setAiCurrentStep('Tính toán chi phí thực tế & tổng hợp mẹo du lịch...');
+          return prev + 6;
+        });
+      }, 900);
+
+      const rawAiResponse = await aiService.generateText({ prompt: promptText });
 
       if (progressTimer) clearInterval(progressTimer);
       setAiProgress(95);
       setAiCurrentStep('Hoàn tất phân tích! Đang tổng hợp dữ liệu lịch trình...');
 
-      // Parse JSON an toàn
       let parsedData: any = {};
       try {
         const cleaned = typeof rawAiResponse === 'string'
@@ -714,7 +526,6 @@ Ví dụ chuẩn:
         console.warn('JSON parse error from Gemini:', parseErr);
       }
 
-      // Biến đổi các hoạt động thật từ Gemini thành ItineraryDetailItem[]
       const aiActivities: ItineraryDetailItem[] = [];
       if (parsedData.days && Array.isArray(parsedData.days) && parsedData.days.length > 0) {
         parsedData.days.forEach((dayObj: any) => {
@@ -775,7 +586,7 @@ Ví dụ chuẩn:
       const presetCover = COVER_PRESETS.find(c => c.label.includes(aiDest))?.url || COVER_PRESETS[0].url;
       const tripTitle = (parsedData.title && String(parsedData.title).trim())
         ? String(parsedData.title).trim()
-        : `${aiDest}: Hành Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`;
+        : `${aiDest}: Lịch Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`;
 
       const created = await itineraryApi.createItinerary({
         title: tripTitle,
@@ -818,376 +629,86 @@ Ví dụ chuẩn:
     }
   };
 
-  const toggleChecklist = (id: string) => {
-    setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  // ─── RENDER CARD ITEM ────────────────────────────────────
-  const renderItineraryCard = ({ item }: { item: ItineraryItem }) => {
-    const imageUrl = item.coverImageUrl || item.coverImage || COVER_PRESETS[0].url;
-    const durationText = formatItineraryDuration(getItineraryDayCount(item));
-    const budgetDisplay = item.budgetTotal
-      ? `${item.budgetTotal.toLocaleString('vi-VN')} đ`
-      : item.budgetPerPerson
-      ? `~${item.budgetPerPerson.toLocaleString('vi-VN')} đ/người`
-      : 'Tùy chi tiêu';
-
-    const isUpcoming = (item.status || '').toLowerCase() === 'upcoming' || (item.status || '').toLowerCase() === 'active';
-    const isCompleted = (item.status || '').toLowerCase() === 'completed';
-
-    // Trong tab Lịch trình cá nhân (quản lý chuyến đi của tôi), tất cả lịch trình là của chính chủ nên ẩn nút sao chép
-    const isOwner = true;
-
-    return (
-      <View style={styles.cardContainer}>
-        {/* Cover Image & Overlays */}
-        <TouchableOpacity activeOpacity={0.92} onPress={() => handleOpenDetail(item)} style={styles.cardCoverBox}>
-          <Image source={{ uri: imageUrl }} style={styles.cardCoverImage} resizeMode="cover" />
-          <View style={styles.cardGradientOverlay} />
-
-          {/* Top Badges */}
-          <View style={styles.cardTopBadgeRow}>
-            <View style={styles.destinationBadge}>
-              <FontAwesome name="map-marker" size={12} color={WF_COLORS.primary} style={{ marginRight: 4 }} />
-              <Text style={styles.destinationBadgeText}>{item.destination}</Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-              {item.isAiGenerated && (
-                <View style={styles.aiBadge}>
-                  <Text style={styles.aiBadgeText}>Tour AI</Text>
-                </View>
-              )}
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: item.isPublic !== false ? 'rgba(21, 128, 61, 0.9)' : 'rgba(30, 26, 21, 0.85)' }
-              ]}>
-                <FontAwesome
-                  name={item.isPublic !== false ? 'globe' : 'lock'}
-                  size={10}
-                  color={item.isPublic !== false ? '#FFFFFF' : '#FCD34D'}
-                  style={{ marginRight: 3 }}
-                />
-                <Text style={[styles.statusBadgeText, { color: item.isPublic !== false ? '#FFFFFF' : '#FCD34D' }]}>
-                  {item.isPublic !== false ? 'Công khai' : 'Riêng tư'}
-                </Text>
-              </View>
-              <View style={[styles.statusBadge, isCompleted ? styles.statusBadgeCompleted : styles.statusBadgeUpcoming]}>
-                <Text style={styles.statusBadgeText}>
-                  {isCompleted ? 'Đã hoàn thành' : isUpcoming ? 'Sắp diễn ra' : 'Bản nháp'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Bottom Duration & Countdown Overlay */}
-          <View style={styles.cardCoverBottomRow}>
-            <View style={styles.durationPill}>
-              <FontAwesome name="clock-o" size={11} color={WF_COLORS.slate700} style={{ marginRight: 4 }} />
-              <Text style={styles.durationPillText}>{durationText}</Text>
-            </View>
-            {item.startDate && (
-              <Text style={styles.coverDateText}>
-                {item.startDate} {item.endDate ? `→ ${item.endDate}` : ''}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        {/* Card Body Info */}
-        <View style={styles.cardBody}>
-          <TouchableOpacity activeOpacity={0.85} onPress={() => handleOpenDetail(item)}>
-            <Text style={styles.cardTitle} numberOfLines={2}>
-              {item.title}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Budget & Meta */}
-          <View style={styles.cardMetaRow}>
-            <View style={styles.metaBadge}>
-              <FontAwesome name="money" size={12} color={WF_COLORS.amber} style={{ marginRight: 5 }} />
-              <Text style={styles.metaBudgetText}>{budgetDisplay}</Text>
-            </View>
-
-            {item.travelStyle && (
-              <View style={styles.metaBadge}>
-                <FontAwesome name="compass" size={11} color="#B0522F" style={{ marginRight: 4 }} />
-                <Text style={[styles.metaUserText, { color: '#B0522F', fontWeight: '600' }]} numberOfLines={1}>
-                  {item.travelStyle}
-                </Text>
-              </View>
-            )}
-
-            {item.creatorName && (
-              <View style={styles.metaBadge}>
-                <FontAwesome name="user-circle" size={12} color={WF_COLORS.slate500} style={{ marginRight: 4 }} />
-                <Text style={styles.metaUserText} numberOfLines={1}>{item.creatorName}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Action Buttons Row */}
-          <View style={styles.cardActionRow}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.cardDetailBtn}
-              onPress={() => handleOpenDetail(item)}>
-              <Text style={styles.cardDetailBtnText}>Xem chi tiết</Text>
-              <FontAwesome name="arrow-right" size={11} color="#FFFDF8" style={{ marginLeft: 5 }} />
-            </TouchableOpacity>
-
-            <View style={styles.cardIconActions}>
-              {isOwner && (
-                <>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[
-                      styles.actionIconBtn,
-                      { backgroundColor: item.isPublic !== false ? '#DCFCE7' : '#FEF3C7' },
-                    ]}
-                    onPress={() => handleToggleVisibility(item)}>
-                    <FontAwesome
-                      name={item.isPublic !== false ? 'globe' : 'lock'}
-                      size={13}
-                      color={item.isPublic !== false ? '#15803D' : '#B45309'}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.actionIconBtn, { backgroundColor: '#E0F2FE' }]}
-                    onPress={() => handleOpenDetail(item)}>
-                    <FontAwesome name="pencil" size={12} color="#0369A1" />
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {!isOwner && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.actionIconBtn}
-                  onPress={() => handleCloneTrip(item)}>
-                  <FontAwesome name="clone" size={14} color={WF_COLORS.slate600} />
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.actionIconBtn}
-                onPress={() => handleShareTrip(item)}>
-                <FontAwesome name="share-alt" size={14} color={WF_COLORS.slate600} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.actionIconBtn, styles.actionDeleteBtn]}
-                onPress={() => handleDeleteTrip(item)}>
-                <FontAwesome name="trash-o" size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-
-      {/* ─── DYNAMIC FLOATING NAVBAR (TRONG SUỐT Ở TRÊN CÙNG, TRƯỢT XUỐNG ĐỔI THÀNH NỀN TRẮNG) ─── */}
-      <View
-        style={[
-          styles.floatingNavbar,
-          {
-            paddingTop: Math.max(insets.top, 6),
-            height: 44 + Math.max(insets.top, 6),
-            backgroundColor: isScrolled ? '#FFFDF8' : 'rgba(248, 244, 236, 0.96)',
-            borderBottomWidth: isScrolled ? 1 : 0,
-            borderBottomColor: '#E4DACB',
-            shadowOpacity: 0.02,
-            elevation: 0,
-          },
-        ]}>
-        {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push('/(tabs)/community')}
-          style={styles.navLogoWrapper}>
-          <Image
-            source={require('@/assets/images/wayfare-logo.png')}
-            style={styles.navHeaderLogo}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-
-        {/* Action Buttons: Chat & Profile Avatar */}
-        <View style={styles.navRightActions}>
-          {/* Nút Chat */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsChatOpen(true)}
-            style={styles.navChatBtn}>
-            <FontAwesome
-              name="comments"
-              size={14}
-              color={WF_COLORS.primary}
-              style={{ marginRight: 5 }}
-            />
-            <Text style={styles.navChatBtnText}>Chat</Text>
-          </TouchableOpacity>
-
-          {/* Avatar Người Dùng */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/(tabs)/profile')}
-            style={styles.navAvatarBtn}>
-            {currentUser?.avatar ? (
-              <Image
-                source={{ uri: currentUser.avatar }}
-                style={styles.navAvatarImg}
-              />
-            ) : (
-              <FontAwesome name="user-circle" size={28} color={WF_COLORS.slate700} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
       <FlatList
         data={filteredItineraries}
         keyExtractor={(item) => String(item.id)}
-        renderItem={renderItineraryCard}
+        renderItem={({ item }) => (
+          <TripCard
+            item={item}
+            onPress={() => handleOpenDetail(item)}
+            onMenuPress={() => {
+              setActionSheetItem(item);
+              setActionSheetVisible(true);
+            }}
+          />
+        )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />
+        }
+        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View style={styles.headerContainer}>
-            {/* ─── 1. FULL-BLEED TRANSPARENT HERO BANNER (ẢNH TRÀN LÊN TẬN ĐỈNH) ─── */}
-            <View
-              style={[
-                styles.heroBox,
-                {
-                  paddingTop: Math.max(insets.top, 6) + 50,
-                  paddingBottom: 20,
-                },
-              ]}>
-              <View style={styles.heroContent}>
-                {/* Hero Title & Count Pill */}
-                <View style={styles.heroTopRow}>
-                  <Text style={styles.heroHeadline}>Lịch Trình Du Lịch</Text>
-                  <View style={styles.heroCountBadge}>
-                    <Text style={styles.heroCountBadgeText}>{itineraries?.length || 0} chuyến</Text>
-                  </View>
-                </View>
+          <View style={styles.feedHeader}>
+            {/* 1. Segmented Tabs 3 trạng thái */}
+            <SegmentedTabs
+              items={[
+                { key: 'upcoming', label: `Sắp tới (${tabCounts.upcoming})` },
+                { key: 'completed', label: `Đã xong (${tabCounts.completed})` },
+                { key: 'all', label: `Tất cả (${tabCounts.all})` },
+              ]}
+              value={activeTab}
+              onChange={(key) => setActiveTab(key as any)}
+            />
 
-                {/* Subtitle ngắn gọn */}
-                <Text style={styles.heroSubtitle}>
-                  Tổ chức chuyến đi và kiến tạo lịch trình cùng AI
-                </Text>
-
-                {/* Hero Action CTA Buttons (Thiết kế thanh lịch) */}
-                <View style={styles.heroBtnRow}>
+            {/* 2. Search Box */}
+            <View style={styles.toolbarRow}>
+              <View style={styles.searchBox}>
+                <FontAwesome name="search" size={14} color={DS_COLOR.inkMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm chuyến đi, điểm đến..."
+                  placeholderTextColor={DS_COLOR.inkMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  accessibilityLabel="Tìm kiếm lịch trình"
+                />
+                {searchQuery ? (
                   <TouchableOpacity
-                    activeOpacity={0.88}
-                    style={styles.aiCtaBtn}
-                    onPress={() => setAiModalVisible(true)}>
-                    <FontAwesome name="magic" size={13} color="#FFFDF8" style={{ marginRight: 6 }} />
-                    <Text style={styles.aiCtaBtnText}>Lập tour AI</Text>
+                    onPress={() => setSearchQuery('')}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Xóa từ khóa tìm kiếm"
+                  >
+                    <FontAwesome name="times-circle" size={15} color={DS_COLOR.inkMuted} />
                   </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    style={styles.manualCtaBtn}
-                    onPress={() => setManualModalVisible(true)}>
-                    <FontAwesome name="plus" size={12} color="#1E1A15" style={{ marginRight: 6 }} />
-                    <Text style={styles.manualCtaBtnText}>Tạo thủ công</Text>
-                  </TouchableOpacity>
-                </View>
+                ) : null}
               </View>
             </View>
 
-            {/* ─── 2. THANH TÌM KIẾM & BỘ LỌC TỐI GIẢN 1 DÒNG (AIRBNB STYLE - THOÁNG ĐÃNG) ─── */}
-            <View style={styles.cleanFilterSection}>
-              {/* Search Bar Phẳng, Hiện Đại */}
-              <View style={styles.cleanSearchBar}>
-                <FontAwesome name="search" size={13} color="#5A5146" style={{ marginRight: 8 }} />
-                <TextInput
-                  style={styles.cleanSearchInput}
-                  placeholder="Tìm chuyến đi, điểm đến, địa danh..."
-                  placeholderTextColor="#8A7F70"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.trim().length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <FontAwesome name="times-circle" size={14} color="#8A7F70" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* 1 Hàng Bộ Lọc Duy Nhất (Cuộn ngang êm ái) */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cleanFilterScroll}>
-                {[
-                  { id: 'all', label: 'Tất cả', count: tabCounts.all },
-                  { id: 'upcoming', label: 'Sắp tới', count: tabCounts.upcoming },
-                  { id: 'ai', label: 'Tour AI', count: (itineraries || []).filter(i => i.isAiGenerated).length },
-                  { id: 'completed', label: 'Đã hoàn thành', count: tabCounts.completed },
-                  { id: 'group', label: 'Nhóm bạn' },
-                  { id: 'family', label: 'Gia đình' },
-                  { id: 'drafts', label: 'Bản nháp', count: tabCounts.drafts },
-                ].map(item => {
-                  const isActive =
-                    (item.id === 'all' && activeTab === 'all' && activeFilterTag === 'all') ||
-                    (item.id === 'upcoming' && activeTab === 'upcoming' && activeFilterTag === 'all') ||
-                    (item.id === 'completed' && activeTab === 'completed' && activeFilterTag === 'all') ||
-                    (item.id === 'drafts' && activeTab === 'drafts' && activeFilterTag === 'all') ||
-                    (item.id === 'ai' && activeFilterTag === 'ai') ||
-                    (item.id === 'group' && activeFilterTag === 'group') ||
-                    (item.id === 'family' && activeFilterTag === 'family');
-
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.8}
-                      style={[styles.cleanFilterChip, isActive && styles.cleanFilterChipActive]}
-                      onPress={() => {
-                        if (item.id === 'all') {
-                          setActiveTab('all');
-                          setActiveFilterTag('all');
-                        } else if (item.id === 'upcoming') {
-                          setActiveTab('upcoming');
-                          setActiveFilterTag('all');
-                        } else if (item.id === 'completed') {
-                          setActiveTab('completed');
-                          setActiveFilterTag('all');
-                        } else if (item.id === 'drafts') {
-                          setActiveTab('drafts');
-                          setActiveFilterTag('all');
-                        } else {
-                          setActiveTab('all');
-                          setActiveFilterTag(item.id);
-                        }
-                      }}>
-                      <Text style={[styles.cleanFilterChipText, isActive && styles.cleanFilterChipTextActive]}>
-                        {item.label}
-                      </Text>
-                      {typeof item.count === 'number' && item.count > 0 ? (
-                        <View style={[styles.cleanFilterBadge, isActive && styles.cleanFilterBadgeActive]}>
-                          <Text style={[styles.cleanFilterBadgeText, isActive && styles.cleanFilterBadgeTextActive]}>
-                            {item.count}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+            {/* 3. Chips lọc nhanh 1 dòng */}
+            <View style={styles.chipsRow}>
+              <Chip
+                label="Tất cả"
+                active={activeFilterTag === 'all'}
+                onPress={() => setActiveFilterTag('all')}
+              />
+              <Chip
+                label="Tour AI"
+                active={activeFilterTag === 'ai'}
+                onPress={() => setActiveFilterTag(activeFilterTag === 'ai' ? 'all' : 'ai')}
+              />
+              <Chip
+                label="Nhóm bạn"
+                active={activeFilterTag === 'group'}
+                onPress={() => setActiveFilterTag(activeFilterTag === 'group' ? 'all' : 'group')}
+              />
+              <Chip
+                label="Gia đình"
+                active={activeFilterTag === 'family'}
+                onPress={() => setActiveFilterTag(activeFilterTag === 'family' ? 'all' : 'family')}
+              />
             </View>
           </View>
         }
@@ -1199,24 +720,59 @@ Ví dụ chuẩn:
             />
           ) : (
             <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <FontAwesome name="suitcase" size={36} color={WF_COLORS.primary} />
-              </View>
-              <Text style={styles.emptyTitle}>Chưa có lịch trình</Text>
+              <FontAwesome name="calendar-o" size={42} color={DS_COLOR.inkMuted} style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyTitle}>Chưa có lịch trình nào</Text>
               <Text style={styles.emptySubtitle}>
-                Bấm vào nút "Lập tour AI" hoặc "Tạo thủ công" bên trên để bắt đầu chuyến đi của bạn nhé!
+                Bắt đầu chuyến đi mới bằng cách kiến tạo cùng AI hoặc tự lên lịch trình theo ý thích.
               </Text>
               <TouchableOpacity
                 style={styles.emptyActionBtn}
-                onPress={() => setAiModalVisible(true)}>
-                <Text style={styles.emptyActionBtnText}>Lập tour AI</Text>
+                onPress={() => setCreateSheetVisible(true)}
+                activeOpacity={0.85}
+              >
+                <FontAwesome name="plus" size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyActionBtnText}>Tạo lịch trình mới</Text>
               </TouchableOpacity>
             </View>
           )
         }
       />
 
-      {/* ─── MODAL 1: CHI TIẾT LỊCH TRÌNH ───────────────────────── */}
+      {/* FAB Nút nổi thêm chuyến đi */}
+      <FAB
+        icon="plus"
+        onPress={() => setCreateSheetVisible(true)}
+        accessibilityLabel="Tạo lịch trình mới"
+      />
+
+      {/* Sheet lựa chọn hình thức tạo lịch trình */}
+      <CreateTripActionSheet
+        visible={createSheetVisible}
+        onClose={() => setCreateSheetVisible(false)}
+        onSelectAI={() => setAiModalVisible(true)}
+        onSelectManual={() => setManualModalVisible(true)}
+      />
+
+      {/* Sheet hành động cho từng chuyến đi khi bấm ⋯ */}
+      <TripActionSheet
+        visible={actionSheetVisible}
+        onClose={() => setActionSheetVisible(false)}
+        itinerary={actionSheetItem}
+        onView={() => {
+          if (actionSheetItem) handleOpenDetail(actionSheetItem);
+        }}
+        onShare={() => {
+          if (actionSheetItem) handleShareTrip(actionSheetItem);
+        }}
+        onToggleVisibility={() => {
+          if (actionSheetItem) handleToggleVisibility(actionSheetItem);
+        }}
+        onDelete={() => {
+          if (actionSheetItem) handleDeleteTrip(actionSheetItem);
+        }}
+      />
+
+      {/* Modal chi tiết lộ trình */}
       <ItineraryDetailModal
         visible={detailModalVisible}
         onClose={() => setDetailModalVisible(false)}
@@ -1225,7 +781,7 @@ Ví dụ chuẩn:
         canEdit={true}
       />
 
-      {/* ─── MODAL 2: WANDERAI TRIP GENERATOR (KHỚP 100% VỚI WEB) ── */}
+      {/* ─── MODAL WANDERAI TRIP GENERATOR ───────────────────── */}
       <Modal
         visible={aiModalVisible}
         animationType="slide"
@@ -1236,15 +792,18 @@ Ví dụ chuẩn:
           <View style={styles.modalHeader}>
             <Text style={styles.modalHeaderTitle}>Lập Tour AI</Text>
             {!isAiGenerating && (
-              <TouchableOpacity onPress={() => setAiModalVisible(false)}>
-                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
+              <TouchableOpacity
+                onPress={() => setAiModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <FontAwesome name="times" size={18} color={DS_COLOR.inkMuted} />
               </TouchableOpacity>
             )}
           </View>
 
           {isAiGenerating ? (
             <View style={styles.aiLoadingContainer}>
-              <ActivityIndicator size="large" color="#B0522F" />
+              <ActivityIndicator size="large" color={DS_COLOR.accent} />
               <Text style={styles.aiLoadingProgress}>{aiProgress}%</Text>
               <Text style={styles.aiLoadingTitle}>WanderAI đang kiến tạo hành trình</Text>
               <Text style={styles.aiLoadingStep}>{aiCurrentStep}</Text>
@@ -1264,7 +823,7 @@ Ví dụ chuẩn:
               <TextInput
                 style={styles.modalInput}
                 placeholder="Nhập tên điểm đến (VD: Đà Lạt, Sa Pa, Phú Quốc...)"
-                placeholderTextColor={WF_COLORS.slate400}
+                placeholderTextColor={DS_COLOR.inkMuted}
                 value={aiDest}
                 onChangeText={setAiDest}
               />
@@ -1281,25 +840,25 @@ Ví dụ chuẩn:
                 ))}
               </ScrollView>
 
-              {/* 2. Ngày bắt đầu & Ngày kết thúc + Đếm số ngày (Khớp 100% với Web) */}
+              {/* 2. Ngày bắt đầu & Ngày kết thúc */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>2. Thời gian chuyến đi *</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, color: WF_COLORS.slate500, marginBottom: 4 }}>Ngày bắt đầu</Text>
+                  <Text style={styles.inputSubLabel}>Ngày bắt đầu</Text>
                   <TextInput
                     style={styles.modalInput}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={WF_COLORS.slate400}
+                    placeholderTextColor={DS_COLOR.inkMuted}
                     value={aiStartDate}
                     onChangeText={setAiStartDate}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, color: WF_COLORS.slate500, marginBottom: 4 }}>Ngày kết thúc</Text>
+                  <Text style={styles.inputSubLabel}>Ngày kết thúc</Text>
                   <TextInput
                     style={styles.modalInput}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={WF_COLORS.slate400}
+                    placeholderTextColor={DS_COLOR.inkMuted}
                     value={aiEndDate}
                     onChangeText={setAiEndDate}
                   />
@@ -1308,9 +867,9 @@ Ví dụ chuẩn:
 
               {/* Ô tính ngày tự động */}
               <View style={[styles.daysCalcBox, { marginTop: 8 }]}>
-                <FontAwesome name="calendar-check-o" size={14} color="#B0522F" style={{ marginRight: 6 }} />
+                <FontAwesome name="calendar-check-o" size={14} color={DS_COLOR.accent} style={{ marginRight: 6 }} />
                 <Text style={styles.daysCalcText}>
-                  Thời lượng chuyến đi: <Text style={{ fontWeight: 'bold', color: '#B0522F' }}>{aiDays} Ngày {aiDays > 1 ? `(${aiDays}N${aiDays - 1}Đ)` : '(Trong ngày)'}</Text>
+                  Thời lượng: <Text style={{ fontWeight: 'bold', color: DS_COLOR.accent }}>{aiDays} Ngày {aiDays > 1 ? `(${aiDays}N${aiDays - 1}Đ)` : '(Trong ngày)'}</Text>
                 </Text>
               </View>
 
@@ -1329,7 +888,7 @@ Ví dụ chuẩn:
                 ))}
               </View>
 
-              {/* 4. Mức Ngân Sách (Khớp 4 Tiers của Web) */}
+              {/* 4. Mức Ngân Sách */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>4. Hạn mức chi phí dự kiến</Text>
               <View style={{ gap: 8 }}>
                 {BUDGET_TIERS.map(b => (
@@ -1346,13 +905,13 @@ Ví dụ chuẩn:
                     <FontAwesome
                       name={aiBudgetTier === b.id ? 'dot-circle-o' : 'circle-o'}
                       size={18}
-                      color={aiBudgetTier === b.id ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={aiBudgetTier === b.id ? DS_COLOR.accent : DS_COLOR.inkMuted}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* 5. Sở thích & Gu du lịch (Khớp 8 options đa chọn của Web) */}
+              {/* 5. Sở thích & Gu du lịch */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>5. Sở thích & Gu du lịch (chọn nhiều)</Text>
               <View style={styles.grid2x2}>
                 {AI_INTEREST_OPTIONS.map(s => {
@@ -1375,7 +934,7 @@ Ví dụ chuẩn:
               <TextInput
                 style={[styles.modalInput, { height: 75, textAlignVertical: 'top' }]}
                 placeholder="VD: Đi cùng người lớn tuổi ít leo trèo, thích ăn chay, muốn săn hoàng hôn..."
-                placeholderTextColor={WF_COLORS.slate400}
+                placeholderTextColor={DS_COLOR.inkMuted}
                 value={aiCustomNote}
                 onChangeText={setAiCustomNote}
                 multiline
@@ -1386,14 +945,14 @@ Ví dụ chuẩn:
                 activeOpacity={0.88}
                 style={styles.submitAiBtn}
                 onPress={handleStartAIGeneration}>
-                <Text style={styles.submitAiBtnText}>Lập tour AI</Text>
+                <Text style={styles.submitAiBtnText}>Lập Tour Cùng AI</Text>
               </TouchableOpacity>
             </ScrollView>
           )}
         </SafeAreaView>
       </Modal>
 
-      {/* ─── MODAL 3: TẠO THỦ CÔNG (TINH GỌN, CHỌN ẢNH MÁY, FORMAT TIỀN) ── */}
+      {/* ─── MODAL TẠO LỊCH TRÌNH THỦ CÔNG ───────────────────── */}
       <Modal
         visible={manualModalVisible}
         animationType="slide"
@@ -1401,8 +960,11 @@ Ví dụ chuẩn:
         <SafeAreaView style={styles.modalSafeContainer} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalHeaderTitle}>Tạo Lịch Trình Thủ Công</Text>
-            <TouchableOpacity onPress={() => setManualModalVisible(false)}>
-              <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
+            <TouchableOpacity
+              onPress={() => setManualModalVisible(false)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <FontAwesome name="times" size={18} color={DS_COLOR.inkMuted} />
             </TouchableOpacity>
           </View>
 
@@ -1412,7 +974,7 @@ Ví dụ chuẩn:
             <TextInput
               style={styles.modalInput}
               placeholder="VD: Nghỉ dưỡng biển Mỹ Khê 3N2Đ, Phượt săn mây Đà Lạt..."
-              placeholderTextColor={WF_COLORS.slate400}
+              placeholderTextColor={DS_COLOR.inkMuted}
               value={manualTitle}
               onChangeText={setManualTitle}
             />
@@ -1422,40 +984,40 @@ Ví dụ chuẩn:
             <TextInput
               style={styles.modalInput}
               placeholder="VD: Đà Nẵng, Hà Giang, Phú Quốc..."
-              placeholderTextColor={WF_COLORS.slate400}
+              placeholderTextColor={DS_COLOR.inkMuted}
               value={manualDest}
               onChangeText={setManualDest}
             />
 
-            {/* Ngày đi & ngày về kèm ô tính số ngày */}
+            {/* Ngày đi & ngày về */}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.aiInputLabel}>Ngày khởi hành</Text>
+                <Text style={styles.inputSubLabel}>Ngày khởi hành</Text>
                 <TextInput
                   style={styles.modalInput}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={WF_COLORS.slate400}
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   value={manualStartDate}
                   onChangeText={setManualStartDate}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.aiInputLabel}>Ngày kết thúc</Text>
+                <Text style={styles.inputSubLabel}>Ngày kết thúc</Text>
                 <TextInput
                   style={styles.modalInput}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={WF_COLORS.slate400}
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   value={manualEndDate}
                   onChangeText={setManualEndDate}
                 />
               </View>
             </View>
 
-            {/* Ô tính ngày tự động giống Web */}
+            {/* Ô tính ngày tự động */}
             <View style={styles.daysCalcBox}>
-              <FontAwesome name="calendar-check-o" size={14} color="#B0522F" style={{ marginRight: 6 }} />
+              <FontAwesome name="calendar-check-o" size={14} color={DS_COLOR.accent} style={{ marginRight: 6 }} />
               <Text style={styles.daysCalcText}>
-                Thời lượng tính toán: <Text style={{ fontWeight: 'bold', color: '#B0522F' }}>{manualDays} Ngày ({manualDays}N{Math.max(1, manualDays - 1)}Đ)</Text>
+                Thời lượng: <Text style={{ fontWeight: 'bold', color: DS_COLOR.accent }}>{manualDays} Ngày ({manualDays}N{Math.max(1, manualDays - 1)}Đ)</Text>
               </Text>
             </View>
 
@@ -1474,12 +1036,12 @@ Ví dụ chuẩn:
               ))}
             </View>
 
-            {/* Dự toán ngân sách với dấu phẩy phân tách tiền tệ */}
+            {/* Dự toán ngân sách */}
             <Text style={[styles.aiInputLabel, { marginTop: 14 }]}>Dự toán ngân sách (VNĐ)</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="4,500,000"
-              placeholderTextColor={WF_COLORS.slate400}
+              placeholderTextColor={DS_COLOR.inkMuted}
               value={manualBudgetFormatted}
               onChangeText={(text) => {
                 const formatted = formatCurrency(text);
@@ -1488,13 +1050,13 @@ Ví dụ chuẩn:
               keyboardType="numeric"
             />
 
-            {/* Chọn ảnh bìa đại diện (Có nút chọn từ thư viện máy) */}
+            {/* Chọn ảnh bìa */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
               <Text style={styles.aiInputLabel}>Ảnh bìa đại diện</Text>
               <TouchableOpacity
                 onPress={handlePickCoverImage}
                 style={styles.uploadPhotoBtn}>
-                <FontAwesome name="camera" size={12} color="#B0522F" style={{ marginRight: 5 }} />
+                <FontAwesome name="camera" size={12} color={DS_COLOR.accent} style={{ marginRight: 5 }} />
                 <Text style={styles.uploadPhotoBtnText}>Chọn ảnh từ máy</Text>
               </TouchableOpacity>
             </View>
@@ -1505,7 +1067,7 @@ Ví dụ chuẩn:
             </View>
 
             {/* Chọn nhanh ảnh preset */}
-            <Text style={[styles.aiInputLabel, { fontSize: 11, color: '#5A5146', marginTop: 8 }]}>Hoặc chọn nhanh mẫu cảnh đẹp:</Text>
+            <Text style={[styles.aiInputLabel, { fontSize: 11, color: DS_COLOR.inkMuted, marginTop: 8 }]}>Hoặc chọn nhanh mẫu cảnh đẹp:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
               {COVER_PRESETS.map((p, idx) => {
                 const isSelected = manualCover === p.url;
@@ -1528,7 +1090,7 @@ Ví dụ chuẩn:
               onPress={handleCreateManualTrip}
               disabled={submittingManual}>
               {submittingManual ? (
-                <ActivityIndicator color="#FFFDF8" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.submitAiBtnText}>Tạo Lịch Trình</Text>
               )}
@@ -1536,940 +1098,211 @@ Ví dụ chuẩn:
           </ScrollView>
         </SafeAreaView>
       </Modal>
-
-      {/* ─── MODAL TRÒ CHUYỆN (CHAT & AI ASSISTANT) ─────────────── */}
-      <ChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </View>
   );
 }
 
-// ─── STYLESHEET WITH TIMES NEW ROMAN / SERIF FONT ───────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F4EC',
+    backgroundColor: DS_COLOR.bg,
   },
   listContent: {
-    paddingBottom: 40,
-  },
-  headerContainer: {
-    marginBottom: 12,
-  },
-
-  // Dynamic Floating Navbar
-  floatingNavbar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 99,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 6,
-    shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    paddingBottom: 84,
   },
-  navLogoWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 38,
-  },
-  navHeaderLogo: {
-    width: 125,
-    height: 34,
-  },
-  navRightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  navChatBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: '#FDF2EE',
-  },
-  navChatBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
-  },
-  navAvatarBtn: {
-    padding: 2,
-  },
-  navAvatarImg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: WF_COLORS.primary,
-  },
-
-  // 1. Paper Hero
-  heroBox: {
-    position: 'relative',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.05)',
-  },
-  heroContent: {
-    zIndex: 10,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroHeadline: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.6,
-  },
-  heroCountBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  heroCountBadgeText: {
-    color: '#475569',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 6,
-    lineHeight: 19,
-    fontWeight: '400',
-  },
-  heroBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 16,
-  },
-  aiCtaBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WF_COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 999,
-    shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  aiCtaBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  manualCtaBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  manualCtaBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  // 2. Airbnb Style Flat Search & Unified Filter (Thoáng đãng & Tối giản)
-  cleanFilterSection: {
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  cleanSearchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFDF8',
-    marginHorizontal: 16,
-    paddingHorizontal: 12,
-    height: 44,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  cleanSearchInput: {
-    flex: 1,
-    fontSize: 12,
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
-    paddingVertical: 0,
-  },
-  cleanFilterScroll: {
-    paddingHorizontal: 16,
+  feedHeader: {
+    backgroundColor: DS_COLOR.bg,
     paddingTop: 8,
-    paddingBottom: 6,
+    paddingBottom: 10,
     gap: 8,
   },
-  cleanFilterChip: {
+  toolbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 5,
-    backgroundColor: '#FFFDF8',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  cleanFilterChipActive: {
-    backgroundColor: '#B0522F',
-    borderColor: '#B0522F',
-  },
-  cleanFilterChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5A5146',
-    fontFamily: SERIF_FONT,
-  },
-  cleanFilterChipTextActive: {
-    color: '#FFFDF8',
-  },
-  cleanFilterBadge: {
-    marginLeft: 5,
-    backgroundColor: '#F3EDE2',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
-  },
-  cleanFilterBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
-  },
-  cleanFilterBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#5A5146',
-  },
-  cleanFilterBadgeTextActive: {
-    color: '#FFFDF8',
-  },
-
-  // 4. Card List Item
-  cardContainer: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  cardCoverBox: {
-    height: 175,
-    position: 'relative',
-    backgroundColor: '#1E1A15',
-  },
-  cardCoverImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardGradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(30, 26, 21, 0.30)',
-  },
-  cardTopBadgeRow: {
-    position: 'absolute',
-    top: 10,
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  destinationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(248, 244, 236, 0.94)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(30, 26, 21, 0.10)',
-  },
-  destinationBadgeText: {
-    color: '#3B332A',
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  aiBadge: {
-    backgroundColor: '#B0522F',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 3,
-  },
-  aiBadgeText: {
-    color: '#FFFDF8',
-    fontSize: 10,
-    fontWeight: '800',
-    fontFamily: SERIF_FONT,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 3,
-  },
-  statusBadgeUpcoming: {
-    backgroundColor: '#B0522F',
-  },
-  statusBadgeCompleted: {
-    backgroundColor: '#4F6B52',
-  },
-  statusBadgeText: {
-    color: '#FFFDF8',
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  cardCoverBottomRow: {
-    position: 'absolute',
-    bottom: 10,
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  durationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(248, 244, 236, 0.94)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(30, 26, 21, 0.10)',
-  },
-  durationPillText: {
-    color: '#3B332A',
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  coverDateText: {
-    color: '#FFFDF8',
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  cardBody: {
-    padding: 14,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1A15',
-    lineHeight: 22,
-    fontFamily: SERIF_FONT,
-  },
-  cardMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
   },
-  metaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F4EC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
+  searchBox: {
+    flex: 1,
+    height: 40,
+    backgroundColor: DS_COLOR.surface,
+    borderRadius: DS_RADIUS.pill,
     borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  metaBudgetText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#D97706',
-    fontFamily: SERIF_FONT,
-  },
-  metaUserText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#5A5146',
-    maxWidth: 120,
-    fontFamily: SERIF_FONT,
-  },
-  cardActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
-  },
-  cardDetailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#B0522F',
+    borderColor: DS_COLOR.line,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 5,
-  },
-  cardDetailBtnText: {
-    color: '#FFFDF8',
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  cardIconActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    marginLeft: 8,
+    fontSize: DS_TYPE.body,
+    color: DS_COLOR.ink,
+  },
+  chipsRow: {
+    flexDirection: 'row',
     gap: 8,
-  },
-  actionIconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 5,
-    backgroundColor: '#F3EDE2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionDeleteBtn: {
-    backgroundColor: '#FEE2E2',
-  },
-
-  // 5. Empty State
-  centerBox: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 2,
   },
   emptyContainer: {
-    padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F6E6DD',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+    paddingVertical: 56,
+    paddingHorizontal: 24,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#5A5146',
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
-    maxWidth: 280,
-    fontFamily: SERIF_FONT,
-  },
-  emptyActionBtn: {
-    backgroundColor: '#B0522F',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-    marginTop: 16,
-  },
-  emptyActionBtnText: {
-    color: '#FFFDF8',
-    fontSize: 13,
+    fontSize: DS_TYPE.page,
     fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-
-  // 6. Detail Modal
-  detailContainer: {
-    flex: 1,
-    backgroundColor: '#F8F4EC',
-  },
-  detailNavbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E4DACB',
-    backgroundColor: '#FFFDF8',
-  },
-  navBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 5,
-    backgroundColor: '#F3EDE2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1A15',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
-    fontFamily: SERIF_FONT,
-  },
-  detailScrollContent: {
-    paddingBottom: 40,
-  },
-  detailHeroCard: {
-    height: 190,
-    position: 'relative',
-    justifyContent: 'flex-end',
-    padding: 16,
-    backgroundColor: '#1E1A15',
-  },
-  detailHeroImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  detailHeroScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(30, 26, 21, 0.55)',
-  },
-  detailHeroBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    color: DS_COLOR.ink,
     marginBottom: 6,
   },
-  detailDestBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-  detailDestText: {
-    color: '#FFFDF8',
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  detailAiBadge: {
-    backgroundColor: '#B0522F',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-  detailAiText: {
-    color: '#FFFDF8',
-    fontSize: 11,
-    fontWeight: '800',
-    fontFamily: SERIF_FONT,
-  },
-  detailHeroTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFDF8',
-    lineHeight: 26,
-    fontFamily: SERIF_FONT,
-  },
-  detailStatsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFDF8',
-    marginHorizontal: 16,
-    marginTop: -16,
-    borderRadius: 5,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    shadowColor: '#5A5146',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 0,
-    justifyContent: 'space-around',
-  },
-  detailStatBox: {
-    alignItems: 'center',
-  },
-  detailStatLabel: {
-    fontSize: 11,
-    color: '#5A5146',
-    fontWeight: '600',
-    marginTop: 4,
-    fontFamily: SERIF_FONT,
-  },
-  detailStatValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1A15',
-    marginTop: 2,
-    fontFamily: SERIF_FONT,
-  },
-  daySelectorSection: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  sectionHeaderTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1A15',
-    marginBottom: 10,
-    fontFamily: SERIF_FONT,
-  },
-  dayPillsScroll: {
-    gap: 8,
-  },
-  dayPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 5,
-    backgroundColor: '#E4DACB',
-  },
-  dayPillActive: {
-    backgroundColor: '#B0522F',
-  },
-  dayPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#5A5146',
-    fontFamily: SERIF_FONT,
-  },
-  dayPillTextActive: {
-    color: '#FFFDF8',
-  },
-  addStopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 16,
-    marginTop: 14,
-    paddingVertical: 10,
-    borderRadius: 5,
-    backgroundColor: '#F6E6DD',
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-  },
-  addStopBtnText: {
-    color: '#B0522F',
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  timelineSection: {
-    marginTop: 14,
-    paddingHorizontal: 16,
-  },
-  emptyTimelineBox: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 5,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  emptyTimelineText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E1A15',
-    marginTop: 8,
-    fontFamily: SERIF_FONT,
-  },
-  emptyTimelineSub: {
-    fontSize: 12,
-    color: '#5A5146',
+  emptySubtitle: {
+    fontSize: DS_TYPE.body,
+    color: DS_COLOR.inkMuted,
     textAlign: 'center',
-    marginTop: 4,
-    fontFamily: SERIF_FONT,
+    lineHeight: 20,
+    marginBottom: 20,
   },
-  timelineItem: {
+  emptyActionBtn: {
     flexDirection: 'row',
-    marginBottom: 12,
-  },
-  timelineLeftCol: {
-    width: 60,
     alignItems: 'center',
-    paddingTop: 4,
+    backgroundColor: DS_COLOR.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: DS_RADIUS.pill,
   },
-  timelineTimeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#B0522F',
-    fontFamily: SERIF_FONT,
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#B0522F',
-    marginTop: 4,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#E8D5C9',
-    marginTop: 4,
-  },
-  timelineCard: {
-    flex: 1,
-    backgroundColor: '#FFFDF8',
-    borderRadius: 5,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    shadowColor: '#5A5146',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 0,
-  },
-  timelineCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  categoryBadge: {
-    backgroundColor: '#F6E6DD',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
-  categoryBadgeText: {
-    color: '#B0522F',
-    fontSize: 10,
+  emptyActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: DS_TYPE.body,
     fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-  timelineCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
-  },
-  timelineCardNote: {
-    fontSize: 12,
-    color: '#5A5146',
-    marginTop: 6,
-    lineHeight: 16,
-    fontFamily: SERIF_FONT,
-  },
-  timelineAddressBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F4EC',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    gap: 8,
-  },
-  timelineAddressLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  timelineAddressText: {
-    fontSize: 11,
-    color: '#5A5146',
-    lineHeight: 15,
-    fontFamily: SERIF_FONT,
-  },
-  timelineMapBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFDF8',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-  },
-  timelineMapBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B0522F',
-    fontFamily: SERIF_FONT,
-  },
-  timelineBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3EDE2',
-  },
-  timelineCostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timelineCostText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D97706',
-    fontFamily: SERIF_FONT,
-  },
-  timelineTransitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timelineTransitText: {
-    fontSize: 11,
-    color: '#5A5146',
-    fontFamily: SERIF_FONT,
-  },
-  checklistSection: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  checklistCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    gap: 12,
-  },
-  checkItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkItemText: {
-    fontSize: 13,
-    color: '#3B332A',
-    fontWeight: '600',
-    fontFamily: SERIF_FONT,
-  },
-  checkItemTextDone: {
-    textDecorationLine: 'line-through',
-    color: '#8A7F70',
   },
 
-  // 7. Modals Common
+  // Modal Styles
   modalSafeContainer: {
     flex: 1,
-    backgroundColor: '#FFFDF8',
+    backgroundColor: DS_COLOR.surface,
   },
   modalHeader: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4DACB',
+    borderBottomColor: DS_COLOR.line,
   },
   modalHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
+    fontSize: DS_TYPE.page,
+    fontWeight: '700',
+    color: DS_COLOR.ink,
   },
-  modalInput: {
-    backgroundColor: '#F8F4EC',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    borderRadius: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  aiLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  aiLoadingProgress: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: DS_COLOR.accent,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  aiLoadingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: DS_COLOR.ink,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  aiLoadingStep: {
     fontSize: 13,
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
+    color: DS_COLOR.inkMuted,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E7E5E4',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: DS_COLOR.accent,
+    borderRadius: 4,
+  },
+  aiLoadingNote: {
+    fontSize: 12,
+    color: DS_COLOR.inkMuted,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   aiFormScroll: {
-    padding: 18,
+    padding: 16,
     paddingBottom: 40,
   },
   aiInputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#3B332A',
+    color: DS_COLOR.ink,
     marginBottom: 6,
-    fontFamily: SERIF_FONT,
+  },
+  inputSubLabel: {
+    fontSize: 11.5,
+    color: DS_COLOR.inkMuted,
+    marginBottom: 4,
+  },
+  modalInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: DS_COLOR.line,
+    borderRadius: DS_RADIUS.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: DS_TYPE.body,
+    color: DS_COLOR.ink,
   },
   hotChipsScroll: {
-    gap: 6,
-    marginTop: 8,
+    gap: 8,
+    paddingVertical: 8,
   },
   hotChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 5,
-    backgroundColor: '#F3EDE2',
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: '#F5F5F4',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   hotChipActive: {
-    backgroundColor: '#B0522F',
+    backgroundColor: '#FDF2F0',
+    borderColor: DS_COLOR.accent,
   },
   hotChipText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#5A5146',
-    fontFamily: SERIF_FONT,
+    color: DS_COLOR.ink,
+    fontWeight: '500',
   },
   hotChipTextActive: {
-    color: '#FFFDF8',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  dayChoiceBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 5,
-    backgroundColor: '#F3EDE2',
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-  },
-  dayChoiceBtnActive: {
-    backgroundColor: '#B0522F',
-    borderColor: '#B0522F',
-  },
-  dayChoiceText: {
-    fontSize: 12,
+    color: DS_COLOR.accent,
     fontWeight: '700',
-    color: '#5A5146',
-    fontFamily: SERIF_FONT,
   },
-  dayChoiceTextActive: {
-    color: '#FFFDF8',
+  daysCalcBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FDF2F0',
+    padding: 10,
+    borderRadius: DS_RADIUS.sm,
+    marginTop: 10,
+  },
+  daysCalcText: {
+    fontSize: 12.5,
+    color: DS_COLOR.ink,
   },
   grid2x2: {
     flexDirection: 'row',
@@ -2477,214 +1310,120 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   choiceCard: {
-    width: (SCREEN_WIDTH - 36 - 8) / 2,
-    padding: 12,
-    borderRadius: 5,
-    backgroundColor: '#F8F4EC',
+    width: '48.5%',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E4DACB',
-    alignItems: 'flex-start',
+    borderColor: DS_COLOR.line,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   choiceCardActive: {
-    backgroundColor: '#F6E6DD',
-    borderColor: '#B0522F',
+    backgroundColor: '#FDF2F0',
+    borderColor: DS_COLOR.accent,
   },
   choiceCardText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
+    fontSize: 12.5,
+    color: DS_COLOR.ink,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   choiceCardTextActive: {
-    color: '#B0522F',
+    color: DS_COLOR.accent,
+    fontWeight: '700',
   },
   budgetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 5,
-    backgroundColor: '#F8F4EC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E4DACB',
+    borderColor: DS_COLOR.line,
+    borderRadius: DS_RADIUS.sm,
   },
   budgetRowActive: {
-    backgroundColor: '#F6E6DD',
-    borderColor: '#B0522F',
+    backgroundColor: '#FDF2F0',
+    borderColor: DS_COLOR.accent,
   },
   budgetRowTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1E1A15',
-    fontFamily: SERIF_FONT,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
+    marginBottom: 2,
   },
   budgetRowTitleActive: {
-    color: '#B0522F',
+    color: DS_COLOR.accent,
+    fontWeight: '700',
   },
   budgetRowSub: {
-    fontSize: 11,
-    color: '#5A5146',
-    marginTop: 1,
-    fontFamily: SERIF_FONT,
+    fontSize: 11.5,
+    color: DS_COLOR.inkMuted,
   },
   submitAiBtn: {
+    marginTop: 24,
+    backgroundColor: DS_COLOR.accent,
+    paddingVertical: 14,
+    borderRadius: DS_RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#B0522F',
-    paddingVertical: 13,
-    borderRadius: 5,
-    marginTop: 20,
-    shadowColor: '#B0522F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 0,
   },
   submitAiBtnText: {
-    color: '#FFFDF8',
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '700',
-    fontFamily: SERIF_FONT,
-  },
-
-  // Days Calculation Box in Manual modal
-  daysCalcBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F6E6DD',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
-  },
-  daysCalcText: {
-    fontSize: 12,
-    color: '#8F3F24',
-    fontFamily: SERIF_FONT,
   },
   uploadPhotoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 5,
-    backgroundColor: '#F6E6DD',
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
+    paddingHorizontal: 8,
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: '#FDF2F0',
   },
   uploadPhotoBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B0522F',
-    fontFamily: SERIF_FONT,
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: DS_COLOR.accent,
   },
   coverPreviewBox: {
-    width: '100%',
     height: 120,
-    borderRadius: 6,
+    borderRadius: DS_RADIUS.sm,
     overflow: 'hidden',
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: '#D9CDBE',
-    backgroundColor: '#F3EDE2',
+    borderColor: DS_COLOR.line,
   },
   coverPreviewImage: {
     width: '100%',
     height: '100%',
   },
-
-  // AI Loading View
-  aiLoadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  aiLoadingProgress: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#B0522F',
-    marginTop: 16,
-    fontFamily: SERIF_FONT,
-  },
-  aiLoadingTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#1E1A15',
-    marginTop: 8,
-    fontFamily: SERIF_FONT,
-  },
-  aiLoadingStep: {
-    fontSize: 13,
-    color: '#B0522F',
-    fontWeight: '600',
-    marginTop: 4,
-    textAlign: 'center',
-    fontFamily: SERIF_FONT,
-  },
-  progressBarTrack: {
-    width: '100%',
-    height: 6,
-    backgroundColor: '#E4DACB',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#B0522F',
-    borderRadius: 3,
-  },
-  aiLoadingNote: {
-    fontSize: 11,
-    color: '#8A7F70',
-    textAlign: 'center',
-    lineHeight: 16,
-    maxWidth: 280,
-    fontFamily: SERIF_FONT,
-  },
-
-  // Preset covers
   presetScroll: {
     gap: 8,
-    marginVertical: 4,
+    paddingVertical: 8,
   },
   presetCard: {
     width: 90,
-    borderRadius: 6,
+    borderRadius: DS_RADIUS.sm,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
+    backgroundColor: '#FFFFFF',
   },
   presetCardActive: {
-    borderColor: '#B0522F',
+    borderColor: DS_COLOR.accent,
   },
   presetImage: {
-    width: '100%',
-    height: 52,
+    width: 90,
+    height: 55,
   },
   presetLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#5A5146',
+    fontSize: 10,
     textAlign: 'center',
-    marginTop: 2,
-    fontFamily: SERIF_FONT,
-  },
-
-  // Modal Backdrop
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  stopCardBox: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 16,
-    maxHeight: '85%',
+    paddingVertical: 3,
+    color: DS_COLOR.ink,
+    fontWeight: '500',
   },
 });

@@ -229,8 +229,25 @@ export default function TabLayout() {
                 />
               </TouchableOpacity>
 
-              {/* Action Buttons: Notification, Chat & Profile */}
+              {/* Action Buttons: Notification & Chat */}
               <View style={styles.headerRightActions}>
+                {/* Nút Trò chuyện / Chat */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setIsChatOpen(true)}
+                  style={styles.headerCircleBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mở tin nhắn và trợ lý AI">
+                  <FontAwesome name="comments-o" size={17} color={WF_PAPER.inkSecondary} />
+                  {unreadChatCount > 0 && (
+                    <View style={styles.headerBadge}>
+                      <Text style={styles.headerBadgeText}>
+                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
                 {/* Nút Chuông Thông Báo */}
                 <TouchableOpacity
                   activeOpacity={0.8}
@@ -241,51 +258,16 @@ export default function TabLayout() {
                       setIsAuthOpen(true);
                     }
                   }}
-                  style={styles.notifHeaderBtn}>
-                  <FontAwesome name="bell-o" size={17} color={WF_PAPER.inkSecondary} />
+                  style={styles.headerCircleBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mở thông báo">
+                  <FontAwesome name="bell-o" size={16} color={WF_PAPER.inkSecondary} />
                   {unreadNotifCount > 0 && (
-                    <View style={styles.notifBadge}>
-                      <Text style={styles.notifBadgeText}>
+                    <View style={styles.headerBadge}>
+                      <Text style={styles.headerBadgeText}>
                         {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                       </Text>
                     </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Nút Trò chuyện / Chat */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setIsChatOpen(true)}
-                  style={styles.chatHeaderBtn}>
-                  <FontAwesome name="comments" size={15} color={WF_PAPER.clay} style={{ marginRight: 6 }} />
-                  <Text style={styles.chatHeaderBtnText}>Chat</Text>
-                  {unreadChatCount > 0 && (
-                    <View style={styles.chatBadge}>
-                      <Text style={styles.chatBadgeText}>
-                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Nút Profile Avatar */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    if (currentUser) {
-                      router.push('/(tabs)/profile');
-                    } else {
-                      setIsAuthOpen(true);
-                    }
-                  }}
-                  style={styles.avatarHeaderBtn}>
-                  {currentUser?.avatar ? (
-                    <Image
-                      source={{ uri: currentUser.avatar }}
-                      style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: WF_PAPER.clay }}
-                    />
-                  ) : (
-                    <FontAwesome name="user-circle" size={26} color={WF_PAPER.inkSecondary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -418,21 +400,21 @@ const styles = StyleSheet.create({
   headerRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  chatHeaderBtn: {
-    flexDirection: 'row',
+  headerCircleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
-    backgroundColor: WF_PAPER.clayLight,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
+    justifyContent: 'center',
     position: 'relative',
   },
-  chatBadge: {
+  headerBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -2,
+    right: -2,
     backgroundColor: '#EF4444',
     minWidth: 18,
     height: 18,
@@ -443,43 +425,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: WF_PAPER.card,
   },
-  chatBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  chatHeaderBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_PAPER.clay,
-  },
-  avatarHeaderBtn: {
-    padding: 2,
-  },
-  notifHeaderBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    backgroundColor: WF_PAPER.clay,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: WF_PAPER.card,
-  },
-  notifBadgeText: {
+  headerBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',

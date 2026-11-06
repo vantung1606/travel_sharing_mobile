@@ -23,6 +23,7 @@ import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { PostCard } from '@/components/community/PostCard';
 import { PostDetailModal } from '@/components/community/PostDetailModal';
 import { PostLikersModal } from '@/components/community/PostLikersModal';
+import { SharePostModal } from '@/components/community/SharePostModal';
 import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import {
@@ -111,6 +112,7 @@ export default function CommunityScreen() {
   const [cloningPostId, setCloningPostId] = useState<number | null>(null);
   const [selectedPostForLikers, setSelectedPostForLikers] = useState<PostItem | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [shareTarget, setShareTarget] = useState<PostItem | null>(null);
 
   // ── Place Check-in integration ─────────────────────────────
   const routeParams = useLocalSearchParams<{ checkinPlaceId?: string }>();
@@ -421,16 +423,8 @@ export default function CommunityScreen() {
     }
   };
 
-  const handleShare = async (post: PostItem) => {
-    try {
-      const shareUrl = `https://wayfare.vn/community?postId=${post.id}`;
-      await Share.share({
-        message: `${post.title ? `${post.title}\n` : ''}${(post.content || '').slice(0, 180)}\n\n— Khám phá trên Wayfare: ${shareUrl}`,
-        url: shareUrl,
-      });
-    } catch {
-      // Người dùng huỷ chia sẻ
-    }
+  const handleShare = (post: PostItem) => {
+    setShareTarget(post);
   };
 
   const hidePost = (postId: number) => {
@@ -1094,6 +1088,18 @@ export default function CommunityScreen() {
         onPressPost={(post) => {
           setSelectedUserId(null);
           setDetailPost(post);
+        }}
+      />
+
+      {/* ─── Overlay: chia sẻ bài viết (Repost & Multi-channel) ─ */}
+      <SharePostModal
+        visible={!!shareTarget}
+        post={shareTarget}
+        session={session}
+        onClose={() => setShareTarget(null)}
+        onPostShared={(newPost) => {
+          setPagedPosts((prev) => [newPost, ...prev]);
+          setFullPosts((prev) => (prev ? [newPost, ...prev] : null));
         }}
       />
     </View>

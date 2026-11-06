@@ -21,6 +21,7 @@ import { WF_COLORS } from '@/constants/Colors';
 import { ToastHost, showToast } from '@/components/Toast';
 import { authApi } from '@/src/services/api';
 import { UserSession } from '@/src/services/authStorage';
+import { GoogleOAuthModal, triggerGoogleWebAuth } from '@/components/GoogleOAuthModal';
 
 interface WelcomeAuthModalProps {
   visible: boolean;
@@ -41,6 +42,7 @@ export function WelcomeAuthModal({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+  const [googleModalVisible, setGoogleModalVisible] = useState<boolean>(false);
   const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | null>(null);
 
   // Mỗi lần mở lại form (sau khi đăng xuất hoặc bấm từ header) luôn trả về
@@ -99,45 +101,46 @@ export function WelcomeAuthModal({
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSuccess = async (token: string) => {
+    setGoogleModalVisible(false);
     setGoogleLoading(true);
     try {
-      const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com';
-      const redirectUri = Linking.createURL('oauth');
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(googleClientId)}&redirect_uri=${encodeURIComponent(
-        redirectUri
-      )}&response_type=token%20id_token&scope=openid%20profile%20email&nonce=wayfare_${Date.now()}`;
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type === 'success' && result.url) {
-        const urlPart = result.url.includes('#') ? result.url.split('#')[1] : (result.url.split('?')[1] || '');
-        const params = new URLSearchParams(urlPart);
-        const token = params.get('id_token') || params.get('access_token');
-        if (token) {
-          const session = await authApi.loginWithGoogle(token);
-          onLoginSuccess(session, 'google');
-          return;
-        }
-      }
-
-      showToast({
-        kind: 'info',
-        title: 'Đăng nhập Google',
-        message:
-          'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng. Bạn có thể đăng nhập nhanh bằng Email & Mật khẩu ngay phía trên.',
-        duration: 4600,
-      });
+      const session = await authApi.loginWithGoogle(token);
+      onLoginSuccess(session, 'google');
     } catch (err: any) {
       showToast({
         kind: 'error',
-        title: 'Không thể đăng nhập Google',
+        title: 'Đăng nhập Google thất bại',
         message:
+          err.response?.data?.message ||
           err.message ||
-          'Không thể mở trình duyệt xác thực Google. Vui lòng sử dụng Đăng nhập bằng Email.',
+          'Xác thực tài khoản Google không thành công.',
         duration: 4200,
       });
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (Platform.OS === 'web') {
+      setGoogleLoading(true);
+      triggerGoogleWebAuth(
+        async (token) => {
+          await handleGoogleSuccess(token);
+        },
+        (errorMsg) => {
+          setGoogleLoading(false);
+          showToast({
+            kind: 'error',
+            title: 'Đăng nhập Google',
+            message: errorMsg,
+            duration: 4200,
+          });
+        }
+      );
+    } else {
+      setGoogleModalVisible(true);
     }
   };
 
@@ -330,6 +333,22 @@ export function WelcomeAuthModal({
       {/* Toast đặt ngay trong modal để thông báo không bị lớp phủ của modal che.
           Chỉ nhận hiển thị khi modal đang mở (visible). */}
       <ToastHost enabled={visible} />
+
+      {/* Google OAuth Modal cho Native (Android/iOS) */}
+      <GoogleOAuthModal
+        visible={googleModalVisible}
+        onClose={() => setGoogleModalVisible(false)}
+        onSuccess={handleGoogleSuccess}
+        onError={(err) => {
+          setGoogleModalVisible(false);
+          showToast({
+            kind: 'error',
+            title: 'Lỗi xác thực Google',
+            message: err,
+            duration: 4200,
+          });
+        }}
+      />
     </Modal>
   );
 }

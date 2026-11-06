@@ -1,5 +1,5 @@
 import { create } from 'axios';
-import { authStorage } from './authStorage';
+import { authStorage, UserSession } from './authStorage';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://travelsharingbackend-production.up.railway.app/api';
 
@@ -297,8 +297,13 @@ export const authApi = {
       idToken: idToken.trim(),
     });
     if (res.data.success && res.data.data) {
-      await authStorage.saveSession(res.data.data);
-      return res.data.data;
+      const user = res.data.data;
+      const sessionToSave: UserSession = {
+        ...user,
+        avatarUrl: user.avatar || (user as any).avatarUrl,
+      };
+      await authStorage.saveSession(sessionToSave);
+      return user;
     }
     throw new Error(res.data.message || 'Xác thực tài khoản Google với máy chủ không thành công');
   },

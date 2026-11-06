@@ -9,6 +9,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -28,6 +29,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { showToast } from '@/components/Toast';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { UserProfileModal } from '@/components/UserProfileModal';
+import { GoogleOAuthModal, triggerGoogleWebAuth } from '@/components/GoogleOAuthModal';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import {
   authApi,
@@ -104,6 +106,7 @@ export default function ProfileScreen() {
   const [authEmail, setAuthEmail] = useState<string>('');
   const [authPassword, setAuthPassword] = useState<string>('');
   const [submittingAuth, setSubmittingAuth] = useState<boolean>(false);
+  const [googleModalVisible, setGoogleModalVisible] = useState<boolean>(false);
 
   // Follow Modal state
   const [followModalVisible, setFollowModalVisible] = useState<boolean>(false);
@@ -246,49 +249,52 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSuccess = async (token: string) => {
+    setGoogleModalVisible(false);
+    setSubmittingAuth(true);
     try {
-      setSubmittingAuth(true);
-      const googleClientId =
-        process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
-        '340055145050-thlfrv3nl1j1jcahh75n8inr8v5j4574.apps.googleusercontent.com';
-      const redirectUri = Linking.createURL('oauth');
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
-        googleClientId
-      )}&redirect_uri=${encodeURIComponent(
-        redirectUri
-      )}&response_type=token%20id_token&scope=openid%20profile%20email&nonce=wayfare_${Date.now()}`;
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type === 'success' && result.url) {
-        const urlPart = result.url.includes('#') ? result.url.split('#')[1] : result.url.split('?')[1] || '';
-        const params = new URLSearchParams(urlPart);
-        const token = params.get('id_token') || params.get('access_token');
-        if (token) {
-          const session = await authApi.loginWithGoogle(token);
-          setUser(session);
-          showToast({
-            kind: 'success',
-            title: 'Đăng nhập Google thành công',
-            message: `Xin chào ${session.fullName || session.email}, hồ sơ Google đã được kết nối.`,
-          });
-          loadProfile();
-          return;
-        }
-      }
+      const session = await authApi.loginWithGoogle(token);
+      setUser(session);
       showToast({
-        kind: 'info',
-        title: 'Đăng nhập Google',
-        message: 'Xác thực qua Google chưa hoàn tất hoặc trình duyệt đã đóng.',
+        kind: 'success',
+        title: 'Đăng nhập Google thành công',
+        message: `Xin chào ${session.fullName || session.email}, hồ sơ Google đã được kết nối.`,
       });
+      loadProfile();
     } catch (e: any) {
       showToast({
         kind: 'error',
-        title: 'Không thể đăng nhập Google',
-        message: e.message || 'Vui lòng thử lại sau.',
+        title: 'Đăng nhập Google thất bại',
+        message:
+          e.response?.data?.message ||
+          e.message ||
+          'Xác thực tài khoản Google không thành công.',
+        duration: 4200,
       });
     } finally {
       setSubmittingAuth(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (Platform.OS === 'web') {
+      setSubmittingAuth(true);
+      triggerGoogleWebAuth(
+        async (token) => {
+          await handleGoogleSuccess(token);
+        },
+        (errorMsg) => {
+          setSubmittingAuth(false);
+          showToast({
+            kind: 'error',
+            title: 'Đăng nhập Google',
+            message: errorMsg,
+            duration: 4200,
+          });
+        }
+      );
+    } else {
+      setGoogleModalVisible(true);
     }
   };
 
@@ -1210,6 +1216,22 @@ export default function ProfileScreen() {
         visible={Boolean(selectedUserIdForModal)}
         userId={selectedUserIdForModal}
         onClose={() => setSelectedUserIdForModal(null)}
+      />
+
+      {/* Google OAuth Modal cho Native (Android/iOS) */}
+      <GoogleOAuthModal
+        visible={googleModalVisible}
+        onClose={() => setGoogleModalVisible(false)}
+        onSuccess={handleGoogleSuccess}
+        onError={(err) => {
+          setGoogleModalVisible(false);
+          showToast({
+            kind: 'error',
+            title: 'Lỗi xác thực Google',
+            message: err,
+            duration: 4200,
+          });
+        }}
       />
     </View>
   );

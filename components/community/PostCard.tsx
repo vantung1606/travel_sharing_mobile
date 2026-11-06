@@ -4,23 +4,17 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
-import { PlaceAttachCard } from '@/components/community/PlaceAttachCard';
 import { PostMedia } from '@/components/community/PostMedia';
-import {
-  getPostCommentCount,
-  getPostImages,
-  getTierLabel,
-} from '@/components/community/communityUtils';
-import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
-import { SERIF_FONT } from '@/constants/Typography';
 import { RichPostText } from '@/components/community/RichTextToolbar';
+import { formatCount, getPostCommentCount, getPostImages } from '@/components/community/communityUtils';
+import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import { PostItem } from '@/src/services/api';
 import { getUserTier } from '@/src/utils/tierSystem';
 
 const FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
 
-const READ_MORE_THRESHOLD = 170;
+const READ_MORE_THRESHOLD = 200;
 
 interface PostCardProps {
   post: PostItem;
@@ -47,21 +41,13 @@ interface PostCardProps {
   onPressPlace?: (placeId: number) => void;
 }
 
-/** Tô màu @mention trong nội dung bài viết. */
-function renderContent(content: string) {
-  const parts = content.split(/(@[\w\u00C0-\u1EF9.]+)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith('@') && part.length > 1) {
-      return (
-        <Text key={index} style={styles.mention}>
-          {part}
-        </Text>
-      );
-    }
-    return <Text key={index}>{part}</Text>;
-  });
-}
-
+/**
+ * Card bài viết cho feed mobile.
+ *
+ * Nguyên tắc: chỉ giữ 3 lớp thông tin (tác giả → nội dung → media → hành động).
+ * Bỏ category trùng meta, bỏ bookmark ở header, bỏ nút "Chi tiết" (bấm thân card
+ * đã mở chi tiết), bỏ điểm kiểm duyệt AI khỏi giao diện người dùng.
+ */
 export function PostCard({
   post,
   liked,
@@ -96,16 +82,18 @@ export function PostCard({
   const content = post.content || '';
   const canTruncate = content.length > READ_MORE_THRESHOLD;
   const shownContent = canTruncate && !expanded ? `${content.slice(0, READ_MORE_THRESHOLD).trimEnd()}...` : content;
-  const authorTierObj = getUserTier({ tier: post.authorTier, role: post.authorRole });
+  const authorTier = getUserTier({ tier: post.authorTier, role: post.authorRole });
+  const locationText = post.locationTag || post.locationName;
 
   return (
     <View style={styles.card}>
-      {/* Header */}
+      {/* Tác giả + meta */}
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onPressAuthor}
-          style={[styles.avatarWrap, { borderColor: authorTierObj.avatarRingColor || WF_PAPER.clayLight }]}>
+          accessibilityLabel={`Xem hồ sơ ${post.authorName || 'thành viên'}`}
+          style={[styles.avatarWrap, { borderColor: authorTier.avatarRingColor || DS_COLOR.accentSoft }]}>
           <Image source={{ uri: post.authorAvatar || FALLBACK_AVATAR }} style={styles.avatar} />
         </TouchableOpacity>
 
@@ -120,105 +108,67 @@ export function PostCard({
             {isOwner ? (
               <Text style={styles.youTag}>(Bạn)</Text>
             ) : onToggleFollow ? (
-              <View style={styles.followInlineRow}>
-                <Text style={styles.followDot}>·</Text>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={onToggleFollow}
-                  disabled={followLoading}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Text style={[styles.followTextInline, isFollowingAuthor && styles.followTextInlineActive]}>
-                    {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={onToggleFollow}
+                disabled={followLoading}
+                hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                accessibilityLabel={isFollowingAuthor ? 'Bỏ theo dõi tác giả' : 'Theo dõi tác giả'}>
+                <Text style={[styles.followText, isFollowingAuthor && styles.followTextActive]}>
+                  {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
+                </Text>
+              </TouchableOpacity>
             ) : null}
-
-            <View style={[styles.tierPill, { backgroundColor: authorTierObj.badgeBg }]}>
-              <Text style={[styles.tierPillText, { color: authorTierObj.avatarRingColor }]}>
-                {authorTierObj.icon} {authorTierObj.name}
-              </Text>
-            </View>
           </View>
 
           <View style={styles.metaRow}>
             <Text style={styles.metaText}>{post.timeAgo || 'Vừa xong'}</Text>
-            {post.locationTag || post.locationName ? (
+            {locationText ? (
               <>
                 <Text style={styles.metaDot}>·</Text>
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => {
                     const placeId = post.placeId || post.sharedPost?.placeId;
-                    if (placeId && onPressPlace) {
-                      onPressPlace(placeId);
-                    }
+                    if (placeId && onPressPlace) onPressPlace(placeId);
                   }}
                   disabled={!(post.placeId || post.sharedPost?.placeId) || !onPressPlace}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 }}>
-                  <FontAwesome name="map-marker" size={10} color={WF_PAPER.clay} />
-                  <Text
-                    style={[
-                      styles.metaText,
-                      (post.placeId || post.sharedPost?.placeId) ? { color: WF_PAPER.clay, fontWeight: '600' } : undefined
-                    ]}
-                    numberOfLines={1}>
-                    {post.locationTag || post.locationName}
+                  style={styles.locationBtn}>
+                  <FontAwesome name="map-marker" size={11} color={DS_COLOR.accent} />
+                  <Text style={styles.locationText} numberOfLines={1}>
+                    {locationText}
                   </Text>
                 </TouchableOpacity>
               </>
             ) : null}
-            {post.category ? (
+            {isPrivate ? (
               <>
                 <Text style={styles.metaDot}>·</Text>
-                <Text style={styles.metaText} numberOfLines={1}>{post.category}</Text>
+                <FontAwesome name="lock" size={10} color={DS_COLOR.inkMuted} />
               </>
             ) : null}
-            <Text style={styles.metaDot}>·</Text>
-            <FontAwesome
-              name={isPrivate ? 'lock' : 'globe'}
-              size={10}
-              color={isPrivate ? WF_COLORS.amber : WF_PAPER.inkMuted}
-            />
           </View>
         </View>
 
-        <View style={styles.headerRightActions}>
-          <TouchableOpacity
-            style={styles.bookmarkHeaderBtn}
-            onPress={onToggleBookmark}
-            activeOpacity={0.7}
-            accessibilityLabel="Lưu bài viết">
-            <FontAwesome
-              name={bookmarked ? 'bookmark' : 'bookmark-o'}
-              size={15}
-              color={bookmarked ? WF_COLORS.amber : WF_PAPER.inkMuted}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuBtn} onPress={onOpenMenu} accessibilityLabel="Tùy chọn bài viết">
-            <FontAwesome name="ellipsis-h" size={15} color={WF_PAPER.inkMuted} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.menuBtn}
+          onPress={onOpenMenu}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          accessibilityLabel="Tùy chọn bài viết">
+          <FontAwesome name="ellipsis-h" size={16} color={DS_COLOR.inkMuted} />
+        </TouchableOpacity>
       </View>
 
       {isPending ? (
         <View style={styles.pendingBanner}>
-          <FontAwesome name="clock-o" size={12} color="#B45309" />
-          <Text style={styles.pendingText}>
-            Đang chờ quản trị viên duyệt thủ công · Điểm kiểm duyệt {post.aiSafetyScore ?? '—'}/100
-          </Text>
+          <FontAwesome name="clock-o" size={12} color={DS_COLOR.warning} />
+          <Text style={styles.pendingText}>Bài viết đang chờ quản trị viên duyệt</Text>
         </View>
       ) : null}
 
-      {/* Body */}
-      <TouchableOpacity activeOpacity={0.92} onPress={onOpenDetail}>
-        <View style={styles.bodyBlock}>
-          {post.category ? (
-            <View style={styles.categoryPill}>
-              <Text style={styles.categoryPillText}>{post.category}</Text>
-            </View>
-          ) : null}
-
+      {/* Nội dung */}
+      <View style={styles.bodyBlock}>
+        <TouchableOpacity activeOpacity={0.92} onPress={onOpenDetail} accessibilityRole="button">
           {post.title ? (
             <Text style={styles.title} numberOfLines={3}>
               {post.title}
@@ -235,25 +185,22 @@ export function PostCard({
               }
             />
           ) : null}
+        </TouchableOpacity>
 
-          {canTruncate ? (
-            <TouchableOpacity
-              onPress={() => setExpanded((v) => !v)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-              <Text style={styles.readMore}>{expanded ? 'Thu gọn' : 'Xem thêm'}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </TouchableOpacity>
+        {canTruncate ? (
+          <TouchableOpacity
+            onPress={() => setExpanded((v) => !v)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.readMore}>{expanded ? 'Thu gọn' : 'Xem thêm'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
-      {/* Shared post embed */}
+      {/* Bài chia sẻ lại */}
       {post.sharedPost ? (
         <View style={styles.sharedBox}>
           <View style={styles.sharedHeader}>
-            <Image
-              source={{ uri: post.sharedPost.authorAvatar || FALLBACK_AVATAR }}
-              style={styles.sharedAvatar}
-            />
+            <Image source={{ uri: post.sharedPost.authorAvatar || FALLBACK_AVATAR }} style={styles.sharedAvatar} />
             <Text style={styles.sharedAuthor} numberOfLines={1}>
               {post.sharedPost.authorName || 'Thành viên Wayfare'}
             </Text>
@@ -263,11 +210,7 @@ export function PostCard({
               {post.sharedPost.title}
             </Text>
           ) : null}
-          <RichPostText
-            content={post.sharedPost.content}
-            style={styles.sharedContent}
-            numberOfLines={3}
-          />
+          <RichPostText content={post.sharedPost.content} style={styles.sharedContent} numberOfLines={3} />
         </View>
       ) : null}
 
@@ -283,7 +226,7 @@ export function PostCard({
         </View>
       )}
 
-      {/* Attached itinerary */}
+      {/* Lịch trình đính kèm */}
       {(post.itineraryId || post.sharedPost?.itineraryId) && (
         <View style={styles.itineraryWrap}>
           <ItineraryAttachCard
@@ -296,54 +239,47 @@ export function PostCard({
         </View>
       )}
 
-      {/* Đã ẩn phần địa điểm dưới theo yêu cầu UI tối giản (bấm vào location trên header để xem) */}
-
-      {/* Action bar */}
+      {/* Hành động */}
       <View style={styles.actionBar}>
-        <View style={styles.action}>
-          <TouchableOpacity
-            onPress={onToggleLike}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 3 }}
-          >
-            <FontAwesome
-              name={liked ? 'heart' : 'heart-o'}
-              size={17}
-              color={liked ? '#EF4444' : WF_PAPER.inkMuted}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onPressLikers || onToggleLike}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 3, right: 8 }}
-          >
-            <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{likeCount}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.action} onPress={onOpenComments} activeOpacity={0.7}>
-          <FontAwesome name="comment-o" size={17} color={WF_PAPER.inkMuted} />
-          <Text style={styles.actionText}>{commentCount}</Text>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={onToggleLike}
+          activeOpacity={0.7}
+          accessibilityLabel={liked ? 'Bỏ thích bài viết' : 'Thích bài viết'}>
+          <FontAwesome name={liked ? 'heart' : 'heart-o'} size={18} color={liked ? '#EF4444' : DS_COLOR.inkMuted} />
+          <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{formatCount(likeCount)}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.action} onPress={onShare} activeOpacity={0.7}>
-          <FontAwesome name="share-alt" size={16} color={WF_PAPER.inkMuted} />
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={onOpenComments}
+          activeOpacity={0.7}
+          accessibilityLabel="Xem bình luận">
+          <FontAwesome name="comment-o" size={18} color={DS_COLOR.inkMuted} />
+          <Text style={styles.actionText}>{formatCount(commentCount)}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={onShare}
+          activeOpacity={0.7}
+          accessibilityLabel="Chia sẻ bài viết">
+          <FontAwesome name="share-alt" size={17} color={DS_COLOR.inkMuted} />
           <Text style={styles.actionText}>Chia sẻ</Text>
         </TouchableOpacity>
 
         <View style={{ flex: 1 }} />
 
-        <TouchableOpacity style={styles.action} onPress={onToggleBookmark} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={onToggleBookmark}
+          activeOpacity={0.7}
+          accessibilityLabel={bookmarked ? 'Bỏ lưu bài viết' : 'Lưu bài viết'}>
           <FontAwesome
             name={bookmarked ? 'bookmark' : 'bookmark-o'}
-            size={17}
-            color={bookmarked ? WF_PAPER.clay : WF_PAPER.inkMuted}
+            size={18}
+            color={bookmarked ? DS_COLOR.accent : DS_COLOR.inkMuted}
           />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.detailBtn} onPress={onOpenDetail} activeOpacity={0.85}>
-          <Text style={styles.detailBtnText}>Chi tiết</Text>
-          <FontAwesome name="angle-right" size={13} color={WF_PAPER.clay} />
         </TouchableOpacity>
       </View>
     </View>
@@ -352,40 +288,34 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 14,
-    marginBottom: 16,
-    borderRadius: 20,
+    backgroundColor: DS_COLOR.surface,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: DS_RADIUS.lg,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: DS_COLOR.line,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 10,
   },
   avatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 2,
-    borderColor: WF_PAPER.clayLight,
     padding: 1.5,
     marginRight: 10,
   },
   avatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 18,
+    backgroundColor: DS_COLOR.surfaceMuted,
   },
   headerInfo: {
     flex: 1,
@@ -395,153 +325,114 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 5,
+    gap: 6,
   },
   authorName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-  },
-  followInlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  followDot: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: WF_PAPER.inkMuted,
-  },
-  followTextInline: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: WF_PAPER.clay,
-  },
-  followTextInlineActive: {
-    color: WF_PAPER.inkSecondary,
+    fontSize: DS_TYPE.body,
     fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   youTag: {
-    fontSize: 11,
+    fontSize: DS_TYPE.caption,
+    fontWeight: '500',
+    color: DS_COLOR.inkMuted,
+  },
+  followText: {
+    fontSize: DS_TYPE.meta,
     fontWeight: '600',
-    color: WF_PAPER.inkMuted,
+    color: DS_COLOR.accent,
   },
-  tierPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  tierPillText: {
-    fontSize: 9.5,
-    fontWeight: '800',
+  followTextActive: {
+    color: DS_COLOR.inkMuted,
+    fontWeight: '500',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     marginTop: 3,
   },
   metaText: {
     fontSize: 12,
-    color: '#64748B',
-    maxWidth: 160,
+    color: DS_COLOR.inkMuted,
   },
   metaDot: {
     fontSize: 11,
-    color: '#CBD5E1',
+    color: DS_COLOR.inkMuted,
   },
-  headerRightActions: {
+  locationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    flexShrink: 1,
+    maxWidth: 190,
   },
-  bookmarkHeaderBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+  locationText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: DS_COLOR.accent,
   },
   menuBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: -4,
+    marginRight: -6,
   },
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    marginHorizontal: 16,
+    backgroundColor: DS_COLOR.warningSoft,
+    marginHorizontal: 14,
     marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: DS_RADIUS.sm,
   },
   pendingText: {
     flex: 1,
-    fontSize: 11,
-    color: '#92400E',
-    fontWeight: '600',
+    fontSize: 12,
+    color: DS_COLOR.warning,
+    fontWeight: '500',
   },
   bodyBlock: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingBottom: 12,
   },
-  categoryPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    marginBottom: 8,
-  },
-  categoryPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
   title: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 23,
+    fontSize: 16,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
+    lineHeight: 22,
     marginBottom: 6,
-    letterSpacing: -0.3,
   },
   content: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#334155',
+    color: DS_COLOR.inkSecondary,
   },
   shortContent: {
-    fontSize: 15.5,
-    lineHeight: 23,
-    color: '#0F172A',
-    fontWeight: '500',
-  },
-  mention: {
-    color: WF_PAPER.clay,
-    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 22,
+    color: DS_COLOR.ink,
+    fontWeight: '400',
   },
   readMore: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: '700',
-    color: WF_PAPER.clay,
+    marginTop: 6,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.accent,
   },
   sharedBox: {
-    marginHorizontal: 16,
+    marginHorizontal: 14,
     marginBottom: 12,
     padding: 12,
-    borderRadius: 16,
+    borderRadius: DS_RADIUS.md,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: DS_COLOR.line,
     backgroundColor: '#F8FAFC',
   },
   sharedHeader: {
@@ -551,69 +442,55 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sharedAvatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   sharedAuthor: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   sharedTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
     marginBottom: 2,
   },
   sharedContent: {
     fontSize: 12,
     lineHeight: 17,
-    color: '#475569',
+    color: DS_COLOR.inkSecondary,
   },
   mediaWrap: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingBottom: 12,
   },
   itineraryWrap: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingBottom: 12,
   },
   actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.05)',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: DS_COLOR.line,
+    backgroundColor: DS_COLOR.surface,
   },
-  action: {
+  actionBtn: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 8,
   },
   actionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: DS_TYPE.meta,
+    fontWeight: '500',
+    color: DS_COLOR.inkSecondary,
   },
   actionTextLiked: {
     color: '#EF4444',
-  },
-  detailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  detailBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#0F172A',
   },
 });

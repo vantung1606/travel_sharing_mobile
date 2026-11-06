@@ -102,12 +102,13 @@ export function PostMedia({ images = [], videoUrl, onPressImage, onPressVideo }:
   );
 }
 
-const RADIUS = 14;
+const RADIUS = 12;
 
 const styles = StyleSheet.create({
   single: {
     width: '100%',
-    height: 244,
+    aspectRatio: 4 / 3,
+    borderRadius: RADIUS,
     backgroundColor: WF_PAPER.pillBg,
   },
   singlePlayWrap: {
@@ -131,13 +132,13 @@ const styles = StyleSheet.create({
   },
   rowImage: {
     width: '100%',
-    height: 190,
+    height: 160,
     backgroundColor: WF_PAPER.pillBg,
   },
   mosaic: {
     flexDirection: 'row',
     gap: GAP,
-    height: 236,
+    height: 220,
   },
   mosaicMain: {
     flex: 1.9,
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   playCircle: {
     width: 54,
     height: 54,
-    borderRadius: 5,
+    borderRadius: 27,
     backgroundColor: 'rgba(30, 26, 21, 0.55)',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.85)',

@@ -13,7 +13,6 @@ import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
 import { notificationApi, chatApi, mapChatRoom } from '@/src/services/api';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
-import { SERIF_FONT } from '@/constants/Typography';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -203,9 +202,11 @@ export default function TabLayout() {
           },
           tabBarLabelStyle: {
             fontSize: 11,
+            lineHeight: 15,
             fontWeight: '600',
-            marginTop: 3,
+            marginTop: 2,
             letterSpacing: 0.2,
+            flexShrink: 0,
           },
           header: () => (
             <View

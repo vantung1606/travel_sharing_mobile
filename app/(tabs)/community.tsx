@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Linking,
   Platform,
   RefreshControl,
@@ -18,6 +17,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Text, TextInput } from '@/components/Themed';
 import { CommunityFeedSkeleton } from '@/components/CommunityFeedSkeleton';
 import { ActionSheet, ActionSheetOption } from '@/components/community/ActionSheet';
+import { CommunityFilterSheet } from '@/components/community/CommunityFilterSheet';
 import { CreatePostModal } from '@/components/community/CreatePostModal';
 import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { PostCard } from '@/components/community/PostCard';
@@ -29,9 +29,7 @@ import {
   FEED_SCOPES,
   FeedScope,
   PostSortKey,
-  SORT_OPTIONS,
   TOPIC_FILTERS,
-  TRAVEL_HASHTAGS,
   TopicKey,
   filterAndSortPosts,
 } from '@/components/community/communityUtils';
@@ -40,8 +38,11 @@ import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
+import { Chip } from '@/components/ui/Chip';
+import { FAB } from '@/components/ui/FAB';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { WF_PAPER } from '@/constants/Colors';
-import { SERIF_FONT } from '@/constants/Typography';
+import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, userApi } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
@@ -49,20 +50,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HIDDEN_POSTS_STORAGE_KEY = 'wayfare_hidden_post_ids';
 
-const FALLBACK_AVATAR =
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-
-const COMMUNITY_STORIES = [
-  { id: 'dalat', location: 'Đà Lạt', badge: '🌸', image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80' },
-  { id: 'danang', location: 'Đà Nẵng', badge: '🌊', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
-  { id: 'phuquoc', location: 'Phú Quốc', badge: '🏖️', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80' },
-  { id: 'hagiang', location: 'Hà Giang', badge: '🏍️', image: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=300&q=80' },
-  { id: 'sapa', location: 'Sa Pa', badge: '🌾', image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=300&q=80' },
-  { id: 'ninhbinh', location: 'Ninh Bình', badge: '🛶', image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80' },
-  { id: 'hoian', location: 'Hội An', badge: '🏮', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80' },
-];
-
 const PAGE_SIZE = 10;
+
+/** 5 chủ đề hiển thị nhanh; các chủ đề còn lại nằm trong sheet Bộ lọc. */
+const QUICK_TOPICS = TOPIC_FILTERS.slice(0, 5);
 
 interface LightboxState {
   images: string[];
@@ -76,7 +67,6 @@ export default function CommunityScreen() {
 
   // ── Nguồn dữ liệu ─────────────────────────────────────────
   const [pagedPosts, setPagedPosts] = useState<PostItem[]>([]);
-  const [postsTotal, setPostsTotal] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(false);
   const [postsPage, setPostsPage] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -106,7 +96,7 @@ export default function CommunityScreen() {
   const [hashtag, setHashtag] = useState('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<PostSortKey>('newest');
-  const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
 
   // ── Overlay ───────────────────────────────────────────────
   const [detailPost, setDetailPost] = useState<PostItem | null>(null);
@@ -155,7 +145,10 @@ export default function CommunityScreen() {
     }
   }, []);
 
-  const clientFiltering = scope !== 'all' || topic !== 'all' || hashtag !== 'all' || !!search.trim() || sort !== 'newest';
+  // Trì hoãn từ khoá tìm kiếm để không lọc lại toàn bộ feed sau mỗi ký tự.
+  const deferredSearch = useDeferredValue(search);
+  const clientFiltering =
+    scope !== 'all' || topic !== 'all' || hashtag !== 'all' || !!deferredSearch.trim() || sort !== 'newest';
 
   // ── Meta helpers ──────────────────────────────────────────
   const initMeta = useCallback((list: PostItem[]) => {
@@ -181,11 +174,9 @@ export default function CommunityScreen() {
       let data: PostItem[];
       if (result && Array.isArray(result.items)) {
         data = result.items;
-        setPostsTotal(result.totalElements || data.length);
         setHasMorePosts(Boolean(result.hasNext));
       } else {
         data = await postApi.getCommunityPosts();
-        setPostsTotal((data || []).length);
         setHasMorePosts(false);
       }
       setPostsPage(0);
@@ -213,7 +204,6 @@ export default function CommunityScreen() {
         });
         initMeta(result.items);
         setPostsPage(nextPage);
-        setPostsTotal(result.totalElements || 0);
         setHasMorePosts(Boolean(result.hasNext));
       }
     } catch (err: any) {
@@ -308,22 +298,22 @@ export default function CommunityScreen() {
   const displayPosts = useMemo(() => {
     let base: PostItem[];
     if (scope === 'saved') base = savedPosts || [];
-    else if (clientFiltering) base = fullPosts || [];
+    else if (clientFiltering) base = fullPosts ?? pagedPosts;
     else base = pagedPosts;
 
     const filtered = filterAndSortPosts(base, {
       scope,
       topic,
       hashtag,
-      search,
+      search: deferredSearch,
       sort,
       followingIds,
       currentUserId: session?.id ?? null,
     });
     return hiddenIds.size ? filtered.filter((p) => !hiddenIds.has(p.id)) : filtered;
-  }, [scope, clientFiltering, savedPosts, fullPosts, pagedPosts, topic, hashtag, search, sort, followingIds, session?.id, hiddenIds]);
+  }, [scope, clientFiltering, savedPosts, fullPosts, pagedPosts, topic, hashtag, deferredSearch, sort, followingIds, session?.id, hiddenIds]);
 
-  const listBusy = loading || (scope === 'saved' && loadingSaved) || (clientFiltering && scope !== 'saved' && loadingFull);
+  const listBusy = loading || (scope === 'saved' && loadingSaved);
 
   // ── Hành động ─────────────────────────────────────────────
   const requireLogin = (action: string) => {
@@ -701,6 +691,15 @@ export default function CommunityScreen() {
     setSort('newest');
   };
 
+  const handleScopeChange = (key: FeedScope) => {
+    if ((key === 'following' || key === 'saved') && !session) {
+      authPrompt.open();
+      return;
+    }
+    setScope(key);
+    scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
   const scrollRef = useRef<FlatList<PostItem>>(null);
 
   const renderPost = ({ item }: { item: PostItem }) => {
@@ -739,8 +738,8 @@ export default function CommunityScreen() {
   };
 
   const activeFilterCount =
-    (topic !== 'all' ? 1 : 0) + (hashtag !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (sort !== 'newest' ? 1 : 0);
-  const hasFilter = activeFilterCount > 0;
+    (topic !== 'all' ? 1 : 0) + (hashtag !== 'all' ? 1 : 0) + (sort !== 'newest' ? 1 : 0);
+  const hasFilter = activeFilterCount > 0 || !!search.trim();
 
   const emptyState = () => {
     if (listBusy) return <CommunityFeedSkeleton />;
@@ -817,196 +816,85 @@ export default function CommunityScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_PAPER.clay]} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
+        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View style={styles.headerWrapper}>
-            {/* 24h Community Moments Header */}
-            <View style={styles.storyHeader}>
-              <View style={styles.storyHeaderDot} />
-              <Text style={styles.storyHeaderTitle}>Khoảnh Khắc 24h • Trải Nghiệm Thực Tế</Text>
-            </View>
+          <View style={styles.feedHeader}>
+            <SegmentedTabs
+              items={FEED_SCOPES.map((item) => ({ key: item.key, label: item.label }))}
+              value={scope}
+              onChange={handleScopeChange}
+            />
 
-            {/* Stories Horizontal Carousel */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
-              <TouchableOpacity
-                style={styles.storyItem}
-                activeOpacity={0.85}
-                onPress={() => {
-                  resetFilters();
-                  setScope('all');
-                }}>
-                <View style={[styles.storyRing, styles.storyRingAll]}>
-                  <View style={styles.storyAllInner}>
-                    <FontAwesome name="compass" size={20} color={WF_PAPER.clay} />
-                  </View>
-                </View>
-                <Text style={[styles.storyLabel, !search && styles.storyLabelActive]} numberOfLines={1}>
-                  Tất cả
-                </Text>
-              </TouchableOpacity>
-              {COMMUNITY_STORIES.map((story) => {
-                const isSelected = search.toLowerCase().includes(story.location.toLowerCase());
-                return (
-                  <TouchableOpacity
-                    key={story.id}
-                    style={styles.storyItem}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      setScope('all');
-                      setTopic('all');
-                      setHashtag('all');
-                      setSearch(isSelected ? '' : story.location);
-                      scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
-                    }}>
-                    <View style={[styles.storyRing, isSelected && styles.storyRingSelected]}>
-                      <Image source={{ uri: story.image }} style={styles.storyImage} />
-                      <View style={styles.storyBadge}>
-                        <Text style={{ fontSize: 10 }}>{story.badge}</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.storyLabel, isSelected && styles.storyLabelActive]} numberOfLines={1}>
-                      {story.location}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Quick Create Post Bar */}
-            <View style={styles.createPromptBox}>
-              <Image source={{ uri: session?.avatarUrl || session?.avatar || FALLBACK_AVATAR }} style={styles.promptAvatar} />
-              <TouchableOpacity style={styles.promptInputFake} onPress={openCreate} activeOpacity={0.85}>
-                <Text style={styles.promptPlaceholder} numberOfLines={1}>
-                  {session ? 'Chia sẻ review, ảnh đẹp hoặc đính kèm tour...' : 'Đăng nhập để chia sẻ chuyến đi...'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.promptPostBtn} onPress={openCreate} activeOpacity={0.85}>
-                <Text style={styles.promptPostBtnText}>Đăng bài</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Tier 1: Underline Feed Scope Tabs (Khớp 100% Web) */}
-            <View style={styles.scopeUnderlineRow}>
-              {FEED_SCOPES.map((item) => {
-                const active = scope === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    style={[styles.scopeUnderlineTab, active && styles.scopeUnderlineTabActive]}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      if ((item.key === 'following' || item.key === 'saved') && !session) {
-                        authPrompt.open();
-                        return;
-                      }
-                      setScope(item.key);
-                      scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
-                    }}>
-                    <FontAwesome
-                      name={item.icon as any}
-                      size={13}
-                      color={active ? WF_PAPER.clay : WF_PAPER.inkMuted}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.scopeUnderlineText, active && styles.scopeUnderlineTextActive]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Search + Sort Bar */}
-            <View style={styles.searchRow}>
+            <View style={styles.toolbarRow}>
               <View style={styles.searchBox}>
-                <FontAwesome name="search" size={13} color={WF_PAPER.inkMuted} />
+                <FontAwesome name="search" size={14} color={DS_COLOR.inkMuted} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Tìm bài viết, địa điểm, tác giả..."
-                  placeholderTextColor={WF_PAPER.inkMuted}
+                  placeholderTextColor={DS_COLOR.inkMuted}
                   value={search}
                   onChangeText={setSearch}
                   returnKeyType="search"
+                  accessibilityLabel="Tìm kiếm bài viết"
                 />
                 {search ? (
-                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <FontAwesome name="times-circle" size={14} color={WF_PAPER.inkMuted} />
+                  <TouchableOpacity
+                    onPress={() => setSearch('')}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Xoá từ khoá tìm kiếm">
+                    <FontAwesome name="times-circle" size={15} color={DS_COLOR.inkMuted} />
                   </TouchableOpacity>
                 ) : null}
               </View>
+
               <TouchableOpacity
-                style={styles.sortBtn}
+                style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
                 activeOpacity={0.85}
-                accessibilityLabel="Sắp xếp bảng tin"
-                onPress={() => setSortSheetVisible(true)}>
-                <FontAwesome name="sliders" size={14} color={WF_PAPER.inkPrimary} />
+                accessibilityLabel={`Bộ lọc${activeFilterCount > 0 ? `, ${activeFilterCount} mục đang chọn` : ''}`}
+                onPress={() => setFilterSheetVisible(true)}>
+                {loadingFull ? (
+                  <ActivityIndicator size="small" color={DS_COLOR.accent} />
+                ) : (
+                  <FontAwesome
+                    name="sliders"
+                    size={15}
+                    color={activeFilterCount > 0 ? DS_COLOR.accent : DS_COLOR.inkSecondary}
+                  />
+                )}
+                <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>Lọc</Text>
+                {activeFilterCount > 0 ? (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
             </View>
 
-            {/* Tier 2: Topic Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {TOPIC_FILTERS.map((item) => {
-                const active = topic === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    style={[styles.topicChip, active && styles.topicChipActive]}
-                    activeOpacity={0.85}
-                    onPress={() => setTopic(item.key)}>
-                    <FontAwesome
-                      name={item.icon as any}
-                      size={12}
-                      color={active ? WF_PAPER.card : WF_PAPER.inkSecondary}
-                      style={{ marginRight: 5 }}
-                    />
-                    <Text style={[styles.topicChipText, active && styles.topicChipTextActive]}>{item.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {QUICK_TOPICS.map((item) => (
+                <Chip
+                  key={item.key}
+                  label={item.label}
+                  active={topic === item.key}
+                  onPress={() => {
+                    setTopic(item.key);
+                    scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                  }}
+                />
+              ))}
             </ScrollView>
-
-            {/* Trending Hashtag chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hashtagRow}>
-              {TRAVEL_HASHTAGS.map((tag) => {
-                const active = hashtag === tag.key;
-                return (
-                  <TouchableOpacity
-                    key={tag.key}
-                    style={[styles.hashtagChip, active && styles.hashtagChipActive]}
-                    activeOpacity={0.85}
-                    onPress={() => setHashtag(tag.key)}>
-                    <Text style={[styles.hashtagText, active && styles.hashtagTextActive]}>{tag.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {activeFilterCount > 0 ? (
-              <View style={styles.filterSummary}>
-                <Text style={styles.filterSummaryText}>
-                  {displayPosts.length} bài viết · {SORT_OPTIONS.find((s) => s.key === sort)?.label}
-                </Text>
-                <TouchableOpacity onPress={resetFilters}>
-                  <Text style={styles.filterClear}>Xoá bộ lọc</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
           </View>
         }
         ListFooterComponent={
           <View style={styles.listFooter}>
-            {loadingMore ? (
-              <ActivityIndicator size="small" color={WF_PAPER.clay} />
-            ) : !clientFiltering && scope === 'all' && hasMorePosts ? (
-              <Text style={styles.listFooterText}>
-                Cuộn để tải thêm · {displayPosts.length}/{postsTotal} bài viết
-              </Text>
-            ) : !clientFiltering && scope === 'all' && displayPosts.length > 0 ? (
-              <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {postsTotal} bài viết</Text>
-            ) : null}
+            {loadingMore ? <ActivityIndicator size="small" color={DS_COLOR.accent} /> : null}
           </View>
         }
         ListEmptyComponent={emptyState()}
       />
+
+      {/* Nút tạo bài viết nổi */}
+      <FAB onPress={openCreate} accessibilityLabel="Đăng bài viết mới" />
 
       {/* ─── Overlay: chi tiết bài viết ─────────────────────── */}
       <PostDetailModal
@@ -1091,18 +979,17 @@ export default function CommunityScreen() {
         }}
       />
 
-      {/* ─── Overlay: sắp xếp ───────────────────────────────── */}
-      <ActionSheet
-        visible={sortSheetVisible}
-        title="Sắp xếp bảng tin"
-        options={SORT_OPTIONS.map((option) => ({
-          key: option.key,
-          label: option.label,
-          icon: option.key === 'newest' ? 'clock-o' : option.key === 'popular' ? 'fire' : 'map-o',
-          active: sort === option.key,
-          onPress: () => setSort(option.key),
-        }))}
-        onClose={() => setSortSheetVisible(false)}
+      {/* ─── Overlay: bộ lọc feed ───────────────────────────── */}
+      <CommunityFilterSheet
+        visible={filterSheetVisible}
+        onClose={() => setFilterSheetVisible(false)}
+        topic={topic}
+        onTopicChange={setTopic}
+        hashtag={hashtag}
+        onHashtagChange={setHashtag}
+        sort={sort}
+        onSortChange={setSort}
+        onReset={resetFilters}
       />
 
       {/* ─── Overlay: menu bài viết (từ thẻ feed) ───────────── */}
@@ -1191,186 +1078,26 @@ const styles = StyleSheet.create({
     backgroundColor: WF_PAPER.bg,
   },
   list: {
-    paddingBottom: 28,
+    paddingBottom: 96,
   },
   listFooter: {
-    paddingVertical: 18,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listFooterText: {
-    fontSize: 12,
-    color: WF_PAPER.inkMuted,
-    fontWeight: '600',
-  },
-  headerWrapper: {
-    paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: WF_PAPER.card,
-    borderBottomWidth: 1,
-    borderBottomColor: WF_PAPER.cardBorder,
-    marginBottom: 10,
-  },
-  storyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  storyHeaderDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: WF_PAPER.clay,
-  },
-  storyHeaderTitle: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
-    letterSpacing: -0.2,
-  },
-  storiesScroll: {
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  storyItem: {
-    alignItems: 'center',
-    width: 64,
-  },
-  storyRing: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
-    borderColor: WF_PAPER.cardBorder,
-    padding: 1.5,
-    position: 'relative',
-    marginBottom: 4,
-  },
-  storyRingSelected: {
-    borderColor: WF_PAPER.clay,
-    borderWidth: 2.5,
-  },
-  storyRingAll: {
-    borderColor: WF_PAPER.clayLight,
-  },
-  storyAllInner: {
-    flex: 1,
-    borderRadius: 24,
-    backgroundColor: WF_PAPER.pillBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  storyImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 24,
-  },
-  storyBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: WF_PAPER.card,
-    borderRadius: 5,
-    paddingHorizontal: 2,
-    borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
-  },
-  storyLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WF_PAPER.inkSecondary,
-    textAlign: 'center',
-  },
-  storyLabelActive: {
-    color: WF_PAPER.clay,
-    fontWeight: '800',
-  },
-  createPromptBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
-    marginHorizontal: 14,
-    marginBottom: 12,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  promptAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    marginRight: 10,
-    backgroundColor: '#F1F5F9',
-  },
-  promptInputFake: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 999,
+  feedHeader: {
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    marginRight: 8,
-  },
-  promptPlaceholder: {
-    fontSize: 13,
-    color: '#64748B',
-  },
-  promptPostBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WF_PAPER.clay,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  promptPostBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  scopeUnderlineRow: {
-    flexDirection: 'row',
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: DS_COLOR.surface,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.06)',
-    marginHorizontal: 14,
-    marginBottom: 12,
+    borderBottomColor: DS_COLOR.line,
   },
-  scopeUnderlineTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 2.5,
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
-  },
-  scopeUnderlineTabActive: {
-    borderBottomColor: WF_PAPER.clay,
-  },
-  scopeUnderlineText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  scopeUnderlineTextActive: {
-    color: WF_PAPER.clay,
-    fontWeight: '800',
-  },
-  searchRow: {
+  toolbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginHorizontal: 14,
-    marginBottom: 12,
+    marginTop: 8,
   },
   searchBox: {
     flex: 1,
@@ -1378,97 +1105,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     height: 42,
-    borderRadius: 999,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 14,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
+    paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#0F172A',
+    fontSize: DS_TYPE.body,
+    lineHeight: 20,
+    color: DS_COLOR.ink,
+    paddingVertical: 0,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
-  sortBtn: {
-    width: 42,
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     height: 42,
-    borderRadius: 999,
-    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
+  },
+  filterBtnActive: {
+    backgroundColor: DS_COLOR.accentSoft,
+  },
+  filterBtnText: {
+    fontSize: DS_TYPE.meta,
+    fontWeight: '500',
+    color: DS_COLOR.inkSecondary,
+  },
+  filterBtnTextActive: {
+    color: DS_COLOR.accent,
+    fontWeight: '600',
+  },
+  filterBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: DS_COLOR.accent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   chipRow: {
     gap: 8,
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-  },
-  topicChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 34,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: '#F1F5F9',
-  },
-  topicChipActive: {
-    backgroundColor: WF_PAPER.clay,
-  },
-  topicChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  topicChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  hashtagRow: {
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingBottom: 6,
-  },
-  hashtagChip: {
-    height: 28,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-  },
-  hashtagChipActive: {
-    backgroundColor: WF_PAPER.clayLight,
-  },
-  hashtagText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  hashtagTextActive: {
-    color: WF_PAPER.clay,
-    fontWeight: '800',
-  },
-  filterSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 14,
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 5,
-    backgroundColor: WF_PAPER.pillBg,
-    borderWidth: 1,
-    borderColor: WF_PAPER.pillBorder,
-  },
-  filterSummaryText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: WF_PAPER.inkPrimary,
-  },
-  filterClear: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: WF_PAPER.clay,
-    textDecorationLine: 'underline',
+    paddingTop: 10,
+    paddingRight: 16,
   },
   centerBox: {
     padding: 30,
@@ -1477,7 +1164,7 @@ const styles = StyleSheet.create({
   alertCard: {
     backgroundColor: WF_PAPER.card,
     padding: 20,
-    borderRadius: 4,
+    borderRadius: DS_RADIUS.lg,
     borderWidth: 1,
     borderColor: WF_PAPER.cardBorder,
     alignItems: 'center',
@@ -1485,42 +1172,43 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: WF_PAPER.inkPrimary,
   },
   alertDesc: {
-    fontSize: 12,
+    fontSize: 13,
     color: WF_PAPER.inkSecondary,
     marginVertical: 6,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
   },
   retryBtn: {
     backgroundColor: WF_PAPER.clay,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 5,
-    marginTop: 6,
+    minHeight: 44,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    marginTop: 8,
   },
   retryBtnText: {
-    color: '#FFFDF8',
-    fontWeight: '800',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
     color: WF_PAPER.inkPrimary,
     marginTop: 12,
-    fontFamily: SERIF_FONT,
     textAlign: 'center',
   },
   emptySub: {
-    fontSize: 12,
+    fontSize: 13,
     color: WF_PAPER.inkSecondary,
     marginTop: 5,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
     maxWidth: 280,
   },
 });

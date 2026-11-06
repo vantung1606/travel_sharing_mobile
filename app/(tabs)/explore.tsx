@@ -1,10 +1,11 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,12 +15,17 @@ import {
 
 import { BrandedLoading } from '@/components/BrandedLoading';
 import { Text, TextInput } from '@/components/Themed';
+import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
+import { ExploreFilterSheet } from '@/components/explore/ExploreFilterSheet';
+import { ExploreMapModal } from '@/components/explore/ExploreMapModal';
 import { FeaturedPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
 import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
-import { AddPlaceModal } from '@/components/explore/AddPlaceModal';
-import { ExploreMapModal } from '@/components/explore/ExploreMapModal';
+import { PLACE_CATEGORIES, matchBudget, parsePriceVND } from '@/components/explore/exploreFilters';
+import { Chip } from '@/components/ui/Chip';
+import { FAB } from '@/components/ui/FAB';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { UserProfileModal } from '@/components/UserProfileModal';
-import { WF_COLORS } from '@/constants/Colors';
+import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import { authPrompt } from '@/src/services/authPrompt';
 import { authStorage } from '@/src/services/authStorage';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, savedPlaceApi } from '@/src/services/api';
@@ -27,64 +33,20 @@ import { savedPlaces } from '@/src/services/savedPlaces';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
 
-/**
- * Danh mục THẬT của Wayfare (đúng chuỗi lưu trong CSDL — backend lọc theo
- * categoryName). Trước đây thanh danh mục dùng tên tự chế nên bấm vào là ra
- * danh sách rỗng.
- */
-const PLACE_CATEGORIES = [
-  { label: 'Tất cả', icon: 'compass' },
-  { label: 'Núi Rừng & Mây Ngàn', icon: 'tree' },
-  { label: 'Di Sản & Phố Cổ', icon: 'university' },
-  { label: 'Biển Đảo & Nghỉ Dưỡng', icon: 'sun-o' },
-  { label: 'Danh Lam & Thắng Cảnh', icon: 'camera' },
-  { label: 'Quán Cafe & Săn Mây', icon: 'coffee' },
-];
-
 const PAGE_SIZE = 50;
+const ALL = 'Tất cả';
+const SEARCH_DEBOUNCE_MS = 320;
 
-// Khoảng giá — GIỐNG HẾT web (ExploreFilterDrawer.budgetOptions): lọc client-side
-// trên danh sách đã tải, dựa trên ticketPrice thật (562 địa điểm đã có giá).
-const BUDGET_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'Tất cả mức giá' },
-  { value: 'under50k', label: 'Dưới 50k' },
-  { value: '50k-200k', label: '50k – 200k' },
-  { value: '200k-1m', label: '200k – 1tr' },
-  { value: 'above1m', label: 'Trên 1tr' },
-];
-
-/** Giá tham chiếu (VND) của địa điểm — ưu tiên ticketPrice thật, đối chiếu web.parsePriceVND. */
-const parsePriceVND = (item: PlaceItem): number => {
-  if (item.ticketPrice != null) {
-    return Number(item.ticketPrice) || 0;
-  }
-  const text = String(item.priceLevel || '').replace(/\s/g, '');
-  if (!text || /mi[nN] ph/i.test(text)) return 0;
-  const numbers = (text.match(/[\d.,]+/g) || [])
-    .map((n) => Number(n.replace(/[.,]/g, '')))
-    .filter((n) => !Number.isNaN(n));
-  return numbers.length ? Math.min(...numbers) : 0;
-};
-
-const matchBudget = (priceVND: number, budget: string): boolean => {
-  switch (budget) {
-    case 'under50k':
-      return priceVND < 50000;
-    case '50k-200k':
-      return priceVND >= 50000 && priceVND <= 200000;
-    case '200k-1m':
-      return priceVND > 200000 && priceVND <= 1000000;
-    case 'above1m':
-      return priceVND > 1000000;
-    default:
-      return true;
-  }
-};
+/** Một dòng trong danh sách: hero 16:9 hoặc card địa điểm thường. */
+type ExploreRow =
+  | { kind: 'hero'; place: PlaceItem; key: string }
+  | { kind: 'place'; place: PlaceItem; key: string };
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const scrollRef = useRef<FlatList<ExploreRow>>(null);
+
   const [places, setPlaces] = useState<PlaceItem[]>([]);
-  const [placesTotal, setPlacesTotal] = useState<number>(0);
   const [hasMorePlaces, setHasMorePlaces] = useState<boolean>(false);
   const [placesPage, setPlacesPage] = useState<number>(0);
   const [loadingMorePlaces, setLoadingMorePlaces] = useState<boolean>(false);
@@ -92,14 +54,20 @@ export default function ExploreScreen() {
   const [fetching, setFetching] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL);
   // Lọc tỉnh thành chạy TRỰC TIẾP trên server (/places?city=) — cùng chuẩn web
-  const [selectedCity, setSelectedCity] = useState<string>('Tất cả');
+  const [selectedCity, setSelectedCity] = useState<string>(ALL);
   // Khoảng giá (client-side, giống web) + chế độ xem "Muốn đi"
   const [selectedBudget, setSelectedBudget] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'explore' | 'saved'>('explore');
   const [savedDetails, setSavedDetails] = useState<Record<string, PlaceItem>>({});
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
+
+  // Tỉnh/thành đã gặp, tích luỹ qua các lần tải để chip trong sheet không
+  // bị co lại còn 1 lựa chọn khi đang lọc theo tỉnh.
+  const [knownCities, setKnownCities] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
 
   const [selectedPlace, setSelectedPlace] = useState<PlaceItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
@@ -122,36 +90,55 @@ export default function ExploreScreen() {
   const [isMapOpen, setIsMapOpen] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
+  // Gõ tới đâu gọi API tới đó là lỗi cũ: mỗi ký tự = 1 request. Giờ chỉ gọi
+  // sau khi người dùng dừng gõ ~320ms.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const rememberCities = useCallback((items: PlaceItem[]) => {
+    setKnownCities((prev) => {
+      const set = new Set(prev);
+      items.forEach((p) => {
+        if (p.city) set.add(p.city);
+      });
+      if (set.size === prev.length) return prev;
+      return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
+    });
+  }, []);
+
   const fetchPlaces = useCallback(async () => {
     setFetching(true);
     try {
       setHasConnectionError(false);
-      const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
-      const cityParam = selectedCity === 'Tất cả' ? undefined : selectedCity;
+      const categoryParam = selectedCategory === ALL ? undefined : selectedCategory;
+      const cityParam = selectedCity === ALL ? undefined : selectedCity;
+      const keyword = debouncedSearch.trim() || undefined;
       const result = await placeApi.getPlacesPaged({
         page: 0,
         size: PAGE_SIZE,
-        keyword: searchQuery.trim() || undefined,
+        keyword,
         category: categoryParam,
         city: cityParam,
       });
 
       if (result && Array.isArray(result.items)) {
         setPlaces(result.items);
-        setPlacesTotal(result.totalElements || result.items.length);
         setHasMorePlaces(Boolean(result.hasNext));
         setPlacesPage(0);
+        rememberCities(result.items);
       } else {
         // API phân trang không khả dụng -> tải toàn bộ như trước
         const data = await placeApi.getAllPlaces({
-          keyword: searchQuery.trim() || undefined,
+          keyword,
           category: categoryParam,
           city: cityParam,
         });
         setPlaces(data || []);
-        setPlacesTotal((data || []).length);
         setHasMorePlaces(false);
         setPlacesPage(0);
+        rememberCities(data || []);
       }
     } catch (err: any) {
       console.warn('Backend connection notice:', err.message || err);
@@ -161,20 +148,20 @@ export default function ExploreScreen() {
       setFetching(false);
       setRefreshing(false);
     }
-  }, [searchQuery, selectedCategory, selectedCity]);
+  }, [debouncedSearch, selectedCategory, selectedCity, rememberCities]);
 
   const loadMorePlaces = useCallback(async () => {
     if (loadingMorePlaces || !hasMorePlaces) return;
     setLoadingMorePlaces(true);
     try {
       const nextPage = placesPage + 1;
-      const categoryParam = selectedCategory === 'Tất cả' ? undefined : selectedCategory;
+      const categoryParam = selectedCategory === ALL ? undefined : selectedCategory;
       const result = await placeApi.getPlacesPaged({
         page: nextPage,
         size: PAGE_SIZE,
-        keyword: searchQuery.trim() || undefined,
+        keyword: debouncedSearch.trim() || undefined,
         category: categoryParam,
-        city: selectedCity === 'Tất cả' ? undefined : selectedCity,
+        city: selectedCity === ALL ? undefined : selectedCity,
       });
       if (result && Array.isArray(result.items)) {
         setPlaces((prev) => {
@@ -182,15 +169,23 @@ export default function ExploreScreen() {
           return [...prev, ...result.items.filter((p) => !seen.has(p.id))];
         });
         setPlacesPage(nextPage);
-        setPlacesTotal(result.totalElements || 0);
         setHasMorePlaces(Boolean(result.hasNext));
+        rememberCities(result.items);
       }
     } catch (err: any) {
       console.warn('Load more places error:', err?.message || err);
     } finally {
       setLoadingMorePlaces(false);
     }
-  }, [loadingMorePlaces, hasMorePlaces, placesPage, searchQuery, selectedCategory, selectedCity]);
+  }, [
+    loadingMorePlaces,
+    hasMorePlaces,
+    placesPage,
+    debouncedSearch,
+    selectedCategory,
+    selectedCity,
+    rememberCities,
+  ]);
 
   useEffect(() => {
     fetchPlaces();
@@ -214,7 +209,9 @@ export default function ExploreScreen() {
         }
       });
     });
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const onRefresh = () => {
@@ -352,25 +349,32 @@ export default function ExploreScreen() {
     }
   };
 
-  const isFiltering = searchQuery.trim().length > 0 || selectedCategory !== 'Tất cả' || selectedCity !== 'Tất cả';
+  const hasActiveFilters = selectedCategory !== ALL || selectedCity !== ALL || selectedBudget !== 'all';
+  const activeFilterCount =
+    (selectedCategory !== ALL ? 1 : 0) + (selectedCity !== ALL ? 1 : 0) + (selectedBudget !== 'all' ? 1 : 0);
+  const isFiltering = searchQuery.trim().length > 0 || hasActiveFilters;
 
-  // Danh sách tỉnh THẬT từ dữ liệu đã tải (xếp theo số địa điểm giảm dần)
-  const cityOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    places.forEach((p) => {
-      if (p.city) counts.set(p.city, (counts.get(p.city) || 0) + 1);
-    });
-    return ['Tất cả', ...[...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)];
-  }, [places]);
+  const handleResetSheetFilters = () => {
+    setSelectedCategory(ALL);
+    setSelectedCity(ALL);
+    setSelectedBudget('all');
+  };
 
-  // Dải "Nổi bật": lấy theo điểm đánh giá thật của danh sách đang có.
-  const featured = useMemo(() => {
-    if (isFiltering || selectedBudget !== 'all') return [];
-    return [...places]
-      .filter((p) => (p.reviewsCount ?? 0) > 0 && (p.rating ?? 0) > 0)
-      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.reviewsCount ?? 0) - (a.reviewsCount ?? 0))
-      .slice(0, 10);
-  }, [places, isFiltering, selectedBudget]);
+  const handleResetAllFilters = () => {
+    handleResetSheetFilters();
+    setSearchQuery('');
+  };
+
+  // Hero 16:9 = địa điểm được đánh giá cao nhất, chỉ xuất hiện khi chưa lọc.
+  // Nằm trong danh sách nên cuộn đi cùng nội dung, không chiếm chrome.
+  const heroPlace = useMemo<PlaceItem | null>(() => {
+    if (isFiltering) return null;
+    const rated = places.filter((p) => (p.reviewsCount ?? 0) > 0 && (p.rating ?? 0) > 0);
+    if (!rated.length) return null;
+    return [...rated].sort(
+      (a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.reviewsCount ?? 0) - (a.reviewsCount ?? 0)
+    )[0];
+  }, [places, isFiltering]);
 
   // Địa điểm hiển thị khi đang ở chế độ Khám phá (lọc giá client-side như web)
   const displayedPlaces = useMemo(
@@ -378,16 +382,29 @@ export default function ExploreScreen() {
     [places, selectedBudget]
   );
 
-  // Sắp lại danh sách chi tiết "Muốn đi" đúng theo(savedIds) — hiệu quả: hủy tim -> hết khỏi list.
+  const exploreRows = useMemo<ExploreRow[]>(() => {
+    const rows: ExploreRow[] = displayedPlaces
+      .filter((p) => p.id !== heroPlace?.id)
+      .map((p) => ({ kind: 'place', place: p, key: `place-${p.id}` }));
+    if (heroPlace) {
+      rows.unshift({ kind: 'hero', place: heroPlace, key: `hero-${heroPlace.id}` });
+    }
+    return rows;
+  }, [displayedPlaces, heroPlace]);
+
+  // Sắp lại danh sách chi tiết "Muốn đi" đúng theo savedIds — hủy tim là mất mục.
   const savedList = useMemo(
-    () => savedIds.map((id) => savedDetails[String(id)]).filter(Boolean),
+    () => savedIds.map((id) => savedDetails[String(id)]).filter((p): p is PlaceItem => Boolean(p)),
     [savedIds, savedDetails]
+  );
+
+  const savedRows = useMemo<ExploreRow[]>(
+    () => savedList.map((p) => ({ kind: 'place', place: p, key: `saved-${p.id}` })),
+    [savedList]
   );
 
   // Khi sang chế độ "Muốn đi": nạp chi tiết địa điểm THẬT theo id đã lưu
   // (không có dữ liệu cứng; những id đã có sẵn chi tiết thì bỏ qua).
-  // NOTE: khi bỏ tim, danh sách được lead qua savedList (map theo savedIds)
-  // nên mục vừa bỏ tự biến mất mà không cần effect dọn dẹp.
   useEffect(() => {
     if (viewMode !== 'saved' || savedIds.length === 0) return undefined;
     let alive = true;
@@ -410,288 +427,204 @@ export default function ExploreScreen() {
     };
   }, [viewMode, savedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const scrollToTop = () => {
+    scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+  const renderRow = ({ item }: { item: ExploreRow }) => {
+    if (item.kind === 'hero') {
+      return <FeaturedPlaceCard place={item.place} onPress={() => handleOpenPlaceDetail(item.place)} />;
+    }
+    return (
+      <PlaceCard
+        place={item.place}
+        saved={savedIds.includes(item.place.id)}
+        onPress={() => handleOpenPlaceDetail(item.place)}
+        onToggleSave={() => handleToggleSave(item.place)}
+      />
+    );
+  };
+
+  const emptyState = () => {
+    if (viewMode === 'saved') {
+      return (
+        <View style={styles.centerBox}>
+          <FontAwesome name="heart-o" size={40} color={DS_COLOR.accent} />
+          <Text style={styles.emptyTitle}>Chưa có địa điểm nào được lưu</Text>
+          <Text style={styles.emptySub}>
+            Về tab Khám phá, nhấn nút tim trên địa điểm bạn thích — danh sách sẽ đồng bộ cả sang web.
+          </Text>
+        </View>
+      );
+    }
+    if (loading) {
+      return (
+        <BrandedLoading
+          title="Đang tải điểm đến"
+          subtitle="Wayfare đang chuẩn bị những tọa độ du lịch đẹp nhất cho bạn."
+        />
+      );
+    }
+    if (hasConnectionError) {
+      return (
+        <View style={styles.centerBox}>
+          <View style={styles.alertCard}>
+            <FontAwesome name="cloud" size={32} color={DS_COLOR.accent} style={{ marginBottom: 10 }} />
+            <Text style={styles.alertTitle}>Không thể tải điểm đến</Text>
+            <Text style={styles.alertDesc}>
+              Kiểm tra kết nối mạng rồi thử lại nhé. Danh sách điểm đến sẽ hiện ngay khi có dữ liệu.
+            </Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={fetchPlaces}>
+              <Text style={styles.retryBtnText}>Thử kết nối lại</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.centerBox}>
+        <FontAwesome name="compass" size={40} color={DS_COLOR.inkMuted} />
+        <Text style={styles.emptyTitle}>Không tìm thấy địa điểm phù hợp</Text>
+        <Text style={styles.emptySub}>Thử từ khoá khác, hoặc xoá bớt bộ lọc nhé.</Text>
+        {isFiltering ? (
+          <TouchableOpacity style={styles.retryBtn} onPress={handleResetAllFilters}>
+            <Text style={styles.retryBtnText}>Xoá bộ lọc</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={viewMode === 'saved' ? savedList : displayedPlaces}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <PlaceCard
-            place={item}
-            saved={savedIds.includes(item.id)}
-            onPress={() => handleOpenPlaceDetail(item)}
-            onToggleSave={() => handleToggleSave(item)}
-            onAddToPlan={() => {
-              setSelectedPlace(item);
-              handleOpenAddToPlan();
-            }}
-          />
-        )}
-        contentContainerStyle={styles.listContainer}
+        ref={scrollRef}
+        data={viewMode === 'saved' ? savedRows : exploreRows}
+        keyExtractor={(item) => item.key}
+        renderItem={renderRow}
+        contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_COLORS.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />}
         onEndReached={viewMode === 'saved' ? undefined : loadMorePlaces}
         onEndReachedThreshold={0.4}
-        ListFooterComponent={
-          <View style={styles.listFooter}>
-            {viewMode === 'saved' ? (
-              savedList.length > 0 ? (
-                <Text style={styles.listFooterText}>
-                  {savedList.length} địa điểm bạn đang muốn đi · nhấn tim lại để bỏ lưu
-                </Text>
-              ) : null
-            ) : loadingMorePlaces ? (
-              <ActivityIndicator size="small" color={WF_COLORS.primary} />
-            ) : hasMorePlaces ? (
-              <Text style={styles.listFooterText}>
-                Cuộn để tải thêm · {places.length}/{placesTotal} địa điểm
-              </Text>
-            ) : places.length > 0 ? (
-              <Text style={styles.listFooterText}>Đã hiển thị toàn bộ {placesTotal} địa điểm</Text>
-            ) : null}
-          </View>
-        }
+        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.titleRow}>
-              <View style={styles.titleBlock}>
-                <Text style={styles.overline}>WAYFARE · ĐỊA ĐIỂM</Text>
-                <Text style={styles.pageTitle}>Điểm đến Việt Nam</Text>
-                <Text style={styles.pageSubtitle}>Những tọa độ đẹp đã được cộng đồng kiểm chứng</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <TouchableOpacity
-                    style={styles.mapBtn}
-                    activeOpacity={0.85}
-                    onPress={() => setIsMapOpen(true)}>
-                    <FontAwesome name="map" size={11} color="#FFFDF8" style={{ marginRight: 5 }} />
-                    <Text style={styles.proposeBtnText}>Bản đồ</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.proposeBtn}
-                    activeOpacity={0.85}
-                    onPress={() => setIsAddPlaceOpen(true)}>
-                    <FontAwesome name="plus" size={11} color="#FFFDF8" style={{ marginRight: 5 }} />
-                    <Text style={styles.proposeBtnText}>Đề xuất</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.totalBadge}>
-                  <Text style={styles.totalBadgeNum}>{placesTotal || '--'}</Text>
-                  <Text style={styles.totalBadgeLabel}>địa điểm</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Chế độ xem: Khám phá / Muốn đi (wishlist đã đồng bộ server) */}
-            <View style={styles.viewToggleRow}>
-              <TouchableOpacity
-                style={[styles.viewToggleBtn, viewMode === 'explore' && styles.viewToggleBtnActive]}
-                onPress={() => setViewMode('explore')}>
-                <FontAwesome
-                  name="compass"
-                  size={12}
-                  color={viewMode === 'explore' ? '#FFFDF8' : WF_COLORS.slate600}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.viewToggleText, viewMode === 'explore' && styles.viewToggleTextActive]}>
-                  Khám phá
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.viewToggleBtn, viewMode === 'saved' && styles.viewToggleBtnActive]}
-                onPress={() => setViewMode('saved')}>
-                <FontAwesome
-                  name="heart"
-                  size={12}
-                  color={viewMode === 'saved' ? '#FFFDF8' : WF_COLORS.rose}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.viewToggleText, viewMode === 'saved' && styles.viewToggleTextActive]}>
-                  Muốn đi{savedIds.length > 0 ? ` (${savedIds.length})` : ''}
-                </Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.feedHeader}>
+            <SegmentedTabs
+              items={[
+                { key: 'explore', label: 'Khám phá' },
+                { key: 'saved', label: savedIds.length > 0 ? `Muốn đi (${savedIds.length})` : 'Muốn đi' },
+              ]}
+              value={viewMode}
+              onChange={(key) => {
+                setViewMode(key);
+                scrollRef.current?.scrollToOffset({ offset: 0, animated: false });
+              }}
+            />
 
             {viewMode === 'explore' ? (
               <>
-            <View style={styles.searchBox}>
-              <FontAwesome name="search" size={15} color={WF_COLORS.primary} style={styles.searchIcon} />
-              <TextInput
-                placeholder="Tìm tên địa điểm, thành phố, dịch vụ..."
-                placeholderTextColor={WF_COLORS.slate400}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={fetchPlaces}
-                style={styles.searchInput}
-                returnKeyType="search"
-              />
-              {fetching && places.length > 0 ? (
-                <ActivityIndicator size="small" color={WF_COLORS.primary} />
-              ) : searchQuery ? (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                  <FontAwesome name="times-circle" size={15} color={WF_COLORS.slate400} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryScroll}>
-              {PLACE_CATEGORIES.map((cat) => {
-                const isSelected = selectedCategory === cat.label;
-                return (
-                  <TouchableOpacity
-                    key={cat.label}
-                    onPress={() => setSelectedCategory(cat.label)}
-                    style={[styles.categoryBtn, isSelected && styles.categoryBtnActive]}>
-                    <FontAwesome
-                      name={cat.icon as any}
-                      size={12}
-                      color={isSelected ? '#FFFDF8' : WF_COLORS.slate500}
-                      style={{ marginRight: 6 }}
+                <View style={styles.toolbarRow}>
+                  <View style={styles.searchBox}>
+                    <FontAwesome name="search" size={14} color={DS_COLOR.inkMuted} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Tìm địa điểm, thành phố..."
+                      placeholderTextColor={DS_COLOR.inkMuted}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      onSubmitEditing={() => setDebouncedSearch(searchQuery)}
+                      returnKeyType="search"
+                      accessibilityLabel="Tìm kiếm địa điểm"
                     />
-                    <Text style={[styles.categoryBtnText, isSelected && styles.categoryBtnTextActive]}>
-                      {cat.label}
-                    </Text>
+                    {fetching && places.length > 0 ? (
+                      <ActivityIndicator size="small" color={DS_COLOR.accent} />
+                    ) : searchQuery ? (
+                      <TouchableOpacity
+                        onPress={() => setSearchQuery('')}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityLabel="Xoá từ khoá tìm kiếm">
+                        <FontAwesome name="times-circle" size={15} color={DS_COLOR.inkMuted} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
+                    activeOpacity={0.85}
+                    onPress={() => setIsFilterOpen(true)}
+                    accessibilityLabel={`Bộ lọc${activeFilterCount > 0 ? `, ${activeFilterCount} mục đang chọn` : ''}`}>
+                    <FontAwesome
+                      name="sliders"
+                      size={16}
+                      color={activeFilterCount > 0 ? DS_COLOR.accent : DS_COLOR.inkSecondary}
+                    />
+                    {activeFilterCount > 0 ? (
+                      <View style={styles.filterBadge}>
+                        <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                      </View>
+                    ) : null}
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
 
-            {cityOptions.length > 2 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryScroll}>
-                {cityOptions.map((city) => {
-                  const isSelected = selectedCity === city;
-                  return (
-                    <TouchableOpacity
-                      key={city}
-                      onPress={() => setSelectedCity(city)}
-                      style={[styles.cityBtn, isSelected && styles.cityBtnActive]}>
-                      <FontAwesome
-                        name="map-marker"
-                        size={11}
-                        color={isSelected ? '#FFFDF8' : WF_COLORS.primary}
-                        style={{ marginRight: 5 }}
-                      />
-                      <Text style={[styles.cityBtnText, isSelected && styles.cityBtnTextActive]}>
-                        {city}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : null}
-
-            {featured.length > 0 ? (
-              <View style={styles.featuredBlock}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Nổi bật tuần này</Text>
-                  <Text style={styles.sectionHint}>Đánh giá cao nhất</Text>
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    activeOpacity={0.85}
+                    onPress={() => setIsMapOpen(true)}
+                    accessibilityLabel="Xem bản đồ địa điểm">
+                    <FontAwesome name="map" size={16} color={DS_COLOR.inkSecondary} />
+                  </TouchableOpacity>
                 </View>
+
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.featuredScroll}>
-                  {featured.map((place) => (
-                    <FeaturedPlaceCard
-                      key={`featured-${place.id}`}
-                      place={place}
-                      onPress={() => handleOpenPlaceDetail(place)}
+                  contentContainerStyle={styles.chipRow}>
+                  {PLACE_CATEGORIES.map((cat) => (
+                    <Chip
+                      key={cat.label}
+                      label={cat.short}
+                      active={selectedCategory === cat.label}
+                      onPress={() => {
+                        setSelectedCategory(cat.label);
+                        scrollToTop();
+                      }}
                     />
                   ))}
                 </ScrollView>
-              </View>
+              </>
             ) : null}
-
-            {/* Bộ lọc KHOẢNG GIÁ — giống web (client-side trên ticketPrice thật) */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryScroll}>
-              {BUDGET_OPTIONS.map((opt) => {
-                const isSelected = selectedBudget === opt.value;
-                return (
-                  <TouchableOpacity
-                    key={opt.value}
-                    onPress={() => setSelectedBudget(opt.value)}
-                    style={[styles.budgetBtn, isSelected && styles.budgetBtnActive]}>
-                    <FontAwesome
-                      name="money"
-                      size={11}
-                      color={isSelected ? '#FFFDF8' : WF_COLORS.primary}
-                      style={{ marginRight: 5 }}
-                    />
-                    <Text style={[styles.budgetBtnText, isSelected && styles.budgetBtnTextActive]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View style={styles.listHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                {isFiltering || selectedBudget !== 'all' ? 'Kết quả lọc' : 'Tất cả địa điểm'}
-              </Text>
-              {isFiltering || selectedBudget !== 'all' ? (
-                <Text style={styles.sectionHint}>{displayedPlaces.length} địa điểm</Text>
-              ) : (
-                <Text style={styles.sectionHint}>Cuộn để xem thêm</Text>
-              )}
-            </View>
-              </>
-            ) : (
-              <>
-                <View style={styles.listHeaderRow}>
-                  <Text style={styles.sectionTitle}>Danh sách Muốn đi</Text>
-                  <Text style={styles.sectionHint}>
-                    {savedIds.length > 0 ? `${savedIds.length} địa điểm · đồng bộ cả web` : 'Trống'}
-                  </Text>
-                </View>
-              </>
-            )}
           </View>
         }
-        ListEmptyComponent={
-          viewMode === 'saved' ? (
-            <View style={styles.centerBox}>
-              <FontAwesome name="heart-o" size={40} color={WF_COLORS.rose} style={{ opacity: 0.5 }} />
-              <Text style={styles.emptyTitle}>Chưa có địa điểm nào được lưu</Text>
-              <Text style={styles.emptySub}>
-                Về tab Khám phá, nhấn nút tim trên địa điểm bạn thích — danh sách sẽ đồng bộ cả sang web.
-              </Text>
-            </View>
-          ) : loading ? (
-            <BrandedLoading
-              title="Đang tải điểm đến"
-              subtitle="Wayfare đang chuẩn bị những tọa độ du lịch đẹp nhất cho bạn."
-            />
-          ) : hasConnectionError ? (
-            <View style={styles.centerBox}>
-              <View style={styles.alertCard}>
-                <FontAwesome name="cloud" size={32} color={WF_COLORS.primary} style={{ marginBottom: 10 }} />
-                <Text style={styles.alertTitle}>Không thể tải điểm đến</Text>
-                <Text style={styles.alertDesc}>
-                  Kiểm tra kết nối mạng rồi thử lại nhé. Danh sách điểm đến sẽ hiện ngay khi có dữ liệu.
-                </Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={fetchPlaces}>
-                  <Text style={styles.retryBtnText}>Thử kết nối lại</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.centerBox}>
-              <FontAwesome name="compass" size={44} color={WF_COLORS.slate400} style={{ opacity: 0.5 }} />
-              <Text style={styles.emptyTitle}>Không tìm thấy địa điểm phù hợp</Text>
-              <Text style={styles.emptySub}>Thử từ khóa khác, hoặc chọn lại danh mục "Tất cả" nhé!</Text>
-            </View>
-          )
+        ListFooterComponent={
+          <View style={styles.listFooter}>
+            {loadingMorePlaces ? <ActivityIndicator size="small" color={DS_COLOR.accent} /> : null}
+          </View>
         }
+        ListEmptyComponent={emptyState()}
+      />
+
+      {/* Nút đề xuất địa điểm: hành động tạo mới duy nhất của trang */}
+      {viewMode === 'explore' ? (
+        <FAB onPress={() => setIsAddPlaceOpen(true)} accessibilityLabel="Đề xuất địa điểm mới" />
+      ) : null}
+
+      <ExploreFilterSheet
+        visible={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        category={selectedCategory}
+        onCategoryChange={(value) => {
+          setSelectedCategory(value);
+          scrollToTop();
+        }}
+        city={selectedCity}
+        onCityChange={(value) => {
+          setSelectedCity(value);
+          scrollToTop();
+        }}
+        cities={knownCities}
+        budget={selectedBudget}
+        onBudgetChange={setSelectedBudget}
+        onReset={handleResetSheetFilters}
       />
 
       <PlaceDetailModal
@@ -724,10 +657,8 @@ export default function ExploreScreen() {
             <View style={styles.modalCardHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {selectedPlanTrip && (
-                  <TouchableOpacity
-                    onPress={() => setSelectedPlanTrip(null)}
-                    style={styles.backTripBtn}>
-                    <FontAwesome name="arrow-left" size={14} color={WF_COLORS.slate700} />
+                  <TouchableOpacity onPress={() => setSelectedPlanTrip(null)} style={styles.backTripBtn}>
+                    <FontAwesome name="arrow-left" size={14} color={DS_COLOR.inkSecondary} />
                   </TouchableOpacity>
                 )}
                 <View>
@@ -742,17 +673,17 @@ export default function ExploreScreen() {
                 </View>
               </View>
               <TouchableOpacity onPress={() => setAddToPlanModalVisible(false)}>
-                <FontAwesome name="times" size={18} color={WF_COLORS.slate500} />
+                <FontAwesome name="times" size={18} color={DS_COLOR.inkMuted} />
               </TouchableOpacity>
             </View>
 
             {/* BƯỚC 1: CHỌN CHUYẾN ĐI */}
             {!selectedPlanTrip ? (
               loadingItineraries ? (
-                <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 30 }} />
+                <ActivityIndicator size="small" color={DS_COLOR.accent} style={{ marginVertical: 30 }} />
               ) : myItineraries.length === 0 ? (
                 <View style={styles.noItineraryBox}>
-                  <FontAwesome name="calendar-o" size={36} color={WF_COLORS.slate400} style={{ marginBottom: 10 }} />
+                  <FontAwesome name="calendar-o" size={36} color={DS_COLOR.inkMuted} style={{ marginBottom: 10 }} />
                   <Text style={styles.noItineraryText}>
                     Bạn chưa có chuyến đi nào được lưu trên tài khoản này.
                   </Text>
@@ -787,7 +718,7 @@ export default function ExploreScreen() {
                             📍 {itinerary.destination} • {daysTotal} ngày • {stops} điểm
                           </Text>
                         </View>
-                        <FontAwesome name="chevron-right" size={13} color={WF_COLORS.primary} />
+                        <FontAwesome name="chevron-right" size={13} color={DS_COLOR.accent} />
                       </TouchableOpacity>
                     );
                   })}
@@ -807,9 +738,7 @@ export default function ExploreScreen() {
                       📍 {selectedPlanTrip.destination} • Thời lượng: {getTripDaysCount(selectedPlanTrip)} ngày
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => setSelectedPlanTrip(null)}
-                    style={styles.changeTripBtn}>
+                  <TouchableOpacity onPress={() => setSelectedPlanTrip(null)} style={styles.changeTripBtn}>
                     <Text style={styles.changeTripBtnText}>Đổi</Text>
                   </TouchableOpacity>
                 </View>
@@ -838,9 +767,7 @@ export default function ExploreScreen() {
                       </TouchableOpacity>
                     );
                   })}
-                  <TouchableOpacity
-                    style={styles.planDayAddBtn}
-                    onPress={handleAddExtraDay}>
+                  <TouchableOpacity style={styles.planDayAddBtn} onPress={handleAddExtraDay}>
                     <Text style={styles.planDayAddBtnText}>+ Ngày {getTripDaysCount(selectedPlanTrip) + 1}</Text>
                   </TouchableOpacity>
                 </ScrollView>
@@ -924,9 +851,7 @@ export default function ExploreScreen() {
 
                 {/* Action Buttons */}
                 <View style={styles.planActionRow}>
-                  <TouchableOpacity
-                    style={styles.planBackBtn}
-                    onPress={() => setSelectedPlanTrip(null)}>
+                  <TouchableOpacity style={styles.planBackBtn} onPress={() => setSelectedPlanTrip(null)}>
                     <Text style={styles.planBackBtnText}>Quay lại</Text>
                   </TouchableOpacity>
 
@@ -935,7 +860,7 @@ export default function ExploreScreen() {
                     disabled={submittingPlan}
                     onPress={handleConfirmAddPlaceToItinerary}>
                     {submittingPlan ? (
-                      <ActivityIndicator size="small" color="#FFFDF8" />
+                      <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
                       <Text style={styles.planConfirmBtnText}>
                         Xác nhận thêm (Ngày {selectedDayNumber})
@@ -966,7 +891,6 @@ export default function ExploreScreen() {
         onClose={() => setIsAddPlaceOpen(false)}
         onPlaceCreated={(newPlace) => {
           setPlaces((prev) => [newPlace, ...prev]);
-          setPlacesTotal((prev) => prev + 1);
           setSelectedPlace(newPlace);
           setDetailModalVisible(true);
         }}
@@ -985,343 +909,146 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: WF_COLORS.slate50,
+    backgroundColor: DS_COLOR.bg,
   },
-  listContainer: {
-    paddingBottom: 28,
+  list: {
+    paddingBottom: 96,
   },
   listFooter: {
-    paddingVertical: 18,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listFooterText: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
-    fontWeight: '600',
+  feedHeader: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: DS_COLOR.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: DS_COLOR.line,
   },
-  header: {
-    paddingTop: 18,
-    paddingBottom: 4,
-    marginBottom: 6,
-    backgroundColor: WF_COLORS.slate50,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    marginBottom: 14,
-  },
-  titleBlock: {
-    flex: 1,
-    marginRight: 12,
-  },
-  overline: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-    color: WF_COLORS.primary,
-    marginBottom: 3,
-  },
-  pageTitle: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: WF_COLORS.slate900,
-    letterSpacing: -0.6,
-    lineHeight: 32,
-  },
-  pageSubtitle: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
-    marginTop: 3,
-    lineHeight: 17,
-  },
-  mapBtn: {
+  toolbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    minWidth: 70,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  proposeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WF_COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    minWidth: 74,
-    shadowColor: WF_COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  proposeBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  totalBadge: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 72,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  totalBadgeNum: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: WF_COLORS.primary,
-    letterSpacing: -0.4,
-  },
-  totalBadgeLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
-    marginTop: 1,
+    gap: 8,
+    marginTop: 8,
   },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    height: 48,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  searchIcon: {
-    marginRight: 10,
+    gap: 8,
+    height: 42,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
+    paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.body,
+    lineHeight: 20,
+    color: DS_COLOR.ink,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
-  clearBtn: {
-    padding: 6,
-  },
-  categoryScroll: {
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 6,
-  },
-  categoryBtn: {
-    flexDirection: 'row',
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+    justifyContent: 'center',
   },
-  categoryBtnActive: {
-    backgroundColor: WF_COLORS.primary,
+  iconBtnActive: {
+    backgroundColor: DS_COLOR.accentSoft,
   },
-  categoryBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WF_COLORS.slate700,
+  filterBadge: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: DS_COLOR.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  categoryBtnTextActive: {
+  filterBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontWeight: '700',
   },
-  cityBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    height: 34,
-    borderRadius: 999,
-    marginRight: 8,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cityBtnActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
-  },
-  cityBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
-  },
-  cityBtnTextActive: {
-    color: '#FFFDF8',
-    fontWeight: '800',
-  },
-  viewToggleRow: {
-    flexDirection: 'row',
-    marginTop: 0,
-    marginBottom: 12,
-    paddingHorizontal: 16,
+  chipRow: {
     gap: 8,
-  },
-  viewToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    height: 34,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: '#FFFDF8',
-  },
-  viewToggleBtnActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
-  },
-  viewToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate600,
-  },
-  viewToggleTextActive: {
-    color: '#FFFDF8',
-    fontWeight: '800',
-  },
-  budgetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 11,
-    height: 30,
-    borderRadius: 5,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.white,
-  },
-  budgetBtnActive: {
-    backgroundColor: WF_COLORS.primary,
-    borderColor: WF_COLORS.primary,
-  },
-  budgetBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
-  },
-  budgetBtnTextActive: {
-    color: '#FFFDF8',
-    fontWeight: '800',
-  },
-  featuredBlock: {
-    marginTop: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: WF_COLORS.slate900,
-  },
-  sectionHint: {
-    fontSize: 11,
-    color: WF_COLORS.slate400,
-    fontWeight: '600',
-  },
-  featuredScroll: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  listHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginTop: 18,
-    marginBottom: 10,
+    paddingTop: 10,
+    paddingRight: 16,
   },
   centerBox: {
     padding: 30,
     alignItems: 'center',
   },
   alertCard: {
-    backgroundColor: WF_COLORS.white,
+    backgroundColor: DS_COLOR.surface,
     padding: 20,
-    borderRadius: 6,
+    borderRadius: DS_RADIUS.lg,
     borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
+    borderColor: DS_COLOR.line,
     alignItems: 'center',
     width: '100%',
   },
   alertTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.body,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   alertDesc: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
+    fontSize: DS_TYPE.meta,
+    color: DS_COLOR.inkSecondary,
     marginVertical: 6,
     textAlign: 'center',
+    lineHeight: 19,
   },
   retryBtn: {
-    backgroundColor: WF_COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 5,
-    marginTop: 6,
+    backgroundColor: DS_COLOR.accent,
+    minHeight: 44,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: DS_RADIUS.md,
+    marginTop: 8,
   },
   retryBtnText: {
-    color: '#FFFDF8',
-    fontWeight: '700',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: DS_TYPE.meta,
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    marginTop: 10,
+    fontSize: DS_TYPE.title,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
+    marginTop: 12,
+    textAlign: 'center',
   },
   emptySub: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
-    marginTop: 4,
+    fontSize: DS_TYPE.meta,
+    color: DS_COLOR.inkMuted,
+    marginTop: 6,
     textAlign: 'center',
+    lineHeight: 19,
   },
   // Sub-modal chọn lịch trình
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(30, 26, 21, 0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   modalCardBox: {
     width: '100%',
-    backgroundColor: WF_COLORS.white,
-    borderRadius: 6,
+    backgroundColor: DS_COLOR.surface,
+    borderRadius: DS_RADIUS.lg,
     padding: 20,
     maxHeight: '80%',
   },
@@ -1332,43 +1059,46 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   modalCardTitle: {
-    fontSize: 16,
+    fontSize: DS_TYPE.title,
     fontWeight: '700',
-    color: WF_COLORS.slate900,
+    color: DS_COLOR.ink,
   },
   modalCardSub: {
-    fontSize: 12,
-    color: WF_COLORS.slate500,
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkMuted,
     marginBottom: 12,
+    marginTop: 2,
   },
   backTripBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.slate100,
+    width: 32,
+    height: 32,
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: DS_COLOR.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   createTripBtn: {
-    paddingVertical: 10,
+    minHeight: 44,
     paddingHorizontal: 16,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.primary,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.accent,
     marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createTripBtnText: {
-    color: '#FFFDF8',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
   },
   noItineraryBox: {
     padding: 24,
     alignItems: 'center',
   },
   noItineraryText: {
-    color: WF_COLORS.slate500,
+    color: DS_COLOR.inkMuted,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: DS_TYPE.meta,
     marginBottom: 8,
   },
   itineraryList: {
@@ -1379,23 +1109,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.slate50,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
     marginBottom: 8,
   },
   itineraryChoiceInfo: {
     flex: 1,
   },
   itineraryChoiceTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   itineraryChoiceDest: {
-    fontSize: 11,
-    color: WF_COLORS.slate500,
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkMuted,
     marginTop: 2,
   },
   // Step 2 styles
@@ -1407,46 +1135,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 6,
-    backgroundColor: '#F6E6DD',
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.accentSoft,
     marginBottom: 14,
   },
   planTripBannerLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: WF_COLORS.primary,
+    fontSize: DS_TYPE.caption,
+    fontWeight: '700',
+    color: DS_COLOR.accent,
     textTransform: 'uppercase',
   },
   planTripBannerTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
-    marginTop: 1,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
+    marginTop: 2,
   },
   planTripBannerSub: {
-    fontSize: 11,
-    color: WF_COLORS.slate600,
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkSecondary,
     marginTop: 2,
   },
   changeTripBtn: {
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFDF8',
-    borderWidth: 1,
-    borderColor: '#E8D5C9',
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: DS_COLOR.surface,
   },
   changeTripBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
+    fontSize: DS_TYPE.caption,
+    fontWeight: '600',
+    color: DS_COLOR.accent,
   },
   planSectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate700,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.inkSecondary,
     marginBottom: 6,
     marginTop: 8,
   },
@@ -1457,49 +1181,45 @@ const styles = StyleSheet.create({
   planDayChip: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.white,
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: DS_COLOR.surfaceMuted,
     alignItems: 'center',
     marginRight: 8,
     minWidth: 70,
   },
   planDayChipActive: {
-    borderColor: WF_COLORS.primary,
-    backgroundColor: WF_COLORS.primary,
+    backgroundColor: DS_COLOR.accent,
   },
   planDayChipTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   planDayChipTitleActive: {
-    color: '#FFFDF8',
+    color: '#FFFFFF',
   },
   planDayChipDate: {
-    fontSize: 9,
-    color: WF_COLORS.slate400,
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkMuted,
     marginTop: 2,
   },
   planDayChipDateActive: {
-    color: '#F6E6DD',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   planDayAddBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 5,
+    borderRadius: DS_RADIUS.sm,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: WF_COLORS.primaryLight,
-    backgroundColor: '#F6E6DD',
+    borderColor: DS_COLOR.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planDayAddBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: WF_COLORS.primary,
+    fontSize: DS_TYPE.caption,
+    fontWeight: '600',
+    color: DS_COLOR.accent,
   },
   timeSlotGrid: {
     flexDirection: 'row',
@@ -1510,30 +1230,29 @@ const styles = StyleSheet.create({
   timeSlotBtn: {
     width: '48%',
     padding: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
   },
   timeSlotBtnActive: {
-    borderColor: WF_COLORS.primary,
-    backgroundColor: '#F6E6DD',
+    backgroundColor: DS_COLOR.accentSoft,
+    borderWidth: 1,
+    borderColor: DS_COLOR.accent,
   },
   timeSlotBtnLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   timeSlotBtnLabelActive: {
-    color: WF_COLORS.primary,
+    color: DS_COLOR.accent,
   },
   timeSlotBtnSub: {
-    fontSize: 10,
-    color: WF_COLORS.slate500,
+    fontSize: DS_TYPE.caption,
+    color: DS_COLOR.inkMuted,
     marginTop: 2,
   },
   timeSlotBtnSubActive: {
-    color: WF_COLORS.primary,
+    color: DS_COLOR.accent,
   },
   customTimeRow: {
     flexDirection: 'row',
@@ -1541,27 +1260,23 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
     padding: 10,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.slate50,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
   },
   inputSubLabel: {
-    fontSize: 11,
+    fontSize: DS_TYPE.caption,
     fontWeight: '600',
-    color: WF_COLORS.slate700,
+    color: DS_COLOR.inkSecondary,
   },
   customTimeInput: {
     flex: 1,
     height: 36,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate400,
-    backgroundColor: '#FFFDF8',
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: DS_COLOR.surface,
     paddingHorizontal: 10,
-    fontSize: 13,
-    fontWeight: '700',
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.ink,
   },
   categoryRow: {
     flexDirection: 'row',
@@ -1570,46 +1285,40 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate200,
-    backgroundColor: WF_COLORS.slate50,
+    borderRadius: DS_RADIUS.pill,
+    backgroundColor: DS_COLOR.surfaceMuted,
     marginRight: 6,
   },
   categoryChipActive: {
-    borderColor: WF_COLORS.primary,
-    backgroundColor: WF_COLORS.primary,
+    backgroundColor: DS_COLOR.accent,
   },
   categoryChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WF_COLORS.slate700,
+    fontSize: DS_TYPE.caption,
+    fontWeight: '500',
+    color: DS_COLOR.inkSecondary,
   },
   categoryChipTextActive: {
-    color: '#FFFDF8',
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   costInput: {
     height: 40,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate400,
-    backgroundColor: '#FFFDF8',
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: DS_COLOR.surfaceMuted,
     paddingHorizontal: 12,
-    fontSize: 12,
+    fontSize: DS_TYPE.meta,
     fontWeight: '600',
-    color: WF_COLORS.slate900,
+    color: DS_COLOR.ink,
     marginBottom: 8,
   },
   noteInput: {
     height: 58,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: WF_COLORS.slate400,
-    backgroundColor: '#FFFDF8',
+    borderRadius: DS_RADIUS.sm,
+    backgroundColor: DS_COLOR.surfaceMuted,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 12,
-    color: WF_COLORS.slate900,
+    fontSize: DS_TYPE.meta,
+    color: DS_COLOR.ink,
     marginBottom: 14,
     textAlignVertical: 'top',
   },
@@ -1621,27 +1330,29 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   planBackBtn: {
-    paddingVertical: 12,
+    minHeight: 44,
     paddingHorizontal: 16,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.slate100,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   planBackBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WF_COLORS.slate700,
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: DS_COLOR.inkSecondary,
   },
   planConfirmBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 5,
-    backgroundColor: WF_COLORS.primary,
+    minHeight: 44,
+    borderRadius: DS_RADIUS.md,
+    backgroundColor: DS_COLOR.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planConfirmBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFDF8',
+    fontSize: DS_TYPE.meta,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

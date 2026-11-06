@@ -1,19 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 
-import { WF_PAPER } from '@/constants/Colors';
+import { DS_COLOR } from '@/constants/DesignSystem';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
-const BLOCK = '#E8DFD0';
+const BLOCK = '#E7E5E4';
 
 /**
- * Khung xương bảng tin cộng đồng: giữ đúng nhịp layout bài viết
- * (avatar, tiêu đề, nội dung, ảnh, hàng tương tác) để lúc tải xong
- * nội dung thật khớp vào chỗ cũ, không bị nhảy.
+ * Khung xương bảng tin cộng đồng: bám đúng layout PostCard mới
+ * (card 16px, avatar 42, media 4:3, hàng 4 hành động) để nội dung thật
+ * khớp vào chỗ cũ, không nhảy khi tải xong.
  */
 export function CommunityFeedSkeleton() {
-  const pulse = useRef(new Animated.Value(0.55)).current;
+  const [pulse] = useState(() => new Animated.Value(0.55));
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -49,7 +49,7 @@ export function CommunityFeedSkeleton() {
               <View style={[styles.block, styles.nameLine]} />
               <View style={[styles.block, styles.subLine]} />
             </View>
-            <View style={[styles.block, styles.pill]} />
+            <View style={[styles.block, styles.menuDot]} />
           </View>
 
           <View style={styles.body}>
@@ -58,15 +58,13 @@ export function CommunityFeedSkeleton() {
             <View style={[styles.block, styles.textLine, { width: '56%', marginTop: 8 }]} />
           </View>
 
-          <View style={[styles.media, card === 1 && styles.mediaShort]}>
-            <View style={styles.mediaHalo} />
-          </View>
+          <View style={styles.media} />
 
           <View style={styles.footer}>
-            {[0, 1, 2].map((action) => (
+            {[0, 1, 2, 3].map((action) => (
               <View key={action} style={styles.action}>
                 <View style={styles.actionDot} />
-                <View style={[styles.block, styles.actionLine]} />
+                {action < 3 ? <View style={[styles.block, styles.actionLine]} /> : null}
               </View>
             ))}
           </View>
@@ -78,26 +76,28 @@ export function CommunityFeedSkeleton() {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 4,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   card: {
-    backgroundColor: WF_PAPER.card,
+    backgroundColor: DS_COLOR.surface,
     marginHorizontal: 16,
-    marginBottom: 14,
-    borderRadius: 6,
+    marginBottom: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: WF_PAPER.cardBorder,
+    borderColor: DS_COLOR.line,
     overflow: 'hidden',
   },
   block: {
     backgroundColor: BLOCK,
-    borderRadius: 99,
+    borderRadius: 999,
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
   },
   avatar: {
     width: 42,
@@ -118,51 +118,44 @@ const styles = StyleSheet.create({
     height: 8,
     marginTop: 7,
   },
-  pill: {
-    width: 58,
-    height: 18,
-    borderRadius: 6,
+  menuDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
   body: {
     paddingHorizontal: 14,
-    paddingBottom: 13,
+    paddingBottom: 12,
   },
   textLine: {
     height: 9,
   },
   media: {
-    height: 200,
-    backgroundColor: WF_PAPER.pillBg,
-  },
-  mediaShort: {
-    height: 168,
-  },
-  mediaHalo: {
-    position: 'absolute',
-    right: -34,
-    bottom: -48,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    marginHorizontal: 14,
+    marginBottom: 12,
+    height: 238,
+    borderRadius: 12,
+    backgroundColor: DS_COLOR.surfaceMuted,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: WF_PAPER.pillBg,
+    borderTopColor: DS_COLOR.line,
   },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    minHeight: 24,
   },
   actionDot: {
-    width: 15,
-    height: 15,
-    borderRadius: 8,
+    width: 17,
+    height: 17,
+    borderRadius: 9,
     backgroundColor: BLOCK,
   },
   actionLine: {

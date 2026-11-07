@@ -12,100 +12,83 @@ const GOOGLE_AUTHORIZED_REDIRECT_URI =
   'https://travelsharingfrontend-production.up.railway.app';
 
 /**
- * Trigger Google OAuth on Web platform using Google Identity Services (GIS).
- */
-export function triggerGoogleWebAuth(
-  onSuccess: (token: string) => void,
-  onError: (errorMsg: string) => void
-) {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-
-  const win = window as any;
-
-  const runGis = () => {
-    try {
-      if (win.google?.accounts?.oauth2?.initTokenClient) {
-        const tokenClient = win.google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID.trim(),
-          scope: 'email profile openid',
-          callback: (res: any) => {
-            if (res.error) {
-              onError(res.error_description || res.error || 'Đăng nhập Google bị hủy hoặc thất bại');
-              return;
-            }
-            if (res.access_token) {
-              onSuccess(res.access_token);
-            } else {
-              onError('Không nhận được mã xác thực từ Google');
-            }
-          },
-        });
-        tokenClient.requestAccessToken();
-      } else if (win.google?.accounts?.id) {
-        win.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID.trim(),
-          callback: (res: any) => {
-            if (res.credential) {
-              onSuccess(res.credential);
-            } else {
-              onError('Không nhận được chứng chỉ xác thực từ Google');
-            }
-          },
-        });
-        win.google.accounts.id.prompt();
-      } else {
-        onError('Trình duyệt chưa sẵn sàng cho Google Sign-In');
-      }
-    } catch (e: any) {
-      onError(e.message || 'Lỗi khi khởi chạy Google Sign-In trên web');
-    }
-  };
-
-  if (!win.google?.accounts) {
-    const existingScript = document.getElementById('google-gsi-client');
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.id = 'google-gsi-client';
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => runGis();
-      script.onerror = () => onError('Không thể tải Google Identity Services SDK');
-      document.head.appendChild(script);
-    } else {
-      setTimeout(runGis, 500);
-    }
-  } else {
-    runGis();
-  }
-}
-
-/**
  * Start Google Sign-In on Native & Web.
- * Uses official system browser (Custom Chrome Tabs / ASWebAuthenticationSession) on Native
- * to guarantee that Google never blocks the request (avoids 403 disallowed_useragent).
+ * 
+ * - Web Platform: Uses a popup window directed to the Google Authorized Redirect URI
+ *   and listens for postMessage from the bridge script. This prevents Error 400: origin_mismatch
+ *   when running on localhost:8081 or non-registered web development hosts.
+ * 
+ * - Native Platform (Android / iOS): Uses the official system browser (Custom Chrome Tabs / 
+ *   ASWebAuthenticationSession) which complies with Google's security policy (avoids 403 disallowed_useragent)
+ *   and returns via deep link scheme (wayfare://oauth).
  */
 export async function startGoogleSignIn(): Promise<UserAuthData | null> {
-  // Web platform: use official GIS popup
-  if (Platform.OS === 'web') {
+  // ─── 1. WEB PLATFORM (Expo Web / localhost:8081) ──────────────────────────
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return new Promise<UserAuthData | null>((resolve, reject) => {
-      triggerGoogleWebAuth(
-        async (token: string) => {
-          try {
-            const user = await authApi.loginWithGoogle(token);
-            resolve(user);
-          } catch (err) {
-            reject(err);
-          }
-        },
-        (errMsg: string) => {
-          reject(new Error(errMsg));
+      try {
+        const width = 500;
+        const height = 620;
+        const left = (window.screen?.width ? (window.screen.width - width) / 2 : 200) + (window.screenX || 0);
+        const top = (window.screen?.height ? (window.screen.height - height) / 2 : 100) + (window.screenY || 0);
+
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
+          GOOGLE_CLIENT_ID.trim()
+        )}&redirect_uri=${encodeURIComponent(
+          GOOGLE_AUTHORIZED_REDIRECT_URI
+        )}&response_type=token%20id_token&scope=openid%20profile%20email&state=web_popup&nonce=wayfare_${Date.now()}`;
+
+        const popup = window.open(
+          authUrl,
+          'google_oauth_popup',
+          `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no`
+        );
+
+        if (!popup) {
+          reject(
+            new Error(
+              'Trình duyệt đã chặn mở cửa sổ Popup. Vui lòng cho phép popup để tiếp tục đăng nhập Google.'
+            )
+          );
+          return;
         }
-      );
+
+        let settled = false;
+
+        const handleMessage = async (event: MessageEvent) => {
+          if (event.data?.type === 'WAYFARE_GOOGLE_AUTH_SUCCESS' && event.data?.token) {
+            if (settled) return;
+            settled = true;
+            window.removeEventListener('message', handleMessage);
+            clearInterval(checkInterval);
+            try {
+              const user = await authApi.loginWithGoogle(event.data.token);
+              resolve(user);
+            } catch (err) {
+              reject(err);
+            }
+          }
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        const checkInterval = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkInterval);
+            window.removeEventListener('message', handleMessage);
+            if (!settled) {
+              settled = true;
+              resolve(null); // User closed popup without signing in
+            }
+          }
+        }, 800);
+      } catch (e: any) {
+        reject(new Error(e.message || 'Lỗi mở cửa sổ xác thực Google'));
+      }
     });
   }
 
-  // Native (Android / iOS): Use system browser via Custom Tabs to comply with Google Security Policy
+  // ─── 2. NATIVE PLATFORM (Android / iOS) ──────────────────────────────────
   try {
     await WebBrowser.warmUpAsync();
   } catch {}

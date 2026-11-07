@@ -34,14 +34,14 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
         const left = (window.screen?.width ? (window.screen.width - width) / 2 : 200) + (window.screenX || 0);
         const top = (window.screen?.height ? (window.screen.height - height) / 2 : 100) + (window.screenY || 0);
 
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
-          GOOGLE_CLIENT_ID.trim()
-        )}&redirect_uri=${encodeURIComponent(
-          GOOGLE_AUTHORIZED_WEB_REDIRECT_URI
-        )}&response_type=token%20id_token&scope=openid%20profile%20email&state=web_popup&nonce=wayfare_${Date.now()}`;
+        // Mở cầu nối xác thực OAuth Bridge trên cổng 5173 (Origin đã được cấu hình trong Google Cloud Console)
+        // Điều này đảm bảo origin mở popup là http://localhost:5173, giải quyết triệt để lỗi Error 400: origin_mismatch
+        const bridgeUrl = `${GOOGLE_AUTHORIZED_WEB_REDIRECT_URI}/oauth-bridge.html?parent=${encodeURIComponent(
+          window.location.origin
+        )}`;
 
         const popup = window.open(
-          authUrl,
+          bridgeUrl,
           'google_oauth_popup',
           `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no`
         );

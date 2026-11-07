@@ -29,7 +29,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { showToast } from '@/components/Toast';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { UserProfileModal } from '@/components/UserProfileModal';
-import { GoogleOAuthModal, triggerGoogleWebAuth } from '@/components/GoogleOAuthModal';
+import { startGoogleSignIn } from '@/src/services/googleAuth';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import {
   authApi,
@@ -106,7 +106,6 @@ export default function ProfileScreen() {
   const [authEmail, setAuthEmail] = useState<string>('');
   const [authPassword, setAuthPassword] = useState<string>('');
   const [submittingAuth, setSubmittingAuth] = useState<boolean>(false);
-  const [googleModalVisible, setGoogleModalVisible] = useState<boolean>(false);
 
   // Follow Modal state
   const [followModalVisible, setFollowModalVisible] = useState<boolean>(false);
@@ -249,18 +248,19 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleGoogleSuccess = async (token: string) => {
-    setGoogleModalVisible(false);
+  const handleGoogleLogin = async () => {
     setSubmittingAuth(true);
     try {
-      const session = await authApi.loginWithGoogle(token);
-      setUser(session);
-      showToast({
-        kind: 'success',
-        title: 'Đăng nhập Google thành công',
-        message: `Xin chào ${session.fullName || session.email}, hồ sơ Google đã được kết nối.`,
-      });
-      loadProfile();
+      const session = await startGoogleSignIn();
+      if (session) {
+        setUser(session);
+        showToast({
+          kind: 'success',
+          title: 'Đăng nhập Google thành công',
+          message: `Xin chào ${session.fullName || session.email}, hồ sơ Google đã được kết nối.`,
+        });
+        loadProfile();
+      }
     } catch (e: any) {
       showToast({
         kind: 'error',
@@ -273,28 +273,6 @@ export default function ProfileScreen() {
       });
     } finally {
       setSubmittingAuth(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    if (Platform.OS === 'web') {
-      setSubmittingAuth(true);
-      triggerGoogleWebAuth(
-        async (token) => {
-          await handleGoogleSuccess(token);
-        },
-        (errorMsg) => {
-          setSubmittingAuth(false);
-          showToast({
-            kind: 'error',
-            title: 'Đăng nhập Google',
-            message: errorMsg,
-            duration: 4200,
-          });
-        }
-      );
-    } else {
-      setGoogleModalVisible(true);
     }
   };
 
@@ -1216,22 +1194,6 @@ export default function ProfileScreen() {
         visible={Boolean(selectedUserIdForModal)}
         userId={selectedUserIdForModal}
         onClose={() => setSelectedUserIdForModal(null)}
-      />
-
-      {/* Google OAuth Modal cho Native (Android/iOS) */}
-      <GoogleOAuthModal
-        visible={googleModalVisible}
-        onClose={() => setGoogleModalVisible(false)}
-        onSuccess={handleGoogleSuccess}
-        onError={(err) => {
-          setGoogleModalVisible(false);
-          showToast({
-            kind: 'error',
-            title: 'Lỗi xác thực Google',
-            message: err,
-            duration: 4200,
-          });
-        }}
       />
     </View>
   );

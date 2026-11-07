@@ -21,7 +21,7 @@ import { WF_COLORS } from '@/constants/Colors';
 import { ToastHost, showToast } from '@/components/Toast';
 import { authApi } from '@/src/services/api';
 import { UserSession } from '@/src/services/authStorage';
-import { GoogleOAuthModal, triggerGoogleWebAuth } from '@/components/GoogleOAuthModal';
+import { startGoogleSignIn } from '@/src/services/googleAuth';
 
 interface WelcomeAuthModalProps {
   visible: boolean;
@@ -42,7 +42,6 @@ export function WelcomeAuthModal({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
-  const [googleModalVisible, setGoogleModalVisible] = useState<boolean>(false);
   const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | null>(null);
 
   // Mỗi lần mở lại form (sau khi đăng xuất hoặc bấm từ header) luôn trả về
@@ -101,12 +100,18 @@ export function WelcomeAuthModal({
     }
   };
 
-  const handleGoogleSuccess = async (token: string) => {
-    setGoogleModalVisible(false);
+  const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      const session = await authApi.loginWithGoogle(token);
-      onLoginSuccess(session, 'google');
+      const user = await startGoogleSignIn();
+      if (user) {
+        onLoginSuccess(user, 'google');
+        showToast({
+          kind: 'success',
+          title: 'Đăng nhập Google thành công',
+          message: `Chào mừng ${user.fullName || user.email}!`,
+        });
+      }
     } catch (err: any) {
       showToast({
         kind: 'error',
@@ -119,28 +124,6 @@ export function WelcomeAuthModal({
       });
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    if (Platform.OS === 'web') {
-      setGoogleLoading(true);
-      triggerGoogleWebAuth(
-        async (token) => {
-          await handleGoogleSuccess(token);
-        },
-        (errorMsg) => {
-          setGoogleLoading(false);
-          showToast({
-            kind: 'error',
-            title: 'Đăng nhập Google',
-            message: errorMsg,
-            duration: 4200,
-          });
-        }
-      );
-    } else {
-      setGoogleModalVisible(true);
     }
   };
 
@@ -333,22 +316,6 @@ export function WelcomeAuthModal({
       {/* Toast đặt ngay trong modal để thông báo không bị lớp phủ của modal che.
           Chỉ nhận hiển thị khi modal đang mở (visible). */}
       <ToastHost enabled={visible} />
-
-      {/* Google OAuth Modal cho Native (Android/iOS) */}
-      <GoogleOAuthModal
-        visible={googleModalVisible}
-        onClose={() => setGoogleModalVisible(false)}
-        onSuccess={handleGoogleSuccess}
-        onError={(err) => {
-          setGoogleModalVisible(false);
-          showToast({
-            kind: 'error',
-            title: 'Lỗi xác thực Google',
-            message: err,
-            duration: 4200,
-          });
-        }}
-      />
     </Modal>
   );
 }

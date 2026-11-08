@@ -1,4 +1,5 @@
 import { create } from 'axios';
+import { Platform } from 'react-native';
 import { authStorage, UserSession } from './authStorage';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://travelsharingbackend-production.up.railway.app/api';
@@ -736,6 +737,37 @@ export const uploadApi = {
       : (ext === 'jpg' ? 'image/jpeg' : `image/${ext}`);
     const mime = type || defaultMime;
 
+    // ─── 1. WEB PLATFORM (Expo Web / Trình duyệt) ───────────────────────────
+    // Trên Web, FormData của trình duyệt yêu cầu Blob/File object thực sự.
+    // fetch(uri).then(r => r.blob()) chuyển đổi chính xác blob: URL hoặc data: URI thành Blob nhị phân.
+    // Tuyệt đối KHÔNG gán Content-Type thủ công để browser tự động sinh boundary string!
+    if (Platform.OS === 'web') {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const formData = new FormData();
+      formData.append('file', blob, filename);
+
+      const token = await authStorage.getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || `Upload failed with status code ${res.status}`);
+      }
+      return normalizeMediaUrl(json.data);
+    }
+
+    // ─── 2. NATIVE PLATFORM (Android / iOS) ──────────────────────────────────
+    // Trên Native, React Native sử dụng cấu trúc { uri, name, type } để bridge qua native networking.
     const formData = new FormData();
     formData.append('file', {
       uri,

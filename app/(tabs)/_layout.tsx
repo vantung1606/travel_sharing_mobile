@@ -57,6 +57,7 @@ export default function TabLayout() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
 
   const prevNotifCountRef = React.useRef(0);
+  const recentNotifKeysRef = React.useRef(new Set<string>());
   const refreshUnreadCount = useCallback(async () => {
     try {
       const count = await notificationApi.getUnreadCount();
@@ -166,18 +167,21 @@ export default function TabLayout() {
     return () => subscription.remove();
   }, [currentUser, refreshUnreadCount, refreshUnreadChatCount]);
 
-  // Lắng nghe WebSocket STOMP thời gian thực cho tin nhắn và hộp thư bên ngoài màn hình chat
+  // Lắng nghe WebSocket STOMP thời gian thực cho tin nhắn, hộp thư và thông báo hệ thống
   useEffect(() => {
     if (!currentUser) return;
     const rawId = (currentUser as any)?.id ?? (currentUser as any)?.userId;
     const userId = rawId != null ? Number(rawId) : undefined;
     const userEmail = (currentUser as any)?.email ?? undefined;
 
+    chatSocket.connect();
+
+    // 1. Nhận cập nhật hộp thư Chat thời gian thực
     const unsubChat = chatSocket.subscribeToUserChat(userId, userEmail, (rawRoom) => {
-      // 1. Luôn cập nhật badge số đỏ tin nhắn chưa đọc realtime
+      // Luôn cập nhật badge số đỏ tin nhắn chưa đọc realtime
       refreshUnreadChatCount();
 
-      // 2. Tuyệt đối KHÔNG hiện thông báo Toast khi người dùng đang ở trong trang chat
+      // Tuyệt đối KHÔNG hiện thông báo Toast khi người dùng đang ở trong trang chat
       if (chatUiState.isChatOpen || isChatOpen) {
         return;
       }
@@ -198,7 +202,49 @@ export default function TabLayout() {
       }
     });
 
-    return () => unsubChat();
+    // 2. Nhận thông báo hệ thống thời gian thực (Zero Latency)
+    const unsubNotif = chatSocket.subscribeToNotifications(userId, userEmail, (notification) => {
+      if (!notification) return;
+
+      // Chống trùng lặp thông báo trong 4 giây
+      const notifKey = notification.id
+        ? String(notification.id)
+        : `${notification.type}_${notification.message}`;
+      if (recentNotifKeysRef.current.has(notifKey)) return;
+      recentNotifKeysRef.current.add(notifKey);
+      setTimeout(() => recentNotifKeysRef.current.delete(notifKey), 4000);
+
+      // Cập nhật số thông báo chưa đọc ngay lập tức
+      setUnreadNotifCount((prev) => prev + 1);
+
+      // Không hiển thị Toast nếu là tin nhắn chat và đang mở modal Chat
+      const isChatNotif = notification.type === 'CHAT_MESSAGE';
+      if (isChatNotif && (chatUiState.isChatOpen || isChatOpen)) {
+        return;
+      }
+
+      // Không hiển thị Toast nếu thông báo do chính mình tạo ra
+      const isSelf =
+        (notification.actorId && notification.actorId === userId) ||
+        (notification.actorEmail &&
+          userEmail &&
+          notification.actorEmail.toLowerCase() === userEmail.toLowerCase());
+      if (isSelf) return;
+
+      // Hiển thị Toast thông báo nổi thời gian thực
+      showToast({
+        kind: 'info',
+        title: notification.title || 'Thông báo mới',
+        message: notification.message || 'Bạn có tương tác mới từ cộng đồng!',
+        icon: 'bell',
+        duration: 4000,
+      });
+    });
+
+    return () => {
+      unsubChat();
+      unsubNotif();
+    };
   }, [currentUser, isChatOpen, refreshUnreadChatCount]);
 
   return (

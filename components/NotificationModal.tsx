@@ -20,6 +20,7 @@ import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { notificationApi, NotificationDto } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
+import { chatSocket } from '@/src/services/chatSocket';
 import { formatVietnamRelativeTime } from '@/src/utils/dateUtils';
 
 const { width } = Dimensions.get('window');
@@ -68,10 +69,30 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   }, [onNotificationRead]);
 
   useEffect(() => {
-    if (visible) {
-      loadNotifications();
-    }
-  }, [visible, loadNotifications]);
+    if (!visible) return;
+    loadNotifications();
+
+    let unsub: (() => void) | null = null;
+    authStorage.getSession().then((session) => {
+      if (!session) return;
+      const rawId = (session as any)?.id ?? (session as any)?.userId;
+      const userId = rawId != null ? Number(rawId) : undefined;
+      const userEmail = (session as any)?.email ?? undefined;
+
+      unsub = chatSocket.subscribeToNotifications(userId, userEmail, (newNotif) => {
+        if (!newNotif) return;
+        setNotifications((prev) => {
+          if (newNotif.id && prev.some((n) => n.id === newNotif.id)) return prev;
+          return [newNotif, ...prev];
+        });
+        if (onNotificationRead) onNotificationRead();
+      });
+    });
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [visible, loadNotifications, onNotificationRead]);
 
   // Mark single as read
   const handleMarkAsRead = async (item: NotificationDto) => {

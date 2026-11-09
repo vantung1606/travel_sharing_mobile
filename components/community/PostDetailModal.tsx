@@ -32,6 +32,7 @@ import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { postApi, CommentItem, PostItem } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { chatSocket } from '@/src/services/chatSocket';
 import { RichPostText } from '@/components/community/RichTextToolbar';
 
 const FALLBACK_AVATAR =
@@ -108,8 +109,8 @@ export function PostDetailModal({
   const isPrivate = (post?.visibility || 'PUBLIC').toUpperCase() === 'PRIVATE';
   const isFriends = (post?.visibility || 'PUBLIC').toUpperCase() === 'FRIENDS';
 
-  const loadComments = useCallback(async (postId: number) => {
-    setLoadingComments(true);
+  const loadComments = useCallback(async (postId: number, showSpinner: boolean = true) => {
+    if (showSpinner) setLoadingComments(true);
     try {
       const list = await postApi.getComments(postId);
       const normalized = list || [];
@@ -119,9 +120,9 @@ export function PostDetailModal({
       onCountChangeRef.current?.(postId, total);
     } catch (err: any) {
       console.warn('Lỗi tải bình luận:', err?.message || err);
-      setComments([]);
+      if (showSpinner) setComments([]);
     } finally {
-      setLoadingComments(false);
+      if (showSpinner) setLoadingComments(false);
     }
   }, []);
 
@@ -135,6 +136,22 @@ export function PostDetailModal({
     setCommentCount(getPostCommentCount(post));
     loadComments(post.id);
     authStorage.getSession().then(setSession);
+  }, [visible, post?.id, loadComments]);
+
+  // Đăng ký nhận sự kiện bình luận & like thời gian thực khi modal bài viết đang mở
+  useEffect(() => {
+    if (!visible || !post?.id) return;
+    const targetPostId = Number(post.id);
+
+    const unsub = chatSocket.subscribeToCommunity((event) => {
+      if (!event || Number(event.postId) !== targetPostId) return;
+
+      if (event.type === 'COMMENT_ADDED' || event.type === 'COMMENT_DELETED') {
+        loadComments(targetPostId, false);
+      }
+    });
+
+    return () => unsub();
   }, [visible, post?.id, loadComments]);
 
   if (!visible || !post) return null;

@@ -30,6 +30,10 @@ class ChatSocketService {
   private roomSubscriptions = new Map<string, StompSubscription>();
   private userChatHandlers = new Set<(room: any) => void>();
   private userChatSubscriptions: StompSubscription[] = [];
+  private notificationHandlers = new Set<(notif: any) => void>();
+  private notificationSubscriptions: StompSubscription[] = [];
+  private communityHandlers = new Set<(event: any) => void>();
+  private communitySubscription: StompSubscription | null = null;
   private currentSubscribedUserKey: string | null = null;
   private lastUserId: number | string | undefined = undefined;
   private lastUserEmail: string | undefined = undefined;
@@ -59,6 +63,8 @@ class ChatSocketService {
         this.isConnected = true;
         this.roomSubscriptions.clear();
         this.userChatSubscriptions = [];
+        this.notificationSubscriptions = [];
+        this.communitySubscription = null;
         this.currentSubscribedUserKey = null;
 
         // Re-subscribe các phòng đang mở sau khi (re)connect
@@ -66,13 +72,19 @@ class ChatSocketService {
         // Re-subscribe các topic hộp thư user thời gian thực
         if (this.lastUserId || this.lastUserEmail) {
           this.ensureUserChatSubscriptions(this.lastUserId, this.lastUserEmail);
+          this.ensureNotificationSubscriptions(this.lastUserId, this.lastUserEmail);
         }
+        // Re-subscribe topic tương tác cộng đồng (likes, comments)
+        this.ensureCommunitySubscription();
+
         if (onConnected) onConnected();
       },
       onWebSocketClose: () => {
         this.isConnected = false;
         this.roomSubscriptions.clear();
         this.userChatSubscriptions = [];
+        this.notificationSubscriptions = [];
+        this.communitySubscription = null;
         this.currentSubscribedUserKey = null;
       },
       onWebSocketError: (event) => {
@@ -149,6 +161,91 @@ class ChatSocketService {
     if (__DEV__) console.log(`[STOMP] Subscribed to user chat realtime topics for ${userKey}`);
   }
 
+  private ensureNotificationSubscriptions(userId?: number | string, userEmail?: string): void {
+    if (!this.isSocketReady() || !this.client) return;
+    if (!userId && !userEmail) return;
+    if (this.notificationHandlers.size === 0) return;
+
+    this.notificationSubscriptions.forEach((s) => {
+      try { s.unsubscribe(); } catch {}
+    });
+    this.notificationSubscriptions = [];
+
+    const dispatch = (notif: any) => {
+      this.notificationHandlers.forEach((handler) => {
+        try {
+          handler(notif);
+        } catch (e) {
+          console.warn('[STOMP] notification handler error:', e);
+        }
+      });
+    };
+
+    if (userId) {
+      try {
+        const s1 = this.client.subscribe(`/topic/notifications.${userId}`, (msg: IMessage) => {
+          try {
+            dispatch(JSON.parse(msg.body));
+          } catch {}
+        });
+        this.notificationSubscriptions.push(s1);
+      } catch (e) {
+        console.warn(`[STOMP] subscribe /topic/notifications.${userId} error:`, e);
+      }
+    }
+
+    if (userEmail) {
+      const emailTopic = `/topic/notifications.${userEmail.toLowerCase().trim()}`;
+      try {
+        const s2 = this.client.subscribe(emailTopic, (msg: IMessage) => {
+          try {
+            dispatch(JSON.parse(msg.body));
+          } catch {}
+        });
+        this.notificationSubscriptions.push(s2);
+      } catch (e) {
+        console.warn(`[STOMP] subscribe ${emailTopic} error:`, e);
+      }
+    }
+
+    try {
+      const s3 = this.client.subscribe('/topic/notifications.broadcast', (msg: IMessage) => {
+        try {
+          dispatch(JSON.parse(msg.body));
+        } catch {}
+      });
+      this.notificationSubscriptions.push(s3);
+    } catch (e) {
+      console.warn('[STOMP] subscribe /topic/notifications.broadcast error:', e);
+    }
+
+    if (__DEV__) console.log(`[STOMP] Subscribed to realtime notifications for ${userId || userEmail}`);
+  }
+
+  private ensureCommunitySubscription(): void {
+    if (!this.isSocketReady() || !this.client) return;
+    if (this.communityHandlers.size === 0) return;
+    if (this.communitySubscription) return;
+
+    try {
+      this.communitySubscription = this.client.subscribe('/topic/community', (msg: IMessage) => {
+        try {
+          const data = JSON.parse(msg.body);
+          this.communityHandlers.forEach((handler) => {
+            try {
+              handler(data);
+            } catch (e) {
+              console.warn('[STOMP] community handler error:', e);
+            }
+          });
+        } catch {}
+      });
+      if (__DEV__) console.log('[STOMP] Subscribed to /topic/community realtime events');
+    } catch (e) {
+      console.warn('[STOMP] subscribe /topic/community error:', e);
+    }
+  }
+
   private ensureRoomSubscription(roomId: string): void {
     if (!this.isSocketReady() || !this.client) return;
     if (this.roomSubscriptions.has(roomId)) return;
@@ -195,7 +292,6 @@ class ChatSocketService {
     this.roomHandlers.get(key)!.add(handler);
     this.ensureRoomSubscription(key);
 
-    // Polling retry để đảm bảo chắc chắn subscribe thành công ngay khi socket bắt tay xong (200-500ms)
     let retryCount = 0;
     const retryInterval = setInterval(() => {
       retryCount += 1;
@@ -341,6 +437,9 @@ class ChatSocketService {
     }
   }
 
+  /**
+   * Đăng ký nhận sự kiện danh sách hộp thư Chat cá nhân thời gian thực (tin nhắn mới, tạo phòng).
+   */
   subscribeToUserChat(
     userId: number | string | undefined,
     userEmail: string | undefined,
@@ -385,6 +484,89 @@ class ChatSocketService {
     };
   }
 
+  /**
+   * Đăng ký nhận thông báo hệ thống thời gian thực (Zero Latency) qua WebSocket.
+   */
+  subscribeToNotifications(
+    userId: number | string | undefined,
+    userEmail: string | undefined,
+    onNotification: (notif: any) => void
+  ): () => void {
+    if (!onNotification) return () => {};
+    this.connect();
+
+    if (userId) this.lastUserId = userId;
+    if (userEmail) this.lastUserEmail = userEmail;
+
+    this.notificationHandlers.add(onNotification);
+    this.ensureNotificationSubscriptions(this.lastUserId, this.lastUserEmail);
+
+    let retryCount = 0;
+    const retryInterval = setInterval(() => {
+      retryCount += 1;
+      if (this.notificationSubscriptions.length > 0 || retryCount > 40) {
+        clearInterval(retryInterval);
+        return;
+      }
+      if (this.isSocketReady()) {
+        this.ensureNotificationSubscriptions(this.lastUserId, this.lastUserEmail);
+        if (this.notificationSubscriptions.length > 0) {
+          clearInterval(retryInterval);
+        }
+      }
+    }, 150);
+
+    return () => {
+      clearInterval(retryInterval);
+      this.notificationHandlers.delete(onNotification);
+      if (this.notificationHandlers.size === 0) {
+        this.notificationSubscriptions.forEach((s) => {
+          try {
+            s.unsubscribe();
+          } catch {}
+        });
+        this.notificationSubscriptions = [];
+      }
+    };
+  }
+
+  /**
+   * Đăng ký nhận các sự kiện tương tác cộng đồng (likes, comments) thời gian thực.
+   */
+  subscribeToCommunity(onEvent: (event: any) => void): () => void {
+    if (!onEvent) return () => {};
+    this.connect();
+
+    this.communityHandlers.add(onEvent);
+    this.ensureCommunitySubscription();
+
+    let retryCount = 0;
+    const retryInterval = setInterval(() => {
+      retryCount += 1;
+      if (this.communitySubscription || retryCount > 40) {
+        clearInterval(retryInterval);
+        return;
+      }
+      if (this.isSocketReady()) {
+        this.ensureCommunitySubscription();
+        if (this.communitySubscription) {
+          clearInterval(retryInterval);
+        }
+      }
+    }, 150);
+
+    return () => {
+      clearInterval(retryInterval);
+      this.communityHandlers.delete(onEvent);
+      if (this.communityHandlers.size === 0 && this.communitySubscription) {
+        try {
+          this.communitySubscription.unsubscribe();
+        } catch {}
+        this.communitySubscription = null;
+      }
+    };
+  }
+
   sendReadReceipt(roomId: number | string, data: { email: string; lastReadMessageId?: number }): void {
     if (!this.isSocketReady() || !this.client || !roomId) return;
     try {
@@ -401,9 +583,7 @@ class ChatSocketService {
     this.roomSubscriptions.forEach((sub) => {
       try {
         sub.unsubscribe();
-      } catch {
-        // ignore
-      }
+      } catch {}
     });
     this.roomSubscriptions.clear();
     this.roomHandlers.clear();
@@ -415,6 +595,23 @@ class ChatSocketService {
     });
     this.userChatSubscriptions = [];
     this.userChatHandlers.clear();
+
+    this.notificationSubscriptions.forEach((s) => {
+      try {
+        s.unsubscribe();
+      } catch {}
+    });
+    this.notificationSubscriptions = [];
+    this.notificationHandlers.clear();
+
+    if (this.communitySubscription) {
+      try {
+        this.communitySubscription.unsubscribe();
+      } catch {}
+      this.communitySubscription = null;
+    }
+    this.communityHandlers.clear();
+
     this.currentSubscribedUserKey = null;
 
     if (this.client) {

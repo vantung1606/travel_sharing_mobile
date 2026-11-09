@@ -47,6 +47,7 @@ import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import { itineraryApi, ItineraryItem, placeApi, PlaceItem, postApi, PostItem, userApi } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
+import { chatSocket } from '@/src/services/chatSocket';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HIDDEN_POSTS_STORAGE_KEY = 'wayfare_hidden_post_ids';
@@ -249,6 +250,25 @@ export default function CommunityScreen() {
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);
+
+  // Đăng ký nhận sự kiện tương tác cộng đồng thời gian thực (like, comment)
+  useEffect(() => {
+    const unsub = chatSocket.subscribeToCommunity((event) => {
+      if (!event || !event.postId) return;
+      const postId = Number(event.postId);
+
+      if (event.type === 'LIKE_CHANGED' && event.likeCount != null) {
+        setLikesCount((prev) => ({ ...prev, [postId]: Number(event.likeCount) }));
+      } else if (
+        (event.type === 'COMMENT_ADDED' || event.type === 'COMMENT_DELETED') &&
+        event.commentCount != null
+      ) {
+        setCommentOverrides((prev) => ({ ...prev, [postId]: Number(event.commentCount) }));
+      }
+    });
+
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     let mounted = true;

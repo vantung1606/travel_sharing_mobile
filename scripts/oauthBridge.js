@@ -190,6 +190,10 @@ function startBridge() {
     console.log(`[Wayfare OAuth Bridge] Listening on http://localhost:${PORT}`);
   });
 
+  if (typeof server.unref === 'function') {
+    server.unref();
+  }
+
   return server;
 }
 

@@ -12,12 +12,23 @@
     },
     "android": {
       "package": "com.wayfare.travelmobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#F8F4EC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -39,6 +50,20 @@
           }
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Wayfare cần quyền truy cập thư viện ảnh để bạn tải ảnh bài viết và ảnh đại diện.",
+          "cameraPermission": "Wayfare cần quyền truy cập máy ảnh để chụp ảnh địa điểm và khoảnh khắc du lịch."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Wayfare cần quyền truy cập vị trí để gợi ý các địa điểm du lịch gần bạn."
+        }
+      ],
+      "expo-video",
       "expo-font",
       "expo-status-bar",
       "expo-web-browser"

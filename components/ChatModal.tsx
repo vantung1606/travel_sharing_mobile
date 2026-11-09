@@ -11,6 +11,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -477,6 +478,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
 
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(40);
+  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const [sending, setSending] = useState(false);
   const [isAiTyping, setIsAiTyping] = useState(false);
 
@@ -583,6 +585,24 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
   }, []);
 
   useEffect(() => stopRoomRealtime, [stopRoomRealtime]);
+
+  // Lắng nghe bàn phím trên Android để đẩy ô nhập lên trên bàn phím (Laban Key, Gboard, v.v.)
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      setAndroidKeyboardHeight(e.endCoordinates.height);
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 120);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setAndroidKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // ── Scrolling ─────────────────────────────────────────────
   const scrollToBottom = useCallback((animated = true) => {
@@ -2032,7 +2052,12 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         ) : (
           /* ── Thread ─────────────────────────────────────── */
           <KeyboardAvoidingView
-            style={styles.threadScreen}
+            style={[
+              styles.threadScreen,
+              Platform.OS === 'android' && androidKeyboardHeight > 0 && {
+                paddingBottom: androidKeyboardHeight,
+              },
+            ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
             <View style={styles.threadBody}>

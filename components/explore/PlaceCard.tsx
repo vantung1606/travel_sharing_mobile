@@ -1,4 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -14,15 +15,16 @@ export function hasRealRating(place: PlaceItem): boolean {
 
 const formatVND = (value: number) => `${Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}đ`;
 
-/** Rút gọn nhãn giá để không bị cắt thành "Miễn phí tham ...". */
-function formatPrice(place: PlaceItem): string {
+/** Rút gọn nhãn giá để hiển thị rõ ràng, nổi bật. */
+function formatPrice(place: PlaceItem): { label: string; isFree: boolean } {
   const raw = String(place.priceLevel || '').trim();
-  if (/miễn phí|mien phi|free/i.test(raw)) return 'Miễn phí';
+  if (/miễn phí|mien phi|free/i.test(raw)) return { label: 'Miễn phí', isFree: true };
   if (place.ticketPrice != null && Number(place.ticketPrice) > 0) {
-    return formatVND(Number(place.ticketPrice));
+    return { label: formatVND(Number(place.ticketPrice)), isFree: false };
   }
-  if (!raw) return 'Miễn phí';
-  return raw.split(/[,;(]/)[0].trim();
+  if (!raw) return { label: 'Miễn phí', isFree: true };
+  const cleaned = raw.split(/[,;(]/)[0].trim();
+  return { label: cleaned, isFree: /miễn phí|mien phi|free/i.test(cleaned) };
 }
 
 interface PlaceCardProps {
@@ -33,23 +35,29 @@ interface PlaceCardProps {
 }
 
 /**
- * Card địa điểm kiểu danh sách: ảnh 80×80 bên trái, 3 dòng thông tin bên phải.
- *
- * Bỏ mô tả 2 dòng, city pill, category pill, verified pill và nút "Thêm vào
- * Plan" — tất cả đã có trong trang chi tiết. Nhờ vậy mỗi màn hình thấy được
- * 4–5 địa điểm thay vì ~1,7 như trước.
+ * Card địa điểm: ảnh 88×88 bo tròn bên trái, thông tin nổi bật, tag giá bắt mắt bên phải.
  */
 export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProps) {
   const showRating = hasRealRating(place);
+  const priceInfo = formatPrice(place);
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.88}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Xem chi tiết ${place.name}`}
       style={styles.card}>
-      <PlaceImage place={place} style={styles.thumb} />
+      <View style={styles.thumbWrapper}>
+        <PlaceImage place={place} style={styles.thumb} />
+        {place.category ? (
+          <View style={styles.thumbCategoryBadge}>
+            <Text style={styles.thumbCategoryText} numberOfLines={1}>
+              {place.category}
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.body}>
         <View style={styles.nameRow}>
@@ -57,40 +65,48 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
             {place.name}
           </Text>
           {place.isVerifiedHost ? (
-            <FontAwesome name="check-circle" size={12} color={DS_COLOR.success} />
+            <FontAwesome name="check-circle" size={13} color="#2563EB" style={{ marginLeft: 2 }} />
           ) : null}
         </View>
 
-        <Text style={styles.meta} numberOfLines={1}>
-          {[place.city, place.category].filter(Boolean).join(' · ') || 'Việt Nam'}
-        </Text>
+        <View style={styles.locationRow}>
+          <FontAwesome name="map-marker" size={12} color={DS_COLOR.accent} style={{ marginRight: 4 }} />
+          <Text style={styles.meta} numberOfLines={1}>
+            {place.city || 'Việt Nam'}
+          </Text>
+        </View>
 
         <View style={styles.bottomRow}>
           {showRating ? (
             <View style={styles.rating}>
-              <FontAwesome name="star" size={11} color={DS_COLOR.warning} />
+              <FontAwesome name="star" size={12} color="#F59E0B" />
               <Text style={styles.ratingText}>{place.rating!.toFixed(1)}</Text>
               <Text style={styles.ratingCount}>({place.reviewsCount})</Text>
             </View>
           ) : (
-            <Text style={styles.noRating}>Chưa có đánh giá</Text>
+            <Text style={styles.noRating}>Mới khám phá</Text>
           )}
 
-          <Text style={styles.price} numberOfLines={1}>
-            {formatPrice(place)}
-          </Text>
+          <View style={[styles.pricePill, priceInfo.isFree ? styles.pricePillFree : styles.pricePillPaid]}>
+            <Text style={[styles.pricePillText, priceInfo.isFree ? styles.pricePillTextFree : styles.pricePillTextPaid]} numberOfLines={1}>
+              {priceInfo.label}
+            </Text>
+          </View>
         </View>
       </View>
 
       <TouchableOpacity
         style={[styles.favBtn, saved && styles.favBtnActive]}
         activeOpacity={0.7}
-        onPress={onToggleSave}
+        onPress={(e) => {
+          e.stopPropagation();
+          onToggleSave();
+        }}
         accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
         <FontAwesome
           name={saved ? 'heart' : 'heart-o'}
-          size={17}
-          color={saved ? DS_COLOR.accent : DS_COLOR.inkMuted}
+          size={16}
+          color={saved ? '#EF4444' : DS_COLOR.inkMuted}
         />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -103,26 +119,40 @@ interface FeaturedPlaceCardProps {
 }
 
 /**
- * Hero 16:9 nằm đầu danh sách (thay cho dải cuộn ngang "Nổi bật" cũ).
- * Vì nằm trong danh sách nên nó cuộn đi cùng nội dung, không chiếm chrome.
+ * Hero nổi bật 16:9 với gradient mượt mà, huy hiệu VIP và thông tin ấn tượng.
  */
 export function FeaturedPlaceCard({ place, onPress }: FeaturedPlaceCardProps) {
   const showRating = hasRealRating(place);
+  const priceInfo = formatPrice(place);
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.92}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Địa điểm nổi bật ${place.name}`}
       style={styles.hero}>
       <PlaceImage place={place} style={styles.heroImage} />
-      <View style={styles.heroScrimSoft} />
-      <View style={styles.heroScrimStrong} />
 
-      <View style={styles.heroBadge}>
-        <FontAwesome name="star" size={10} color="#FFFFFF" />
-        <Text style={styles.heroBadgeText}>Nổi bật</Text>
+      {/* Gradient chuyển màu cao cấp từ trong suốt xuống đen đậm */}
+      <LinearGradient
+        colors={['transparent', 'rgba(15, 23, 42, 0.45)', 'rgba(15, 23, 42, 0.88)']}
+        locations={[0.2, 0.6, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      {/* Huy hiệu Nổi Bật & Danh Mục */}
+      <View style={styles.heroTopRow}>
+        <View style={styles.heroBadge}>
+          <FontAwesome name="star" size={11} color="#FEF08A" style={{ marginRight: 4 }} />
+          <Text style={styles.heroBadgeText}>NỔI BẬT</Text>
+        </View>
+        {place.category ? (
+          <View style={styles.heroCategoryPill}>
+            <Text style={styles.heroCategoryText} numberOfLines={1}>{place.category}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.heroInfo}>
@@ -130,16 +160,26 @@ export function FeaturedPlaceCard({ place, onPress }: FeaturedPlaceCardProps) {
           {place.name}
         </Text>
         <View style={styles.heroMetaRow}>
-          <Text style={styles.heroCity} numberOfLines={1}>
-            {place.city || 'Việt Nam'}
-          </Text>
+          <View style={styles.heroCityWrap}>
+            <FontAwesome name="map-marker" size={12} color="#FBBF24" style={{ marginRight: 4 }} />
+            <Text style={styles.heroCity} numberOfLines={1}>
+              {place.city || 'Việt Nam'}
+            </Text>
+          </View>
+
           {showRating ? (
-            <>
-              <Text style={styles.heroDot}>·</Text>
-              <FontAwesome name="star" size={10} color="#FDE68A" />
+            <View style={styles.heroRatingWrap}>
+              <FontAwesome name="star" size={11} color="#F59E0B" style={{ marginRight: 3 }} />
               <Text style={styles.heroRating}>{place.rating!.toFixed(1)}</Text>
-            </>
+              <Text style={styles.heroReviewCount}>({place.reviewsCount})</Text>
+            </View>
           ) : null}
+
+          <View style={{ flex: 1 }} />
+
+          <View style={styles.heroPriceBadge}>
+            <Text style={styles.heroPriceText}>{priceInfo.label}</Text>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -150,47 +190,80 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: DS_COLOR.surface,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 8,
-    borderRadius: DS_RADIUS.lg,
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: DS_COLOR.line,
+    borderColor: '#EDE7DE',
+    elevation: 2,
+    shadowColor: '#1A1008',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+  },
+  thumbWrapper: {
+    width: 88,
+    height: 88,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F3EFE9',
   },
   thumb: {
-    width: 80,
-    height: 80,
-    borderRadius: DS_RADIUS.md,
-    backgroundColor: DS_COLOR.surfaceMuted,
+    width: '100%',
+    height: '100%',
+  },
+  thumbCategoryBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  thumbCategoryText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   body: {
     flex: 1,
     marginLeft: 12,
-    marginRight: 4,
-    gap: 3,
+    marginRight: 6,
+    gap: 4,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   name: {
     flexShrink: 1,
-    fontSize: DS_TYPE.body,
-    fontWeight: '600',
-    color: DS_COLOR.ink,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1917',
+    letterSpacing: -0.2,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   meta: {
     fontSize: 12,
-    color: DS_COLOR.inkMuted,
+    fontWeight: '500',
+    color: '#6B7280',
   },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    marginTop: 1,
+    marginTop: 2,
   },
   rating: {
     flexDirection: 'row',
@@ -198,79 +271,102 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   ratingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: DS_COLOR.warning,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1C1917',
   },
   ratingCount: {
     fontSize: 11,
-    color: DS_COLOR.inkMuted,
+    color: '#9CA3AF',
   },
   noRating: {
     fontSize: 11,
-    color: DS_COLOR.inkMuted,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
-  price: {
-    flexShrink: 1,
-    maxWidth: '48%',
-    textAlign: 'right',
-    fontSize: 12,
-    fontWeight: '600',
-    color: DS_COLOR.accent,
+  pricePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  pricePillFree: {
+    backgroundColor: '#ECFDF5',
+  },
+  pricePillPaid: {
+    backgroundColor: '#FFF1ED',
+  },
+  pricePillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  pricePillTextFree: {
+    color: '#059669',
+  },
+  pricePillTextPaid: {
+    color: '#C84B2C',
   },
   favBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F8F4EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
   favBtnActive: {
-    backgroundColor: DS_COLOR.accentSoft,
+    backgroundColor: '#FEE2E2',
   },
   hero: {
     marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 12,
-    borderRadius: DS_RADIUS.lg,
+    marginTop: 6,
+    marginBottom: 14,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: DS_COLOR.surfaceMuted,
+    backgroundColor: '#1E1A15',
     aspectRatio: 16 / 9,
+    elevation: 4,
+    shadowColor: '#1A1008',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroScrimSoft: {
+  heroTopRow: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '62%',
-    backgroundColor: 'rgba(15, 23, 42, 0.32)',
-  },
-  heroScrimStrong: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '30%',
-    backgroundColor: 'rgba(15, 23, 42, 0.42)',
-  },
-  heroBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: DS_RADIUS.pill,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'space-between',
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: '#D9532F',
   },
   heroBadgeText: {
-    fontSize: 10,
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.6,
+  },
+  heroCategoryPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  heroCategoryText: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -281,29 +377,56 @@ const styles = StyleSheet.create({
     bottom: 12,
   },
   heroName: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 19,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   heroMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
+    marginTop: 5,
+  },
+  heroCityWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   heroCity: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#F3F4F6',
   },
-  heroDot: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
+  heroRatingWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   heroRating: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  heroReviewCount: {
+    fontSize: 10,
+    color: '#E5E7EB',
+    marginLeft: 2,
+  },
+  heroPriceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+  },
+  heroPriceText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
 });

@@ -29,17 +29,26 @@ export function pickFallbackImage(id: number): string {
 
 /**
  * Chọn ảnh hiển thị cho một địa điểm:
- * 1. Ưu tiên ảnh riêng của địa điểm (sau khi sửa lỗi mã hoá '%').
- * 2. 464 địa điểm trong CSDL đang dùng CHUNG một ảnh Unsplash -> thay bằng một
- *    ảnh thật khác (lấy từ kho ảnh thật của Wayfare) để lưới không lặp một ảnh.
+ * 1. Đọc cả coverImage, coverImageUrl hoặc ảnh đầu tiên trong images.
+ * 2. Tự động chuyển qua ảnh đẹp trong PLACE_IMAGE_POOL nếu ảnh gốc là ảnh placeholder chung 464 lần,
+ *    hoặc ảnh uploads cũ trả về 404, hoặc ảnh Wikimedia gây lỗi chuyển hướng mạng trên Android.
  */
 export function resolvePlaceImage(
-  place?: { id: number; coverImage?: string | null } | null
+  place?: { id: number; coverImage?: string | null; coverImageUrl?: string | null; images?: string[] } | null
 ): string {
   if (!place) return SHARED_PLACEHOLDER_IMAGE;
 
-  const own = fixImageUrl(place.coverImage);
-  if (own && own !== SHARED_PLACEHOLDER_IMAGE) return own;
+  const raw = place.coverImage || place.coverImageUrl || place.images?.[0];
+  const own = fixImageUrl(raw);
+
+  if (
+    own &&
+    own !== SHARED_PLACEHOLDER_IMAGE &&
+    !own.includes('/uploads/posts/') &&
+    !own.includes('commons.wikimedia.org')
+  ) {
+    return own;
+  }
 
   return pickFallbackImage(place.id);
 }

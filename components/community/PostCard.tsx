@@ -1,7 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/Themed';
 import { FeedVideoPlayer } from '@/components/community/FeedVideoPlayer';
@@ -44,10 +43,11 @@ interface PostCardProps {
 }
 
 /**
- * Card bài viết phong cách Immersive Travel Poster (Ý tưởng 1):
- * - Dùng ĐÚNG 1 LỚP LinearGradient trong suốt mượt mà phủ toàn card (không dùng nhiều ô mờ/dải đen chắp vá).
- * - Thông tin tác giả & công cụ nổi tự nhiên trên gradient, không bọc ô đen vụn vặt.
- * - Đảm bảo thanh tương tác ở đáy thoáng đãng, sắc sảo và thanh lịch.
+ * Card bài viết mạng xã hội du lịch hiện đại (Modern Travel Feed Card):
+ * - Nền trắng sáng, viền ấm, shadow mềm đồng nhất với giao diện toàn app.
+ * - Ảnh hiển thị tự nhiên, sắc nét và trọn vẹn, KHÔNG bị phủ gradient đen tối.
+ * - Tiêu đề và nội dung thoáng đãng, dễ đọc.
+ * - Thanh tương tác trực quan với Tim đỏ, Bình luận, Chia sẻ, Lưu và Xem bài.
  */
 export function PostCard({
   post,
@@ -90,270 +90,15 @@ export function PostCard({
   const authorTier = getUserTier({ tier: post.authorTier, role: post.authorRole });
   const locationText = post.locationTag || post.locationName;
 
-  // ══════════════════════════════════════════════════════════
-  // 1. DẠNG IMMERSIVE CINEMATIC POSTER (KHI CÓ ẢNH HOẶC VIDEO)
-  // ══════════════════════════════════════════════════════════
-  if (hasMedia) {
-    const heroImageUri = images[0] || (post.videoUrl ? FALLBACK_AVATAR : '');
-
-    return (
-      <View style={styles.posterCard}>
-        {/* Nền card: Video tự động phát khi lướt tới & tạm dừng khi lướt qua HOẶC Ảnh sắc nét */}
-        {post.videoUrl ? (
-          <FeedVideoPlayer
-            videoUrl={post.videoUrl}
-            isPlaying={Boolean(isVideoPlaying)}
-          />
-        ) : heroImageUri ? (
-          <Image source={{ uri: heroImageUri }} style={styles.posterBgImage} resizeMode="cover" />
-        ) : (
-          <View style={[styles.posterBgImage, { backgroundColor: '#1E1A15' }]} />
-        )}
-
-        {/* DUY NHẤT 1 LỚP GRADIENT MỜ TRONG SUỐT LIỀN MẠCH TOÀN CARD */}
-        <LinearGradient
-          colors={[
-            'rgba(15, 23, 42, 0.70)',
-            'rgba(15, 23, 42, 0.18)',
-            'transparent',
-            'rgba(15, 23, 42, 0.45)',
-            'rgba(15, 23, 42, 0.85)',
-            'rgba(15, 23, 42, 0.98)',
-          ]}
-          locations={[0, 0.18, 0.38, 0.65, 0.84, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-
-        {/* Thanh Header nổi: Tác giả tự nhiên & Nút Bookmark, 3 Chấm */}
-        <View style={styles.posterTopRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={onPressAuthor}
-            style={styles.posterAuthorRow}
-            accessibilityLabel={`Xem hồ sơ ${post.authorName || 'thành viên'}`}>
-            <Image
-              source={{ uri: post.authorAvatar || FALLBACK_AVATAR }}
-              style={[styles.posterAvatar, { borderColor: authorTier.avatarRingColor || '#FFFFFF' }]}
-            />
-            <View style={styles.posterAuthorTextWrap}>
-              <View style={styles.posterNameFollowRow}>
-                <Text style={styles.posterAuthorName} numberOfLines={1}>
-                  {post.authorName || 'Thành viên Wayfare'}
-                </Text>
-                {isOwner ? (
-                  <Text style={styles.posterYouTag}>(Bạn)</Text>
-                ) : onToggleFollow ? (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={onToggleFollow}
-                    disabled={followLoading}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={[styles.posterFollowText, isFollowingAuthor && styles.posterFollowTextActive]}>
-                      {followLoading ? '...' : isFollowingAuthor ? '· Đang theo dõi' : '· Theo dõi'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              <View style={styles.posterMetaRow}>
-                <Text style={styles.posterMetaText}>{post.timeAgo || 'Vừa xong'}</Text>
-                {locationText ? (
-                  <>
-                    <Text style={styles.posterMetaDot}>·</Text>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        const placeId = post.placeId || post.sharedPost?.placeId;
-                        if (placeId && onPressPlace) onPressPlace(placeId);
-                      }}
-                      disabled={!(post.placeId || post.sharedPost?.placeId) || !onPressPlace}>
-                      <Text style={styles.posterLocationText} numberOfLines={1}>
-                        {locationText}
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                ) : null}
-                {isPrivate ? (
-                  <>
-                    <Text style={styles.posterMetaDot}>·</Text>
-                    <FontAwesome name="lock" size={10} color="#CBD5E1" />
-                  </>
-                ) : isFriends ? (
-                  <>
-                    <Text style={styles.posterMetaDot}>·</Text>
-                    <FontAwesome name="users" size={10} color="#CBD5E1" />
-                  </>
-                ) : null}
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.posterTopRightActions}>
-            {images.length > 1 && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => onPressImage(0)}
-                style={styles.photoCountBadge}>
-                <FontAwesome name="image" size={11} color="#FFFFFF" />
-                <Text style={styles.photoCountText}>{images.length}</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.glassCircleBtn}
-              onPress={onToggleBookmark}
-              activeOpacity={0.8}
-              accessibilityLabel={bookmarked ? 'Bỏ lưu' : 'Lưu bài viết'}>
-              <FontAwesome
-                name={bookmarked ? 'bookmark' : 'bookmark-o'}
-                size={15}
-                color={bookmarked ? '#F59E0B' : '#FFFFFF'}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.glassCircleBtn}
-              onPress={onOpenMenu}
-              activeOpacity={0.8}
-              accessibilityLabel="Tùy chọn bài viết">
-              <FontAwesome name="ellipsis-h" size={15} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Nút phát nếu người dùng bấm xem video riêng */}
-        {post.videoUrl && !isVideoPlaying && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.centerPlayBtn}
-            onPress={onPressVideo}
-            accessibilityLabel="Phát video">
-            <View style={styles.playIconCircle}>
-              <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Banner chờ duyệt nếu có */}
-        {isPending && (
-          <View style={styles.posterPendingBanner}>
-            <FontAwesome name="clock-o" size={12} color="#FEF3C7" />
-            <Text style={styles.posterPendingText}>Đang chờ quản trị viên duyệt</Text>
-          </View>
-        )}
-
-        {/* Cụm thông tin & tương tác đáy Poster */}
-        <View style={styles.posterBottomContent}>
-          <TouchableOpacity
-            activeOpacity={0.92}
-            onPress={onOpenDetail}
-            accessibilityRole="button"
-            accessibilityLabel={`Xem chi tiết bài viết ${post.title || ''}`}>
-            {locationText && (
-              <View style={styles.posterLocationRow}>
-                <FontAwesome name="map-marker" size={12} color="#FBBF24" />
-                <Text style={styles.posterLocationTagText} numberOfLines={1}>
-                  {locationText}
-                </Text>
-              </View>
-            )}
-
-            {post.title ? (
-              <Text style={styles.posterTitle} numberOfLines={2}>
-                {post.title}
-              </Text>
-            ) : null}
-
-            {content ? (
-              <Text style={styles.posterSnippet} numberOfLines={2}>
-                {content}
-              </Text>
-            ) : null}
-          </TouchableOpacity>
-
-          {/* Lịch trình đính kèm */}
-          {(post.itineraryId || post.sharedPost?.itineraryId) && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onViewItinerary}
-              style={styles.posterItinPill}
-              accessibilityRole="button"
-              accessibilityLabel="Xem lịch trình đính kèm">
-              <FontAwesome name="calendar-check-o" size={12} color="#FBBF24" />
-              <Text style={styles.posterItinText} numberOfLines={1}>
-                Chuyến đi đính kèm · Xem lịch trình
-              </Text>
-              <FontAwesome name="angle-right" size={12} color="#FBBF24" />
-            </TouchableOpacity>
-          )}
-
-          {/* Thanh tương tác nhanh chìm trên ảnh */}
-          <View style={styles.posterActionBar}>
-            <TouchableOpacity
-              style={styles.posterActionBtn}
-              onPress={onToggleLike}
-              activeOpacity={0.7}
-              accessibilityLabel={liked ? 'Bỏ thích' : 'Thích bài viết'}>
-              <FontAwesome
-                name={liked ? 'heart' : 'heart-o'}
-                size={18}
-                color={liked ? '#EF4444' : '#FFFFFF'}
-              />
-              <Text style={[styles.posterActionText, liked && styles.posterActionTextLiked]}>
-                {formatCount(likeCount)}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.posterActionBtn}
-              onPress={onOpenComments}
-              activeOpacity={0.7}
-              accessibilityLabel="Bình luận">
-              <FontAwesome name="comment-o" size={17} color="#FFFFFF" />
-              <Text style={styles.posterActionText}>{formatCount(commentCount)}</Text>
-              {post.commentLocked ? (
-                <FontAwesome name="lock" size={11} color="#F59E0B" style={{ marginLeft: -2 }} />
-              ) : null}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.posterActionBtn}
-              onPress={onShare}
-              activeOpacity={0.7}
-              accessibilityLabel="Chia sẻ">
-              <FontAwesome name="share-alt" size={16} color="#FFFFFF" />
-              <Text style={styles.posterActionText}>Chia sẻ</Text>
-            </TouchableOpacity>
-
-            <View style={{ flex: 1 }} />
-
-            <TouchableOpacity
-              style={styles.posterExploreBtn}
-              onPress={onOpenDetail}
-              activeOpacity={0.85}
-              accessibilityLabel="Khám phá chi tiết">
-              <Text style={styles.posterExploreText}>Xem bài</Text>
-              <FontAwesome name="arrow-right" size={10} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // 2. DẠNG EDITORIAL NOTE CARD (KHI BÀI VIẾT CHỈ CÓ CHỮ)
-  // ══════════════════════════════════════════════════════════
   return (
-    <View style={styles.editorialCard}>
-      {/* Tác giả + meta */}
+    <View style={styles.card}>
+      {/* ── 1. Tác giả & Công cụ Header ── */}
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onPressAuthor}
           accessibilityLabel={`Xem hồ sơ ${post.authorName || 'thành viên'}`}
-          style={[styles.avatarWrap, { borderColor: authorTier.avatarRingColor || DS_COLOR.accentSoft }]}>
+          style={[styles.avatarWrap, { borderColor: authorTier.avatarRingColor || '#E05836' }]}>
           <Image source={{ uri: post.authorAvatar || FALLBACK_AVATAR }} style={styles.avatar} />
         </TouchableOpacity>
 
@@ -379,7 +124,7 @@ export function PostCard({
                 hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                 accessibilityLabel={isFollowingAuthor ? 'Bỏ theo dõi tác giả' : 'Theo dõi tác giả'}>
                 <Text style={[styles.followText, isFollowingAuthor && styles.followTextActive]}>
-                  {followLoading ? '...' : isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi'}
+                  {followLoading ? '...' : isFollowingAuthor ? '· Đang theo dõi' : '· Theo dõi'}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -398,7 +143,7 @@ export function PostCard({
                   }}
                   disabled={!(post.placeId || post.sharedPost?.placeId) || !onPressPlace}
                   style={styles.locationBtn}>
-                  <FontAwesome name="map-marker" size={11} color={DS_COLOR.accent} />
+                  <FontAwesome name="map-marker" size={11} color="#D9532F" />
                   <Text style={styles.locationText} numberOfLines={1}>
                     {locationText}
                   </Text>
@@ -408,12 +153,12 @@ export function PostCard({
             {isPrivate ? (
               <>
                 <Text style={styles.metaDot}>·</Text>
-                <FontAwesome name="lock" size={10} color={DS_COLOR.inkMuted} />
+                <FontAwesome name="lock" size={10} color="#9CA3AF" />
               </>
             ) : isFriends ? (
               <>
                 <Text style={styles.metaDot}>·</Text>
-                <FontAwesome name="users" size={10} color={DS_COLOR.inkMuted} />
+                <FontAwesome name="users" size={10} color="#9CA3AF" />
               </>
             ) : null}
           </View>
@@ -422,24 +167,25 @@ export function PostCard({
         <TouchableOpacity
           style={styles.menuBtn}
           onPress={onOpenMenu}
-          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityLabel="Tùy chọn bài viết">
-          <FontAwesome name="ellipsis-h" size={16} color={DS_COLOR.inkMuted} />
+          <FontAwesome name="ellipsis-h" size={16} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
 
+      {/* Banner chờ duyệt */}
       {isPending ? (
         <View style={styles.pendingBanner}>
-          <FontAwesome name="clock-o" size={12} color={DS_COLOR.warning} />
+          <FontAwesome name="clock-o" size={12} color="#D97706" />
           <Text style={styles.pendingText}>Bài viết đang chờ quản trị viên duyệt</Text>
         </View>
       ) : null}
 
-      {/* Nội dung dạng ký sự */}
+      {/* ── 2. Nội dung văn bản (Tiêu đề & Chữ) ── */}
       <View style={styles.bodyBlock}>
         <TouchableOpacity activeOpacity={0.92} onPress={onOpenDetail} accessibilityRole="button">
           {post.title ? (
-            <Text style={styles.editorialTitle} numberOfLines={3}>
+            <Text style={styles.postTitle} numberOfLines={2}>
               {post.title}
             </Text>
           ) : null}
@@ -465,7 +211,63 @@ export function PostCard({
         ) : null}
       </View>
 
-      {/* Bài chia sẻ lại */}
+      {/* ── 3. Khu vực Hình ảnh & Video Sắc nét (Không bị phủ gradient đen) ── */}
+      {hasMedia ? (
+        <View style={styles.mediaContainer}>
+          {post.videoUrl ? (
+            <View style={styles.videoWrap}>
+              <FeedVideoPlayer
+                videoUrl={post.videoUrl}
+                isPlaying={Boolean(isVideoPlaying)}
+              />
+              {!isVideoPlaying && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.centerPlayBtn}
+                  onPress={onPressVideo}
+                  accessibilityLabel="Phát video">
+                  <View style={styles.playIconCircle}>
+                    <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.92}
+              onPress={() => onPressImage(0)}
+              style={styles.imageTouchable}
+              accessibilityRole="button"
+              accessibilityLabel="Xem ảnh bài viết">
+              <Image
+                source={{ uri: images[0] }}
+                style={styles.postImage}
+                resizeMode="cover"
+              />
+
+              {/* Huy hiệu số lượng ảnh */}
+              {images.length > 1 && (
+                <View style={styles.photoCountBadge}>
+                  <FontAwesome name="clone" size={11} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.photoCountText}>+{images.length - 1} ảnh</Text>
+                </View>
+              )}
+
+              {/* Tag điểm đến ở góc ảnh nếu có */}
+              {locationText ? (
+                <View style={styles.photoLocationTag}>
+                  <FontAwesome name="map-marker" size={11} color="#FBBF24" style={{ marginRight: 4 }} />
+                  <Text style={styles.photoLocationText} numberOfLines={1}>
+                    {locationText}
+                  </Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null}
+
+      {/* ── 4. Bài viết được chia sẻ lại (nếu có) ── */}
       {post.sharedPost ? (
         <View style={styles.sharedBox}>
           <View style={styles.sharedHeader}>
@@ -492,7 +294,7 @@ export function PostCard({
         </View>
       ) : null}
 
-      {/* Lịch trình đính kèm */}
+      {/* ── 5. Lịch trình đính kèm (nếu có) ── */}
       {(post.itineraryId || post.sharedPost?.itineraryId) && (
         <View style={styles.itineraryWrap}>
           <ItineraryAttachCard
@@ -505,14 +307,14 @@ export function PostCard({
         </View>
       )}
 
-      {/* Thanh hành động */}
+      {/* ── 6. Thanh tương tác hiện đại ── */}
       <View style={styles.actionBar}>
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={onToggleLike}
           activeOpacity={0.7}
           accessibilityLabel={liked ? 'Bỏ thích bài viết' : 'Thích bài viết'}>
-          <FontAwesome name={liked ? 'heart' : 'heart-o'} size={18} color={liked ? '#EF4444' : DS_COLOR.inkMuted} />
+          <FontAwesome name={liked ? 'heart' : 'heart-o'} size={18} color={liked ? '#EF4444' : '#6B7280'} />
           <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{formatCount(likeCount)}</Text>
         </TouchableOpacity>
 
@@ -521,7 +323,7 @@ export function PostCard({
           onPress={onOpenComments}
           activeOpacity={0.7}
           accessibilityLabel="Xem bình luận">
-          <FontAwesome name="comment-o" size={18} color={DS_COLOR.inkMuted} />
+          <FontAwesome name="comment-o" size={18} color="#6B7280" />
           <Text style={styles.actionText}>{formatCount(commentCount)}</Text>
           {post.commentLocked ? (
             <FontAwesome name="lock" size={12} color="#B45309" style={{ marginLeft: -2 }} />
@@ -533,7 +335,7 @@ export function PostCard({
           onPress={onShare}
           activeOpacity={0.7}
           accessibilityLabel="Chia sẻ bài viết">
-          <FontAwesome name="share-alt" size={17} color={DS_COLOR.inkMuted} />
+          <FontAwesome name="share-alt" size={17} color="#6B7280" />
           <Text style={styles.actionText}>Chia sẻ</Text>
         </TouchableOpacity>
 
@@ -547,8 +349,17 @@ export function PostCard({
           <FontAwesome
             name={bookmarked ? 'bookmark' : 'bookmark-o'}
             size={18}
-            color={bookmarked ? DS_COLOR.accent : DS_COLOR.inkMuted}
+            color={bookmarked ? '#F59E0B' : '#6B7280'}
           />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.detailLinkBtn}
+          onPress={onOpenDetail}
+          activeOpacity={0.7}
+          accessibilityLabel="Xem chi tiết bài viết">
+          <Text style={styles.detailLinkText}>Xem bài</Text>
+          <FontAwesome name="angle-right" size={13} color="#D9532F" style={{ marginLeft: 3 }} />
         </TouchableOpacity>
       </View>
     </View>
@@ -556,289 +367,18 @@ export function PostCard({
 }
 
 const styles = StyleSheet.create({
-  // ── 1. STYLES CHO IMMERSIVE POSTER CARD (Ý TƯỞNG 1 TINH GỌN) ──
-  posterCard: {
-    height: 470,
+  card: {
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginBottom: 18,
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: '#1E1A15',
-    elevation: 6,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-  },
-  posterBgImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-  },
-  posterTopRow: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    right: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 10,
-  },
-  posterAuthorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    maxWidth: '75%',
-  },
-  posterAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    marginRight: 8,
-  },
-  posterAuthorTextWrap: {
-    flexShrink: 1,
-    justifyContent: 'center',
-  },
-  posterNameFollowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  posterAuthorName: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    flexShrink: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  posterYouTag: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  posterFollowText: {
-    color: '#CBD5E1',
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  posterFollowTextActive: {
-    color: '#6EE7B7',
-  },
-  posterMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginTop: 1,
-  },
-  posterMetaText: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    fontWeight: '500',
-    textShadowColor: 'rgba(0, 0, 0, 0.65)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  posterMetaDot: {
-    color: '#CBD5E1',
-    fontSize: 10,
-  },
-  posterLocationText: {
-    color: '#FDE68A',
-    fontSize: 11,
-    fontWeight: '600',
-    maxWidth: 120,
-    textShadowColor: 'rgba(0, 0, 0, 0.65)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  posterTopRightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  photoCountBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  photoCountText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  glassCircleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerPlayBtn: {
-    position: 'absolute',
-    top: '40%',
-    left: '50%',
-    marginLeft: -26,
-    marginTop: -26,
-    zIndex: 8,
-  },
-  playIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  posterPendingBanner: {
-    position: 'absolute',
-    top: 56,
-    left: 14,
-    right: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(180, 83, 9, 0.85)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    zIndex: 9,
-  },
-  posterPendingText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  posterBottomContent: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 14,
-    zIndex: 10,
-  },
-  posterLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 6,
-  },
-  posterLocationTagText: {
-    color: '#FDE68A',
-    fontSize: 11.5,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  posterTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 24,
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-    marginBottom: 4,
-  },
-  posterSnippet: {
-    color: '#E2E8F0',
-    fontSize: 13,
-    lineHeight: 18,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-    marginBottom: 10,
-  },
-  posterItinPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    marginBottom: 16,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-  },
-  posterItinText: {
-    color: '#FEF3C7',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  posterActionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  posterActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  posterActionText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.65)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  posterActionTextLiked: {
-    color: '#FCA5A5',
-    fontWeight: '700',
-  },
-  posterExploreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  posterExploreText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  // ── 2. STYLES CHO EDITORIAL NOTE CARD (BÀI TEXT ONLY) ──────
-  editorialCard: {
-    backgroundColor: DS_COLOR.surface,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: '#EDE7DE',
     elevation: 2,
-    shadowColor: '#0F172A',
+    shadowColor: '#201608',
+    shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: 8,
     overflow: 'hidden',
   },
   header: {
@@ -849,9 +389,9 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   avatarWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 2,
     padding: 1,
     marginRight: 10,
@@ -868,51 +408,51 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   authorName: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: DS_COLOR.ink,
+    color: '#1C1917',
   },
   youTag: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: DS_COLOR.accent,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#D9532F',
   },
   followText: {
     fontSize: 12,
     fontWeight: '600',
-    color: DS_COLOR.accent,
+    color: '#D9532F',
   },
   followTextActive: {
-    color: DS_COLOR.inkMuted,
+    color: '#9CA3AF',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 3,
+    gap: 4,
+    marginTop: 2,
   },
   metaText: {
     fontSize: 11.5,
-    color: DS_COLOR.inkMuted,
+    color: '#9CA3AF',
   },
   metaDot: {
     fontSize: 11,
-    color: DS_COLOR.inkMuted,
+    color: '#9CA3AF',
   },
   locationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
     flexShrink: 1,
-    maxWidth: 190,
+    maxWidth: 180,
   },
   locationText: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: DS_COLOR.accent,
+    color: '#D9532F',
   },
   menuBtn: {
     width: 36,
@@ -925,60 +465,136 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: DS_COLOR.warningSoft,
+    backgroundColor: '#FEF3C7',
     marginHorizontal: 14,
     marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: DS_RADIUS.sm,
+    borderRadius: 10,
   },
   pendingText: {
     flex: 1,
     fontSize: 12,
-    color: DS_COLOR.warning,
-    fontWeight: '500',
+    color: '#D97706',
+    fontWeight: '600',
   },
   bodyBlock: {
     paddingHorizontal: 14,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
-  editorialTitle: {
+  postTitle: {
     fontSize: 16.5,
-    fontWeight: '700',
-    color: DS_COLOR.ink,
+    fontWeight: '800',
+    color: '#1C1917',
     lineHeight: 23,
     marginBottom: 6,
+    letterSpacing: -0.2,
   },
   content: {
     fontSize: 14,
     lineHeight: 21,
-    color: DS_COLOR.inkSecondary,
+    color: '#374151',
   },
   shortContent: {
     fontSize: 15,
     lineHeight: 22,
-    color: DS_COLOR.ink,
+    color: '#1C1917',
   },
   readMore: {
     marginTop: 6,
     fontSize: 13,
     fontWeight: '600',
-    color: DS_COLOR.accent,
+    color: '#D9532F',
+  },
+  mediaContainer: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#F3EFE9',
+    borderWidth: 1,
+    borderColor: '#EFEAE1',
+  },
+  videoWrap: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    position: 'relative',
+    backgroundColor: '#000000',
+  },
+  centerPlayBtn: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageTouchable: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    position: 'relative',
+    backgroundColor: '#F3EFE9',
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoCountBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  photoCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  photoLocationTag: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    maxWidth: '75%',
+  },
+  photoLocationText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   sharedActionText: {
     fontSize: 12,
     fontWeight: '400',
-    color: DS_COLOR.inkMuted,
+    color: '#9CA3AF',
     fontStyle: 'italic',
   },
   sharedBox: {
     marginHorizontal: 14,
     marginBottom: 12,
     padding: 12,
-    borderRadius: DS_RADIUS.md,
-    backgroundColor: DS_COLOR.surfaceMuted,
+    borderRadius: 14,
+    backgroundColor: '#F9F6F0',
     borderWidth: 1,
-    borderColor: DS_COLOR.line,
+    borderColor: '#EFEAE1',
   },
   sharedHeader: {
     flexDirection: 'row',
@@ -994,29 +610,29 @@ const styles = StyleSheet.create({
   sharedAuthor: {
     fontSize: 12,
     fontWeight: '600',
-    color: DS_COLOR.ink,
+    color: '#1C1917',
   },
   sharedTitle: {
     fontSize: 13.5,
     fontWeight: '600',
-    color: DS_COLOR.ink,
+    color: '#1C1917',
     marginBottom: 4,
   },
   sharedContent: {
     fontSize: 12.5,
-    color: DS_COLOR.inkSecondary,
+    color: '#4B5563',
     lineHeight: 18,
   },
   sharedMediaThumb: {
     width: '100%',
     height: 160,
-    borderRadius: 8,
+    borderRadius: 10,
     marginTop: 8,
     backgroundColor: '#E2E8F0',
   },
   itineraryWrap: {
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   actionBar: {
     flexDirection: 'row',
@@ -1024,7 +640,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.05)',
+    borderTopColor: '#F3EFE9',
   },
   actionBtn: {
     flexDirection: 'row',
@@ -1034,11 +650,21 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 12.5,
-    fontWeight: '500',
-    color: DS_COLOR.inkSecondary,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   actionTextLiked: {
     color: '#EF4444',
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  detailLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 6,
+  },
+  detailLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D9532F',
   },
 });

@@ -21,7 +21,7 @@ export function PlaceImage({ place, style, resizeMode = 'cover' }: PlaceImagePro
   useEffect(() => {
     setUri(resolvePlaceImage(place));
     triedFallback.current = false;
-  }, [place?.id, place?.coverImage]);
+  }, [place?.id, place?.coverImage, (place as any)?.coverImageUrl]);
 
   const handleError = () => {
     if (!place || triedFallback.current) return;

@@ -99,21 +99,41 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
     const appReturnUrl = Linking.createURL('oauth');
     const stateParam = encodeURIComponent(appReturnUrl);
 
+    // Bổ sung prompt=select_account để Google luôn hiển thị danh sách tài khoản ngay tức thì,
+    // tránh tình trạng treo phiên cookie cũ hoặc tự động quay vòng vô hạn.
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
       GOOGLE_CLIENT_ID.trim()
     )}&redirect_uri=${encodeURIComponent(
       GOOGLE_AUTHORIZED_NATIVE_REDIRECT_URI
-    )}&response_type=token%20id_token&scope=openid%20profile%20email&state=${stateParam}&nonce=wayfare_${Date.now()}`;
+    )}&response_type=token%20id_token&scope=openid%20profile%20email&prompt=select_account&state=${stateParam}&nonce=wayfare_${Date.now()}`;
 
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, appReturnUrl);
+    // Đặt cơ chế Promise.race với timeout an toàn 75s để không bao giờ bị kẹt vòng xoay loading vô hạn
+    const authSessionPromise = WebBrowser.openAuthSessionAsync(authUrl, appReturnUrl);
+    const timeoutPromise = new Promise<WebBrowser.WebBrowserAuthSessionResult>((resolve) => {
+      setTimeout(() => {
+        resolve({ type: 'dismiss' } as any);
+      }, 75000);
+    });
+
+    const result = await Promise.race([authSessionPromise, timeoutPromise]);
 
     if (result.type === 'success' && result.url) {
       const rawUrl = result.url;
-      const fragment = rawUrl.includes('#')
-        ? rawUrl.split('#')[1]
-        : rawUrl.split('?')[1] || '';
-      const params = new URLSearchParams(fragment);
-      const token = params.get('id_token') || params.get('access_token');
+      let token = '';
+
+      // 1. Phân tích token từ hash fragment (#)
+      if (rawUrl.includes('#')) {
+        const fragmentPart = rawUrl.split('#')[1] || '';
+        const fragParams = new URLSearchParams(fragmentPart);
+        token = fragParams.get('id_token') || fragParams.get('access_token') || '';
+      }
+
+      // 2. Dự phòng phân tích từ query string (?) nếu fragment không chứa token
+      if (!token && rawUrl.includes('?')) {
+        const queryPart = (rawUrl.split('?')[1] || '').split('#')[0];
+        const queryParams = new URLSearchParams(queryPart);
+        token = queryParams.get('id_token') || queryParams.get('access_token') || '';
+      }
 
       if (token) {
         const user = await authApi.loginWithGoogle(token);
@@ -122,7 +142,7 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
       throw new Error('Không nhận diện được chứng chỉ xác thực Google từ phản hồi.');
     }
 
-    // User canceled or dismissed the browser
+    // Người dùng đóng trình duyệt hoặc hết hạn phiên chờ
     return null;
   } finally {
     try {

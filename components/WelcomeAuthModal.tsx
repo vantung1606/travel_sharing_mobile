@@ -290,7 +290,10 @@ export function WelcomeAuthModal({
               onPress={handleGoogleLogin}
               disabled={loading || googleLoading}>
               {googleLoading ? (
-                <ActivityIndicator color={WF_COLORS.primary} />
+                <View style={styles.googleBtnContent}>
+                  <ActivityIndicator size="small" color={WF_COLORS.primary} style={styles.googleIcon} />
+                  <Text style={[styles.googleBtnText, { color: WF_COLORS.primary }]}>Đang kết nối Google...</Text>
+                </View>
               ) : (
                 <View style={styles.googleBtnContent}>
                   <AntDesign name="google" size={18} color="#4285F4" style={styles.googleIcon} />

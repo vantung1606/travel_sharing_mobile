@@ -50,6 +50,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInitialRoomId, setChatInitialRoomId] = useState<string | number | undefined>(undefined);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -404,8 +405,10 @@ export default function TabLayout() {
       {/* Modal Trò chuyện trực tuyến (Tin nhắn & Trợ lý AI) */}
       <ChatModal
         visible={isChatOpen}
+        initialRoomId={chatInitialRoomId}
         onClose={() => {
           setIsChatOpen(false);
+          setChatInitialRoomId(undefined);
           refreshUnreadChatCount();
         }}
       />
@@ -418,7 +421,8 @@ export default function TabLayout() {
           refreshUnreadCount();
         }}
         onNotificationRead={refreshUnreadCount}
-        onOpenChat={() => {
+        onOpenChat={(roomId) => {
+          setChatInitialRoomId(roomId);
           setIsChatOpen(true);
         }}
       />

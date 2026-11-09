@@ -115,8 +115,8 @@ export default function CommunityScreen() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [shareTarget, setShareTarget] = useState<PostItem | null>(null);
 
-  // ── Place Check-in integration ─────────────────────────────
-  const routeParams = useLocalSearchParams<{ checkinPlaceId?: string }>();
+  // ── Place Check-in & Post Deep-link integration ───────────
+  const routeParams = useLocalSearchParams<{ checkinPlaceId?: string; postId?: string }>();
   const [checkinPlaceId, setCheckinPlaceId] = useState<number | null>(null);
   const [activePlace, setActivePlace] = useState<PlaceItem | null>(null);
   const [placeDetailVisible, setPlaceDetailVisible] = useState(false);
@@ -130,6 +130,28 @@ export default function CommunityScreen() {
       }
     }
   }, [routeParams?.checkinPlaceId]);
+
+  // Tự động mở modal chi tiết bài viết cụ thể khi bấm vào thông báo
+  useEffect(() => {
+    if (routeParams?.postId) {
+      const pid = Number(routeParams.postId);
+      if (pid) {
+        const found =
+          (pagedPosts || []).find((p) => p.id === pid) ||
+          (fullPosts || []).find((p) => p.id === pid);
+        if (found) {
+          setDetailPost(found);
+        } else {
+          postApi
+            .getPostById(pid)
+            .then((post) => {
+              if (post) setDetailPost(post);
+            })
+            .catch((err) => console.warn('Could not load target notification post:', err));
+        }
+      }
+    }
+  }, [routeParams?.postId, pagedPosts, fullPosts]);
 
   const handleOpenPlace = useCallback(async (placeId: number) => {
     try {

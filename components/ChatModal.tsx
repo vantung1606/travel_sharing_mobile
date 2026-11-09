@@ -951,6 +951,11 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
     }
     if (initialRoomId) {
       initialRoomHandledRef.current = false;
+      const foundInCache = rooms.find((r) => String(r.id) === String(initialRoomId));
+      if (foundInCache) {
+        initialRoomHandledRef.current = true;
+        handleSelectRoom(foundInCache);
+      }
     }
     loadRooms();
   }, [visible, initialRoomId, loadRooms, stopRoomRealtime]);

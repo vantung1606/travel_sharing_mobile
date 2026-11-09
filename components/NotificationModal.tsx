@@ -29,7 +29,7 @@ interface NotificationModalProps {
   visible: boolean;
   onClose: () => void;
   onNotificationRead?: () => void;
-  onOpenChat?: () => void;
+  onOpenChat?: (roomId?: string | number, actorId?: number) => void;
 }
 
 type FilterTab = 'all' | 'unread' | 'ai' | 'social' | 'system';
@@ -112,36 +112,116 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   };
 
   const handleNotificationClick = (item: NotificationDto) => {
-    const url = (item.targetUrl || '').toLowerCase();
-    const type = item.type || '';
+    const rawUrl = (item.targetUrl || '').trim();
+    const urlLower = rawUrl.toLowerCase();
+    const type = (item.type || '').toUpperCase();
 
-    if (type === 'CHAT_MESSAGE' || type === 'CHAT_INVITE' || url.includes('/chat')) {
+    // 1. Tin nhắn chat: Trỏ trực tiếp tới đúng phòng chat / người gửi
+    if (
+      type === 'CHAT_MESSAGE' ||
+      type === 'CHAT_INVITE' ||
+      urlLower.includes('/messages') ||
+      urlLower.includes('/chat')
+    ) {
       onClose();
-      if (onOpenChat) {
-        setTimeout(onOpenChat, 200);
+      let roomId: string | number | undefined;
+      const matchRoom = rawUrl.match(/[?&]roomId=([^&]+)/i);
+      if (matchRoom) {
+        roomId = matchRoom[1];
       }
-    } else if (url.includes('/itineraries') || url.includes('itinerary') || type === 'AI_READY' || type === 'ITINERARY_SHARED') {
+      if (onOpenChat) {
+        setTimeout(() => {
+          onOpenChat(roomId, item.actorId ? Number(item.actorId) : undefined);
+        }, 200);
+      }
+      return;
+    }
+
+    // 2. Bài viết cộng đồng: Like, Bình luận, Tag, Duyệt bài -> Trỏ tới chính xác bài viết đó
+    const matchPost = rawUrl.match(/[?&]postId=([^&]+)/i) || rawUrl.match(/\/posts\/(\d+)/i);
+    const targetPostId = matchPost ? matchPost[1] : undefined;
+
+    if (
+      type === 'LIKE' ||
+      type === 'COMMENT' ||
+      type === 'COMMENT_REPLY' ||
+      type === 'TAG' ||
+      type === 'POST_APPROVED' ||
+      type === 'REPORT_DISMISSED' ||
+      urlLower.includes('community') ||
+      targetPostId
+    ) {
       onClose();
       setTimeout(() => {
-        router.push('/(tabs)/itinerary');
+        if (targetPostId) {
+          router.push({
+            pathname: '/(tabs)/community',
+            params: { postId: String(targetPostId) },
+          });
+        } else {
+          router.push('/(tabs)/community');
+        }
       }, 200);
-    } else if (url.includes('/profile') || url.includes('user') || type === 'FOLLOW') {
+      return;
+    }
+
+    // 3. Lịch trình
+    const matchItin = rawUrl.match(/[?&]itineraryId=([^&]+)/i) || rawUrl.match(/\/itineraries\/(\d+)/i);
+    const targetItinId = matchItin ? matchItin[1] : undefined;
+
+    if (
+      urlLower.includes('/itineraries') ||
+      urlLower.includes('itinerary') ||
+      type === 'AI_READY' ||
+      type === 'ITINERARY_SHARED'
+    ) {
       onClose();
       setTimeout(() => {
-        router.push('/(tabs)/profile');
+        if (targetItinId) {
+          router.push({
+            pathname: '/(tabs)/itinerary',
+            params: { itineraryId: String(targetItinId) },
+          });
+        } else {
+          router.push('/(tabs)/itinerary');
+        }
       }, 200);
-    } else if (url.includes('/explore') || type === 'PLACE_APPROVED') {
+      return;
+    }
+
+    // 4. Hồ sơ thành viên / Theo dõi
+    const matchUser = rawUrl.match(/\/profile\/(\d+)/i) || rawUrl.match(/[?&]userId=([^&]+)/i);
+    const targetUserId = matchUser ? matchUser[1] : item.actorId ? String(item.actorId) : undefined;
+
+    if (urlLower.includes('/profile') || urlLower.includes('user') || type === 'FOLLOW') {
+      onClose();
+      setTimeout(() => {
+        if (targetUserId) {
+          router.push({
+            pathname: '/(tabs)/profile',
+            params: { userId: String(targetUserId) },
+          });
+        } else {
+          router.push('/(tabs)/profile');
+        }
+      }, 200);
+      return;
+    }
+
+    // 5. Địa điểm
+    if (urlLower.includes('/places') || type === 'PLACE_APPROVED') {
       onClose();
       setTimeout(() => {
         router.push('/(tabs)/explore');
       }, 200);
-    } else {
-      // Mặc định về Bảng tin cộng đồng
-      onClose();
-      setTimeout(() => {
-        router.push('/(tabs)/community');
-      }, 200);
+      return;
     }
+
+    // 6. Mặc định
+    onClose();
+    setTimeout(() => {
+      router.push('/(tabs)/community');
+    }, 200);
   };
 
   // Mark all as read

@@ -701,13 +701,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.08)',
-    elevation: 12,
+    borderTopColor: 'rgba(15, 23, 42, 0.06)',
+    elevation: 16,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    paddingTop: 6,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    paddingTop: 8,
   },
   customTabItem: {
     flex: 1,
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   tabCapsuleActive: {
-    backgroundColor: 'rgba(255, 87, 34, 0.14)',
+    backgroundColor: '#FFF3E0',
   },
   tabAvatarWrap: {
     width: 28,

@@ -1,4 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -697,11 +698,19 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
         ListHeaderComponent={
           <View style={[styles.feedHeader, isSmallScreen && { paddingHorizontal: 12, gap: 6 }]}>
             {/* WanderAI Creative Banner */}
-            <View style={[styles.aiHeroBanner, isSmallScreen && { padding: 10, borderRadius: 14 }]}>
+            <LinearGradient
+              colors={['#FFF8F1', '#FAF5FF', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.aiHeroBanner, isSmallScreen && { padding: 11, borderRadius: 16 }]}>
               <View style={styles.aiHeroHeader}>
-                <View style={styles.aiSparkleBadge}>
+                <LinearGradient
+                  colors={['#FF5722', '#8B5CF6']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.aiSparkleBadge}>
                   <FontAwesome name="magic" size={isSmallScreen ? 11 : 13} color="#FFFFFF" />
-                </View>
+                </LinearGradient>
                 <View style={{ flex: 1, paddingRight: 6 }}>
                   <Text style={[styles.aiHeroTitle, isSmallScreen && { fontSize: 13.5 }]}>WanderAI Lịch Trình</Text>
                   <Text style={[styles.aiHeroSubtitle, isSmallScreen && { fontSize: 11 }]}>
@@ -709,10 +718,15 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                   </Text>
                 </View>
                 <TouchableOpacity
-                  style={[styles.aiCreateBtn, isSmallScreen && { paddingHorizontal: 10, paddingVertical: 6 }]}
                   onPress={() => setAiModalVisible(true)}
                   activeOpacity={0.85}>
-                  <Text style={[styles.aiCreateBtnText, isSmallScreen && { fontSize: 11 }]}>Tạo ngay</Text>
+                  <LinearGradient
+                    colors={['#FF5722', '#F97316']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.aiCreateBtnGrad, isSmallScreen && { paddingHorizontal: 10, paddingVertical: 6 }]}>
+                    <Text style={[styles.aiCreateBtnText, isSmallScreen && { fontSize: 11 }]}>Tạo ngay</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
 
@@ -741,7 +755,7 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
+            </LinearGradient>
 
             {/* 1. Segmented Tabs 3 trạng thái */}
             <SegmentedTabs
@@ -1206,17 +1220,16 @@ const styles = StyleSheet.create({
     paddingBottom: 116,
   },
   aiHeroBanner: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 14,
     borderWidth: 1.2,
     borderColor: '#FED7AA',
     shadowColor: '#FF5722',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 3,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   aiHeroHeader: {
     flexDirection: 'row',
@@ -1224,20 +1237,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   aiSparkleBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FF5722',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#FF5722',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   aiHeroTitle: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -1247,14 +1259,13 @@ const styles = StyleSheet.create({
     marginTop: 1,
     lineHeight: 15,
   },
-  aiCreateBtn: {
-    backgroundColor: '#FF5722',
-    paddingHorizontal: 12,
+  aiCreateBtnGrad: {
+    paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: 14,
     shadowColor: '#FF5722',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -1264,16 +1275,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   aiPromptRow: {
-    gap: 7,
+    gap: 8,
     paddingTop: 10,
   },
   aiPromptChip: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#FFEDD5',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 11,
+    paddingVertical: 5.5,
     borderRadius: 12,
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   aiPromptChipText: {
     fontSize: 11,

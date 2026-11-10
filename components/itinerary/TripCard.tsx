@@ -213,7 +213,7 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
             </View>
 
             <View style={[styles.arrowCircle, isSmallScreen && { width: 24, height: 24, borderRadius: 12 }]}>
-              <FontAwesome name="angle-right" size={isSmallScreen ? 13 : 15} color="#D9532F" />
+              <FontAwesome name="angle-right" size={isSmallScreen ? 13 : 15} color="#FF5722" />
             </View>
           </View>
         </View>
@@ -225,17 +225,17 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
     marginHorizontal: 16,
     marginBottom: 16,
     overflow: 'hidden',
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
+    shadowRadius: 14,
   },
   bannerWrap: {
     width: '100%',

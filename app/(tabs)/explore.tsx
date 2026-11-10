@@ -32,6 +32,7 @@ import { itineraryApi, ItineraryItem, placeApi, PlaceItem, savedPlaceApi } from 
 import { savedPlaces } from '@/src/services/savedPlaces';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
+import { tabBarVisibility } from '@/src/services/tabBarVisibility';
 
 const PAGE_SIZE = 50;
 const ALL = 'Tất cả';
@@ -517,6 +518,8 @@ export default function ExploreScreen() {
         renderItem={renderRow}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarVisibility.onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />}
         onEndReached={viewMode === 'saved' ? undefined : loadMorePlaces}
         onEndReachedThreshold={0.4}
@@ -960,10 +963,11 @@ const styles = StyleSheet.create({
   feedHeader: {
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: 10,
+    paddingBottom: 14,
     backgroundColor: DS_COLOR.surface,
     borderBottomWidth: 1,
     borderBottomColor: DS_COLOR.line,
+    marginBottom: 14,
   },
   toolbarRow: {
     flexDirection: 'row',

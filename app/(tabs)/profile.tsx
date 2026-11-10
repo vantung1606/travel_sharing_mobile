@@ -46,6 +46,7 @@ import {
   UserProfileItem,
 } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
+import { tabBarVisibility } from '@/src/services/tabBarVisibility';
 import {
   calculateTierProgress,
   calculateUserXP,
@@ -717,6 +718,8 @@ export default function ProfileScreen() {
         renderItem={renderListItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarVisibility.onScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />
         }

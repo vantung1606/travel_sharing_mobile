@@ -394,7 +394,11 @@ export function ItineraryDetailModal({
               <Image source={{ uri: coverUrl }} style={styles.heroImage} resizeMode="cover" />
               <View style={styles.heroScrim} />
 
-              <View style={styles.heroBadgesRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.heroBadgesScroll}
+                contentContainerStyle={styles.heroBadgesRow}>
                 {fullItin?.destination ? (
                   <View style={styles.destBadge}>
                     <FontAwesome name="map-marker" size={11} color="#FFFDF8" style={{ marginRight: 4 }} />
@@ -448,7 +452,21 @@ export function ItineraryDetailModal({
                     {fullItin?.travelStyle || 'Nghỉ dưỡng & Khám phá'}
                   </Text>
                 </View>
-              </View>
+
+                {fullItin?.groupType ? (
+                  <View
+                    style={[
+                      styles.aiBadge,
+                      { backgroundColor: 'rgba(2, 132, 199, 0.85)', flexDirection: 'row', alignItems: 'center' },
+                    ]}
+                  >
+                    <FontAwesome name="users" size={10} color="#FFFDF8" style={{ marginRight: 4 }} />
+                    <Text style={styles.aiBadgeText}>
+                      {fullItin.groupType}
+                    </Text>
+                  </View>
+                ) : null}
+              </ScrollView>
 
               <Text style={styles.heroTitle} numberOfLines={3}>
                 {fullItin?.title}
@@ -1094,11 +1112,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(30, 26, 21, 0.65)',
   },
+  heroBadgesScroll: {
+    marginBottom: 6,
+    maxHeight: 34,
+  },
   heroBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    paddingRight: 16,
   },
   destBadge: {
     flexDirection: 'row',

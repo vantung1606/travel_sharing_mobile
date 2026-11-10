@@ -37,6 +37,7 @@ import {
 import { aiService } from '@/src/services/aiService';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
+import { tabBarVisibility } from '@/src/services/tabBarVisibility';
 
 // ─── PRESET COVERS ──────────────────────────────────────────
 const COVER_PRESETS = [
@@ -646,6 +647,8 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarVisibility.onScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />
         }

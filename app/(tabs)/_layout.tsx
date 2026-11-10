@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
-import { AppState, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Animated, AppState, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_PAPER } from '@/constants/Colors';
@@ -13,6 +13,7 @@ import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
 import { notificationApi, chatApi, mapChatRoom } from '@/src/services/api';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
+import { tabBarVisibility } from '@/src/services/tabBarVisibility';
 
 function DynamicTabIcon({
   name,
@@ -39,6 +40,104 @@ function DynamicTabIcon({
         color={focused ? WF_PAPER.clay : '#64748B'}
       />
     </View>
+  );
+}
+
+function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentUser }: any) {
+  const animY = React.useRef(new Animated.Value(0)).current;
+  const isVisibleRef = React.useRef(true);
+
+  React.useEffect(() => {
+    return tabBarVisibility.subscribe((visible) => {
+      if (visible === isVisibleRef.current) return;
+      isVisibleRef.current = visible;
+
+      Animated.spring(animY, {
+        toValue: visible ? 0 : 130,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 48,
+      }).start();
+    });
+  }, [animY]);
+
+  const visibleRoutes = state.routes.filter((route: any) => {
+    const { options } = descriptors[route.key];
+    return options.href !== null;
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.customTabBarDock,
+        {
+          paddingBottom: Math.max(insets.bottom, 8),
+          transform: [{ translateY: animY }],
+        },
+      ]}>
+      {visibleRoutes.map((route: any) => {
+        const { options } = descriptors[route.key];
+        const label =
+          options.tabBarLabel !== undefined
+            ? options.tabBarLabel
+            : options.title !== undefined
+              ? options.title
+              : route.name;
+
+        const isFocused = state.routes[state.index].key === route.key;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
+
+        const onLongPress = () => {
+          navigation.emit({
+            type: 'tabLongPress',
+            target: route.key,
+          });
+        };
+
+        let iconName: any = 'globe';
+        if (route.name === 'explore') iconName = 'compass';
+        else if (route.name === 'itinerary') iconName = isFocused ? 'calendar' : 'calendar-o';
+        else if (route.name === 'profile') iconName = 'user';
+
+        const avatarUrl = route.name === 'profile' ? currentUser?.avatarUrl : undefined;
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isFocused }}
+            accessibilityLabel={options.tabBarAccessibilityLabel}
+            testID={options.tabBarTestID}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            style={styles.customTabItem}
+            activeOpacity={0.75}>
+            <DynamicTabIcon name={iconName} focused={isFocused} avatarUrl={avatarUrl} />
+            <View style={styles.tabLabelWrap}>
+              <Text style={[styles.tabLabelText, isFocused && styles.tabLabelTextActive]}>
+                {typeof label === 'string' ? label : ''}
+              </Text>
+              {isFocused ? (
+                <View style={styles.tabActiveDot} />
+              ) : (
+                <View style={styles.tabDotPlaceholder} />
+              )}
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </Animated.View>
   );
 }
 
@@ -253,27 +352,18 @@ export default function TabLayout() {
     <>
       <Tabs
         backBehavior="initialRoute"
+        tabBar={(props) => <CustomAnimatedTabBar {...props} currentUser={currentUser} />}
         screenOptions={{
           tabBarActiveTintColor: WF_PAPER.clay,
           tabBarInactiveTintColor: '#64748B',
           tabBarStyle: {
-            position: 'absolute',
-            left: 16,
-            right: 16,
-            bottom: Math.max(insets.bottom, 12),
-            height: 64,
-            borderRadius: 32,
-            backgroundColor: 'rgba(255, 255, 255, 0.96)',
-            borderTopWidth: 0,
-            borderWidth: 1.2,
-            borderColor: 'rgba(226, 232, 240, 0.9)',
-            elevation: 16,
-            shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.12,
-            shadowRadius: 20,
-            paddingBottom: 6,
-            paddingTop: 6,
+            backgroundColor: '#FFFFFF',
+            borderTopColor: 'rgba(15, 23, 42, 0.08)',
+            borderTopWidth: 1,
+            height: 60 + Math.max(insets.bottom, 10),
+            paddingBottom: Math.max(insets.bottom, 8) + 2,
+            paddingTop: 8,
+            elevation: 0,
           },
           tabBarLabel: ({ focused, children }) => (
             <View style={styles.tabLabelWrap}>
@@ -565,6 +655,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
+  },
+  customTabBarDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(15, 23, 42, 0.08)',
+    paddingTop: 8,
+    elevation: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+  },
+  customTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // ── DYNAMIC CAPSULE TAB BAR STYLES ────────────────────────
   tabCapsule: {

@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text, TextInput } from '@/components/Themed';
 import { ActionSheet, ActionSheetOption } from '@/components/community/ActionSheet';
@@ -320,11 +320,10 @@ export function PostDetailModal({
 };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingTop: Math.max(insets.top, 8) + 4 }]}>
-          {/* Header */}
-          <View style={styles.header}>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.sheet} edges={['top']}>
+        {/* Header */}
+        <View style={styles.header}>
             <TouchableOpacity style={styles.headerBtn} onPress={onClose} accessibilityLabel="Đóng">
               <FontAwesome name="angle-left" size={20} color={WF_PAPER.inkPrimary} />
             </TouchableOpacity>
@@ -587,7 +586,6 @@ export function PostDetailModal({
               </View>
             )}
           </KeyboardAvoidingView>
-        </View>
 
         <ImageLightbox
           visible={lightboxIndex != null}
@@ -617,7 +615,7 @@ export function PostDetailModal({
         {/* Thông báo & hộp xác nhận trong chính modal bài viết */}
         <ConfirmHost enabled={visible} />
         <ToastHost enabled={visible} />
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -630,17 +628,13 @@ const styles = StyleSheet.create({
   },
   sheet: {
     flex: 1,
-    marginTop: 42,
     backgroundColor: WF_PAPER.bg,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingBottom: 10,
+    paddingVertical: 10,
     backgroundColor: WF_PAPER.card,
     borderBottomWidth: 1,
     borderBottomColor: WF_PAPER.cardBorder,

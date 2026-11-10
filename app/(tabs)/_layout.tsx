@@ -117,16 +117,12 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
               });
               defaultPrevented = Boolean(event?.defaultPrevented);
             }
-          } catch (e) {
-            console.warn('[CustomAnimatedTabBar] nav.emit warning:', e);
+          } catch {
+            // ignore
           }
 
           if (!isFocused && !defaultPrevented) {
-            if (nav?.navigate) {
-              nav.navigate(route.name);
-            } else {
-              router.push(`/(tabs)/${route.name}` as any);
-            }
+            router.navigate(`/(tabs)/${route.name}` as any);
           }
         };
 

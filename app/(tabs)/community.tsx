@@ -33,6 +33,7 @@ import {
   TOPIC_FILTERS,
   TopicKey,
   filterAndSortPosts,
+  getPostImages,
 } from '@/components/community/communityUtils';
 import { useLocalSearchParams } from 'expo-router';
 import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
@@ -663,9 +664,10 @@ export default function CommunityScreen() {
   };
 
   const openLightbox = (post: PostItem, index: number) => {
-    const images = post.images?.length ? post.images.filter(Boolean) : post.imageUrl ? [post.imageUrl] : [];
+    const images = getPostImages(post);
     if (!images.length) return;
-    setLightbox({ images, index, authorName: post.authorName });
+    const safeIndex = Math.max(0, Math.min(index, images.length - 1));
+    setLightbox({ images, index: safeIndex, authorName: post.authorName });
   };
 
   const buildMenuOptions = (post: PostItem): ActionSheetOption[] => {

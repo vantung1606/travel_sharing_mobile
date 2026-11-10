@@ -43,6 +43,13 @@ function DynamicTabIcon({
   );
 }
 
+const TAB_DEFINITIONS: Record<string, { label: string; icon: any; activeIcon?: any }> = {
+  community: { label: 'Cộng đồng', icon: 'globe' },
+  explore: { label: 'Khám phá', icon: 'compass' },
+  itinerary: { label: 'Lịch trình', icon: 'calendar-o', activeIcon: 'calendar' },
+  profile: { label: 'Tài khoản', icon: 'user' },
+};
+
 function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentUser }: any) {
   const router = useRouter();
   const animY = React.useRef(new Animated.Value(0)).current;
@@ -91,12 +98,11 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
       {visibleRoutes.map((route: any) => {
         const descriptor = descriptors?.[route.key];
         const options = descriptor?.options || {};
-        const label =
-          options.tabBarLabel !== undefined
-            ? options.tabBarLabel
-            : options.title !== undefined
-              ? options.title
-              : route.name;
+        const tabDef = TAB_DEFINITIONS[route.name] || {
+          label: typeof options.title === 'string' ? options.title : route.name,
+          icon: 'circle',
+        };
+        const label = tabDef.label;
 
         const isFocused = state.routes[state.index]?.key === route.key;
 
@@ -135,11 +141,7 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
           }
         };
 
-        let iconName: any = 'globe';
-        if (route.name === 'explore') iconName = 'compass';
-        else if (route.name === 'itinerary') iconName = isFocused ? 'calendar' : 'calendar-o';
-        else if (route.name === 'profile') iconName = 'user';
-
+        const iconName = isFocused && tabDef.activeIcon ? tabDef.activeIcon : tabDef.icon;
         const avatarUrl = route.name === 'profile' ? currentUser?.avatarUrl : undefined;
 
         return (
@@ -147,7 +149,7 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
             key={route.key}
             accessibilityRole="tab"
             accessibilityState={{ selected: isFocused }}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
+            accessibilityLabel={options.tabBarAccessibilityLabel || label}
             testID={options.tabBarTestID}
             onPress={onPress}
             onLongPress={onLongPress}
@@ -156,7 +158,7 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
             <DynamicTabIcon name={iconName} focused={isFocused} avatarUrl={avatarUrl} />
             <View style={styles.tabLabelWrap}>
               <Text style={[styles.tabLabelText, isFocused && styles.tabLabelTextActive]}>
-                {typeof label === 'string' ? label : ''}
+                {label}
               </Text>
               {isFocused ? (
                 <View style={styles.tabActiveDot} />

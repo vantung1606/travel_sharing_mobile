@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
-import { Animated, AppState, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Animated, AppState, DeviceEventEmitter, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_PAPER } from '@/constants/Colors';
@@ -241,10 +241,17 @@ export default function TabLayout() {
       setIsAuthOpen(true);
     });
 
+    const subChatOpen = DeviceEventEmitter.addListener('wayfare_open_chat', (data: { userId?: number; roomId?: string | number }) => {
+      if (data?.userId) setChatInitialUserId(data.userId);
+      if (data?.roomId) setChatInitialRoomId(data.roomId);
+      setIsChatOpen(true);
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeUnauth();
       unsubscribePrompt();
+      subChatOpen.remove();
     };
   }, [refreshUnreadCount]);
 

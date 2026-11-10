@@ -690,9 +690,10 @@ export const userApi = {
     return res.data.data;
   },
 
-  async getFollowing(): Promise<any[]> {
+  async getFollowing(userId?: number): Promise<any[]> {
     try {
-      const res = await apiClient.get<ApiResponse<any[]>>('/users/following');
+      const url = userId ? `/users/${userId}/following` : '/users/following';
+      const res = await apiClient.get<ApiResponse<any[]>>(url);
       return res.data.data || [];
     } catch {
       return [];
@@ -715,9 +716,10 @@ export const userApi = {
     }
   },
 
-  async getFollowers(): Promise<any[]> {
+  async getFollowers(userId?: number): Promise<any[]> {
     try {
-      const res = await apiClient.get<ApiResponse<any[]>>('/users/followers');
+      const url = userId ? `/users/${userId}/followers` : '/users/followers';
+      const res = await apiClient.get<ApiResponse<any[]>>(url);
       return res.data.data || [];
     } catch {
       return [];

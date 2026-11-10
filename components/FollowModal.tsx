@@ -19,6 +19,8 @@ import { userApi } from '@/src/services/api';
 export interface FollowModalProps {
   visible: boolean;
   onClose: () => void;
+  targetUserId?: number;
+  userName?: string;
   initialTab?: 'followers' | 'following';
   onFollowChange?: () => void;
   onSelectUser?: (userId: number) => void;
@@ -27,6 +29,8 @@ export interface FollowModalProps {
 export function FollowModal({
   visible,
   onClose,
+  targetUserId,
+  userName,
   initialTab = 'following',
   onFollowChange,
   onSelectUser,
@@ -41,8 +45,8 @@ export function FollowModal({
     try {
       setLoading(true);
       const [followersRes, followingRes] = await Promise.all([
-        userApi.getFollowers().catch(() => []),
-        userApi.getFollowing().catch(() => []),
+        userApi.getFollowers(targetUserId).catch(() => []),
+        userApi.getFollowing(targetUserId).catch(() => []),
       ]);
       setFollowers(followersRes || []);
       setFollowing(followingRes || []);
@@ -51,7 +55,7 @@ export function FollowModal({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [targetUserId]);
 
   useEffect(() => {
     if (visible) {
@@ -163,7 +167,9 @@ export function FollowModal({
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <FontAwesome name="chevron-left" size={16} color="#1E1A15" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mạng Lưới Kết Nối</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {userName ? `Kết nối · ${userName}` : 'Mạng Lưới Kết Nối'}
+          </Text>
           <View style={{ width: 36 }} />
         </View>
 

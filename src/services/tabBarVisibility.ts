@@ -100,3 +100,4 @@ class TabBarVisibilityManager {
 }
 
 export const tabBarVisibility = new TabBarVisibilityManager();
+

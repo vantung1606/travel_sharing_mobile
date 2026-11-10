@@ -2,6 +2,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  DeviceEventEmitter,
   Dimensions,
   Image,
   Modal,
@@ -17,9 +19,17 @@ import { PostMedia } from '@/components/community/PostMedia';
 import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { getPostImages } from '@/components/community/communityUtils';
 import { UniversalReportModal } from '@/components/UniversalReportModal';
+import { FollowModal } from '@/components/FollowModal';
+import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
 import { showToast } from '@/components/Toast';
 import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
-import { PostItem, UserProfileItem, userApi } from '@/src/services/api';
+import {
+  ItineraryItem,
+  itineraryApi,
+  PostItem,
+  UserProfileItem,
+  userApi,
+} from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { getUserTier } from '@/src/utils/tierSystem';
 
@@ -36,6 +46,7 @@ interface UserProfileModalProps {
   onClose: () => void;
   onPressPost?: (post: PostItem) => void;
   onReportUser?: (userId: number, userName: string) => void;
+  onOpenChat?: (userId: number, userName?: string) => void;
 }
 
 export function UserProfileModal({
@@ -44,6 +55,7 @@ export function UserProfileModal({
   onClose,
   onPressPost,
   onReportUser,
+  onOpenChat,
 }: UserProfileModalProps) {
   const [profile, setProfile] = useState<UserProfileItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -55,6 +67,15 @@ export function UserProfileModal({
   const [lightboxPost, setLightboxPost] = useState<PostItem | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  // Parity state: Tabs, Itinerary inspection, Follow modal
+  const [activeTab, setActiveTab] = useState<'posts' | 'itineraries'>('posts');
+  const [selectedItinForDetail, setSelectedItinForDetail] = useState<ItineraryItem | null>(null);
+  const [cloningItinId, setCloningItinId] = useState<number | null>(null);
+  const [followModalState, setFollowModalState] = useState<{
+    visible: boolean;
+    tab: 'followers' | 'following';
+  }>({ visible: false, tab: 'followers' });
+
   useEffect(() => {
     if (!visible || !userId) {
       setProfile(null);
@@ -63,6 +84,7 @@ export function UserProfileModal({
 
     let isMounted = true;
     setLoading(true);
+    setActiveTab('posts');
 
     (async () => {
       try {
@@ -118,9 +140,51 @@ export function UserProfileModal({
     }
   };
 
+  const handleCloneItinerary = async (itin: ItineraryItem) => {
+    if (!currentSession) {
+      showToast({
+        kind: 'info',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để sao chép lịch trình.',
+      });
+      return;
+    }
+
+    Alert.alert(
+      'Sao chép lịch trình',
+      `Bạn có muốn sao chép lịch trình "${itin.title}" vào kho cá nhân của bạn không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Sao chép',
+          onPress: async () => {
+            try {
+              setCloningItinId(itin.id);
+              await itineraryApi.cloneItinerary(itin.id);
+              showToast({
+                kind: 'success',
+                title: 'Thành công',
+                message: `Đã sao chép lịch trình "${itin.title}" vào kho của bạn! 🎉`,
+              });
+            } catch (err: any) {
+              showToast({
+                kind: 'error',
+                title: 'Không thể sao chép',
+                message: err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi sao chép lịch trình.',
+              });
+            } finally {
+              setCloningItinId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const isMe = currentSession?.id != null && userId != null && currentSession.id === userId;
   const userTier = getUserTier({ tier: profile?.tier, role: profile?.role });
   const posts = profile?.posts || [];
+  const itineraries = profile?.itineraries || [];
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -191,30 +255,68 @@ export function UserProfileModal({
                     </View>
                   </View>
 
-                  {/* Follow Button */}
-                  {!isMe && (
-                    <TouchableOpacity
-                      onPress={handleToggleFollow}
-                      disabled={followLoading}
-                      style={[styles.followBtn, following && styles.followBtnActive]}
-                      activeOpacity={0.85}>
-                      {followLoading ? (
-                        <ActivityIndicator size="small" color={following ? WF_PAPER.inkPrimary : '#FFFDF8'} />
-                      ) : (
-                        <>
+                  {/* Header Action Buttons (Follow / Chat / Own Account) */}
+                  <View style={styles.actionButtonsWrap}>
+                    {isMe ? (
+                      <View style={styles.myAccountBadge}>
+                        <Text style={styles.myAccountBadgeText}>Tài khoản của bạn</Text>
+                      </View>
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          onPress={handleToggleFollow}
+                          disabled={followLoading}
+                          style={[styles.followBtn, following && styles.followBtnActive]}
+                          activeOpacity={0.85}>
+                          {followLoading ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={following ? WF_PAPER.inkPrimary : '#FFFDF8'}
+                            />
+                          ) : (
+                            <>
+                              <FontAwesome
+                                name={following ? 'check' : 'user-plus'}
+                                size={12}
+                                color={following ? WF_PAPER.inkPrimary : '#FFFDF8'}
+                                style={{ marginRight: 5 }}
+                              />
+                              <Text
+                                style={[
+                                  styles.followBtnText,
+                                  following && styles.followBtnTextActive,
+                                ]}>
+                                {following ? 'Đang theo dõi' : 'Theo dõi'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => {
+                            onClose();
+                            if (onOpenChat && profile.id) {
+                              onOpenChat(profile.id, profile.fullName);
+                            } else if (profile.id) {
+                              DeviceEventEmitter.emit('wayfare_open_chat', {
+                                userId: profile.id,
+                                userName: profile.fullName,
+                              });
+                            }
+                          }}
+                          style={styles.chatBtn}
+                          activeOpacity={0.85}>
                           <FontAwesome
-                            name={following ? 'check' : 'user-plus'}
-                            size={12}
-                            color={following ? WF_PAPER.inkPrimary : '#FFFDF8'}
-                            style={{ marginRight: 6 }}
+                            name="commenting-o"
+                            size={13}
+                            color={WF_PAPER.clay}
+                            style={{ marginRight: 5 }}
                           />
-                          <Text style={[styles.followBtnText, following && styles.followBtnTextActive]}>
-                            {following ? 'Đang theo dõi' : 'Theo dõi'}
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  )}
+                          <Text style={styles.chatBtnText}>Nhắn tin</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
                 </View>
 
                 {/* Names & Badges */}
@@ -222,7 +324,12 @@ export function UserProfileModal({
                   <View style={styles.nameRow}>
                     <Text style={styles.fullName}>{profile.fullName}</Text>
                     {profile.isVerified && (
-                      <FontAwesome name="check-circle" size={15} color={WF_COLORS.emerald} style={{ marginLeft: 6 }} />
+                      <FontAwesome
+                        name="check-circle"
+                        size={15}
+                        color={WF_COLORS.emerald}
+                        style={{ marginLeft: 6 }}
+                      />
                     )}
                   </View>
                   <Text style={styles.handleText}>{profile.handle || '@wanderer'}</Text>
@@ -268,115 +375,352 @@ export function UserProfileModal({
                   )}
                 </View>
 
-                {/* Stats Counters */}
+                {/* Interactive Stats Counters (Clickable for Tabs & Follow Lists) */}
                 <View style={styles.statsGrid}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{profile.destinationsCount ?? profile.tripsCount ?? 0}</Text>
-                    <Text style={styles.statLabel}>Chuyến đi</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={[styles.statBox, activeTab === 'itineraries' && styles.statBoxActive]}
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('itineraries')}>
+                    <Text
+                      style={[
+                        styles.statValue,
+                        activeTab === 'itineraries' && styles.statValueHighlight,
+                      ]}>
+                      {profile.itinerariesCount ?? itineraries.length}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.statLabel,
+                        activeTab === 'itineraries' && styles.statLabelHighlight,
+                      ]}>
+                      Lịch trình
+                    </Text>
+                  </TouchableOpacity>
+
                   <View style={styles.statDivider} />
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{profile.postsCount ?? posts.length}</Text>
-                    <Text style={styles.statLabel}>Bài viết</Text>
-                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.statBox, activeTab === 'posts' && styles.statBoxActive]}
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('posts')}>
+                    <Text
+                      style={[
+                        styles.statValue,
+                        activeTab === 'posts' && styles.statValueHighlight,
+                      ]}>
+                      {profile.postsCount ?? posts.length}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.statLabel,
+                        activeTab === 'posts' && styles.statLabelHighlight,
+                      ]}>
+                      Bài viết
+                    </Text>
+                  </TouchableOpacity>
+
                   <View style={styles.statDivider} />
-                  <View style={styles.statBox}>
+
+                  <TouchableOpacity
+                    style={styles.statBox}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setFollowModalState({ visible: true, tab: 'followers' })
+                    }>
                     <Text style={styles.statValue}>{followersCount}</Text>
                     <Text style={styles.statLabel}>Người theo dõi</Text>
-                  </View>
+                  </TouchableOpacity>
+
                   <View style={styles.statDivider} />
-                  <View style={styles.statBox}>
+
+                  <TouchableOpacity
+                    style={styles.statBox}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setFollowModalState({ visible: true, tab: 'following' })
+                    }>
                     <Text style={styles.statValue}>{profile.followingCount ?? 0}</Text>
                     <Text style={styles.statLabel}>Đang theo dõi</Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Posts Section */}
-              <View style={styles.postsSection}>
-                <View style={styles.sectionTitleRow}>
-                  <FontAwesome name="bookmark" size={13} color={WF_PAPER.clay} />
-                  <Text style={styles.sectionTitle}>
-                    Bài viết đã chia sẻ ({posts.length})
+              {/* Segmented Tab Switcher Navigation (Web Parity) */}
+              <View style={styles.tabNavRow}>
+                <TouchableOpacity
+                  style={[styles.tabNavBtn, activeTab === 'posts' && styles.tabNavBtnActive]}
+                  onPress={() => setActiveTab('posts')}
+                  activeOpacity={0.8}>
+                  <FontAwesome
+                    name="globe"
+                    size={13}
+                    color={activeTab === 'posts' ? WF_PAPER.clay : WF_PAPER.inkMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.tabNavText,
+                      activeTab === 'posts' && styles.tabNavTextActive,
+                    ]}>
+                    Bài viết chia sẻ
                   </Text>
-                </View>
-
-                {posts.length === 0 ? (
-                  <View style={styles.emptyPostsBox}>
-                    <FontAwesome name="pencil-square-o" size={28} color={WF_PAPER.inkMuted} />
-                    <Text style={styles.emptyTitle}>Chưa có bài viết nào</Text>
-                    <Text style={styles.emptySub}>
-                      {profile.fullName} chưa đăng bài viết công khai nào.
+                  <View
+                    style={[
+                      styles.tabNavBadge,
+                      activeTab === 'posts' && styles.tabNavBadgeActive,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tabNavBadgeText,
+                        activeTab === 'posts' && styles.tabNavBadgeTextActive,
+                      ]}>
+                      {posts.length}
                     </Text>
                   </View>
-                ) : (
-                  posts.map((post) => (
-                    <TouchableOpacity
-                      key={post.id}
-                      style={styles.postCard}
-                      onPress={() => {
-                        onClose();
-                        if (onPressPost) onPressPost(post);
-                      }}
-                      activeOpacity={0.85}>
-                      {/* Post Header */}
-                      <View style={styles.postCardHeader}>
-                        <View style={{ flex: 1 }}>
-                          {post.title ? (
-                            <Text style={styles.postCardTitle} numberOfLines={2}>
-                              {post.title}
-                            </Text>
-                          ) : null}
-                          <Text style={styles.postCardMeta}>
-                            {post.timeAgo || 'Gần đây'} {post.locationTag ? `· ${post.locationTag}` : ''}
-                          </Text>
-                        </View>
-                        {post.category ? (
-                          <View style={styles.postCategoryPill}>
-                            <Text style={styles.postCategoryText}>{post.category}</Text>
-                          </View>
-                        ) : null}
-                      </View>
+                </TouchableOpacity>
 
-                      {/* Content */}
-                      {post.content ? (
-                        <RichPostText
-                          content={post.content}
-                          numberOfLines={3}
-                          style={styles.postCardContent}
-                        />
-                      ) : null}
-
-                      {/* Media Thumbnails */}
-                      {(getPostImages(post).length > 0 || Boolean(post.videoUrl)) && (
-                        <View style={styles.postMediaWrap}>
-                          <PostMedia
-                            images={getPostImages(post)}
-                            videoUrl={post.videoUrl}
-                            onPressImage={(idx) => {
-                              setLightboxPost(post);
-                              setLightboxIndex(idx);
-                            }}
-                          />
-                        </View>
-                      )}
-
-                      {/* Post Footer */}
-                      <View style={styles.postCardFooter}>
-                        <View style={styles.postStatItem}>
-                          <FontAwesome name="heart" size={12} color="#EF4444" />
-                          <Text style={styles.postStatText}>{post.likeCount || 0}</Text>
-                        </View>
-                        <View style={styles.postStatItem}>
-                          <FontAwesome name="comment-o" size={12} color={WF_PAPER.inkMuted} />
-                          <Text style={styles.postStatText}>{post.commentCount || 0}</Text>
-                        </View>
-                        <Text style={styles.postViewDetailText}>Xem chi tiết →</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                )}
+                <TouchableOpacity
+                  style={[
+                    styles.tabNavBtn,
+                    activeTab === 'itineraries' && styles.tabNavBtnActive,
+                  ]}
+                  onPress={() => setActiveTab('itineraries')}
+                  activeOpacity={0.8}>
+                  <FontAwesome
+                    name="map"
+                    size={12}
+                    color={activeTab === 'itineraries' ? WF_PAPER.clay : WF_PAPER.inkMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.tabNavText,
+                      activeTab === 'itineraries' && styles.tabNavTextActive,
+                    ]}>
+                    Kho Lịch trình
+                  </Text>
+                  <View
+                    style={[
+                      styles.tabNavBadge,
+                      activeTab === 'itineraries' && styles.tabNavBadgeActive,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tabNavBadgeText,
+                        activeTab === 'itineraries' && styles.tabNavBadgeTextActive,
+                      ]}>
+                      {itineraries.length}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </View>
+
+              {/* TAB 1: Posts Section */}
+              {activeTab === 'posts' && (
+                <View style={styles.postsSection}>
+                  {posts.length === 0 ? (
+                    <View style={styles.emptyPostsBox}>
+                      <FontAwesome name="pencil-square-o" size={28} color={WF_PAPER.inkMuted} />
+                      <Text style={styles.emptyTitle}>Chưa có bài viết nào</Text>
+                      <Text style={styles.emptySub}>
+                        {profile.fullName} chưa đăng bài viết công khai nào.
+                      </Text>
+                    </View>
+                  ) : (
+                    posts.map((post) => (
+                      <TouchableOpacity
+                        key={post.id}
+                        style={styles.postCard}
+                        onPress={() => {
+                          onClose();
+                          if (onPressPost) onPressPost(post);
+                        }}
+                        activeOpacity={0.85}>
+                        {/* Post Header */}
+                        <View style={styles.postCardHeader}>
+                          <View style={{ flex: 1 }}>
+                            {post.title ? (
+                              <Text style={styles.postCardTitle} numberOfLines={2}>
+                                {post.title}
+                              </Text>
+                            ) : null}
+                            <Text style={styles.postCardMeta}>
+                              {post.timeAgo || 'Gần đây'} {post.locationTag ? `· ${post.locationTag}` : ''}
+                            </Text>
+                          </View>
+                          {post.category ? (
+                            <View style={styles.postCategoryPill}>
+                              <Text style={styles.postCategoryText}>{post.category}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+
+                        {/* Content */}
+                        {post.content ? (
+                          <RichPostText
+                            content={post.content}
+                            numberOfLines={3}
+                            style={styles.postCardContent}
+                          />
+                        ) : null}
+
+                        {/* Media Thumbnails */}
+                        {(getPostImages(post).length > 0 || Boolean(post.videoUrl)) && (
+                          <View style={styles.postMediaWrap}>
+                            <PostMedia
+                              images={getPostImages(post)}
+                              videoUrl={post.videoUrl}
+                              onPressImage={(idx) => {
+                                setLightboxPost(post);
+                                setLightboxIndex(idx);
+                              }}
+                            />
+                          </View>
+                        )}
+
+                        {/* Post Footer */}
+                        <View style={styles.postCardFooter}>
+                          <View style={styles.postStatItem}>
+                            <FontAwesome name="heart" size={12} color="#EF4444" />
+                            <Text style={styles.postStatText}>{post.likeCount || 0}</Text>
+                          </View>
+                          <View style={styles.postStatItem}>
+                            <FontAwesome name="comment-o" size={12} color={WF_PAPER.inkMuted} />
+                            <Text style={styles.postStatText}>{post.commentCount || 0}</Text>
+                          </View>
+                          <Text style={styles.postViewDetailText}>Xem chi tiết →</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+              )}
+
+              {/* TAB 2: Itineraries Section (Web Parity) */}
+              {activeTab === 'itineraries' && (
+                <View style={styles.postsSection}>
+                  {itineraries.length === 0 ? (
+                    <View style={styles.emptyPostsBox}>
+                      <FontAwesome name="map-o" size={28} color={WF_PAPER.inkMuted} />
+                      <Text style={styles.emptyTitle}>Chưa có lịch trình công khai</Text>
+                      <Text style={styles.emptySub}>
+                        {profile.fullName} chưa xuất bản lịch trình nào.
+                      </Text>
+                    </View>
+                  ) : (
+                    itineraries.map((itin) => {
+                      const isOwner = Boolean(
+                        isMe ||
+                          (currentSession?.id && itin.creatorId && currentSession.id === itin.creatorId) ||
+                          (currentSession?.email &&
+                            itin.creatorEmail &&
+                            currentSession.email.toLowerCase() === itin.creatorEmail.toLowerCase())
+                      );
+
+                      const durationDays =
+                        itin.startDate && itin.endDate
+                          ? Math.max(
+                              1,
+                              Math.round(
+                                (new Date(itin.endDate).getTime() -
+                                  new Date(itin.startDate).getTime()) /
+                                  (1000 * 60 * 60 * 24)
+                              ) + 1
+                            )
+                          : 3;
+                      const durationNights = Math.max(0, durationDays - 1);
+
+                      return (
+                        <View key={itin.id} style={styles.itinCard}>
+                          {/* Cover image & badges */}
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => setSelectedItinForDetail(itin)}
+                            style={styles.itinCoverWrapper}>
+                            <Image
+                              source={{ uri: itin.coverImageUrl || DEFAULT_COVER }}
+                              style={styles.itinCoverImage}
+                              resizeMode="cover"
+                            />
+                            <View style={styles.itinCoverGradient} />
+
+                            {/* Top badges */}
+                            <View style={styles.itinTopBadges}>
+                              <View style={styles.itinTypeBadge}>
+                                <FontAwesome
+                                  name={itin.isAiGenerated ? 'magic' : 'compass'}
+                                  size={10}
+                                  color="#FFFDF8"
+                                />
+                                <Text style={styles.itinTypeBadgeText}>
+                                  {itin.isAiGenerated ? 'Gợi ý du lịch' : 'Lộ trình'}
+                                </Text>
+                              </View>
+                              <View style={styles.itinDurationBadge}>
+                                <Text style={styles.itinDurationText}>
+                                  {`${durationDays}N${durationNights}Đ`}
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Destination overlay */}
+                            <View style={styles.itinDestinationRow}>
+                              <FontAwesome name="map-marker" size={12} color="#FFFDF8" />
+                              <Text style={styles.itinDestinationText} numberOfLines={1}>
+                                {itin.destination || 'Việt Nam'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          {/* Content body */}
+                          <View style={styles.itinBody}>
+                            <TouchableOpacity
+                              activeOpacity={0.85}
+                              onPress={() => setSelectedItinForDetail(itin)}>
+                              <Text style={styles.itinTitle} numberOfLines={2}>
+                                {itin.title}
+                              </Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.itinBudgetRow}>
+                              <Text style={styles.itinBudgetLabel}>Dự toán:</Text>
+                              <Text style={styles.itinBudgetValue}>
+                                {Number(itin.budgetTotal || 0).toLocaleString('vi-VN')} đ
+                              </Text>
+                            </View>
+
+                            {/* Action buttons */}
+                            <View style={styles.itinActionsRow}>
+                              <TouchableOpacity
+                                style={styles.itinDetailBtn}
+                                activeOpacity={0.85}
+                                onPress={() => setSelectedItinForDetail(itin)}>
+                                <FontAwesome name="eye" size={12} color={WF_PAPER.clay} />
+                                <Text style={styles.itinDetailBtnText}>Xem chi tiết</Text>
+                              </TouchableOpacity>
+
+                              {!isOwner && (
+                                <TouchableOpacity
+                                  style={styles.itinCloneBtn}
+                                  activeOpacity={0.85}
+                                  disabled={cloningItinId === itin.id}
+                                  onPress={() => handleCloneItinerary(itin)}>
+                                  {cloningItinId === itin.id ? (
+                                    <ActivityIndicator size="small" color="#FFFDF8" />
+                                  ) : (
+                                    <>
+                                      <FontAwesome name="copy" size={11} color="#FFFDF8" />
+                                      <Text style={styles.itinCloneBtnText}>Sao chép</Text>
+                                    </>
+                                  )}
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              )}
             </ScrollView>
           ) : null}
         </View>
@@ -388,6 +732,35 @@ export function UserProfileModal({
         targetId={userId}
         targetTitle={profile?.fullName || 'Người dùng'}
         onClose={() => setReportVisible(false)}
+      />
+
+      <FollowModal
+        visible={followModalState.visible}
+        targetUserId={userId || undefined}
+        userName={profile?.fullName}
+        initialTab={followModalState.tab}
+        onClose={() => setFollowModalState((prev) => ({ ...prev, visible: false }))}
+        onFollowChange={() => {
+          if (userId) {
+            userApi
+              .getUserProfile(userId)
+              .then((d) => {
+                if (d) {
+                  setProfile(d);
+                  setFollowersCount(d.followersCount || 0);
+                  setFollowing(Boolean(d.isFollowing));
+                }
+              })
+              .catch(() => {});
+          }
+        }}
+      />
+
+      <ItineraryDetailModal
+        visible={Boolean(selectedItinForDetail)}
+        itinerary={selectedItinForDetail}
+        canEdit={false}
+        onClose={() => setSelectedItinForDetail(null)}
       />
 
       <ImageLightbox
@@ -452,48 +825,54 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 30,
     gap: 12,
+    paddingVertical: 60,
   },
   loadingText: {
     fontSize: 13,
     color: WF_PAPER.inkMuted,
+    fontWeight: '600',
   },
   scrollBody: {
     paddingBottom: 40,
   },
   coverWrapper: {
     width: '100%',
-    height: 120,
+    height: 140,
     position: 'relative',
-    backgroundColor: WF_PAPER.pillBg,
+    backgroundColor: WF_PAPER.clayLight,
   },
   coverImage: {
     width: '100%',
     height: '100%',
   },
   coverGradient: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(30, 26, 21, 0.25)',
   },
   profileHeaderCard: {
-    backgroundColor: WF_PAPER.card,
+    marginTop: -32,
     marginHorizontal: 14,
-    marginTop: -38,
+    backgroundColor: WF_PAPER.card,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: WF_PAPER.cardBorder,
-    padding: 16,
+    padding: 14,
     shadowColor: '#1E1A15',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+    marginTop: -38,
     marginBottom: 12,
   },
   avatarRing: {
@@ -526,11 +905,29 @@ const styles = StyleSheet.create({
   tierCornerText: {
     fontSize: 11,
   },
+  actionButtonsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  myAccountBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.pillBorder,
+  },
+  myAccountBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_PAPER.inkSecondary,
+  },
   followBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7.5,
     borderRadius: 5,
     backgroundColor: WF_COLORS.primary,
   },
@@ -540,12 +937,27 @@ const styles = StyleSheet.create({
     borderColor: WF_PAPER.pillBorder,
   },
   followBtnText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#FFFDF8',
   },
   followBtnTextActive: {
     color: WF_PAPER.inkPrimary,
+  },
+  chatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.pillBorder,
+  },
+  chatBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: WF_PAPER.clay,
   },
   nameSection: {
     marginBottom: 8,
@@ -625,44 +1037,95 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     marginTop: 16,
-    paddingTop: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: WF_PAPER.pillBorder,
   },
   statBox: {
     alignItems: 'center',
     flex: 1,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statBoxActive: {
+    backgroundColor: WF_PAPER.pillBg,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '800',
     color: WF_PAPER.inkPrimary,
   },
+  statValueHighlight: {
+    color: WF_PAPER.clay,
+  },
   statLabel: {
     fontSize: 11,
     color: WF_PAPER.inkMuted,
     marginTop: 2,
+    fontWeight: '600',
+  },
+  statLabelHighlight: {
+    color: WF_PAPER.clay,
   },
   statDivider: {
     width: 1,
     height: 24,
     backgroundColor: WF_PAPER.pillBorder,
   },
-  postsSection: {
-    marginTop: 20,
-    paddingHorizontal: 14,
-    gap: 12,
+  tabNavRow: {
+    flexDirection: 'row',
+    marginHorizontal: 14,
+    marginTop: 14,
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    padding: 3,
+    gap: 4,
   },
-  sectionTitleRow: {
+  tabNavBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 4,
+    gap: 6,
   },
-  sectionTitle: {
-    fontSize: 15,
+  tabNavBtnActive: {
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.pillBorder,
+  },
+  tabNavText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: WF_PAPER.inkMuted,
+  },
+  tabNavTextActive: {
+    color: WF_PAPER.clay,
+  },
+  tabNavBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+    backgroundColor: WF_PAPER.pillBorder,
+  },
+  tabNavBadgeActive: {
+    backgroundColor: 'rgba(217, 83, 30, 0.15)',
+  },
+  tabNavBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: WF_PAPER.inkPrimary,
+    color: WF_PAPER.inkMuted,
+  },
+  tabNavBadgeTextActive: {
+    color: WF_PAPER.clay,
+  },
+  postsSection: {
+    marginTop: 14,
+    paddingHorizontal: 14,
+    gap: 12,
   },
   emptyPostsBox: {
     padding: 30,
@@ -754,5 +1217,148 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: WF_PAPER.clay,
+  },
+  itinCard: {
+    backgroundColor: WF_PAPER.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+    overflow: 'hidden',
+    marginBottom: 2,
+  },
+  itinCoverWrapper: {
+    height: 120,
+    width: '100%',
+    position: 'relative',
+    backgroundColor: WF_PAPER.clayLight,
+  },
+  itinCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  itinCoverGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(30, 26, 21, 0.35)',
+  },
+  itinTopBadges: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itinTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(217, 83, 30, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  itinTypeBadgeText: {
+    color: '#FFFDF8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  itinDurationBadge: {
+    backgroundColor: 'rgba(30, 26, 21, 0.85)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  itinDurationText: {
+    color: '#FFFDF8',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  itinDestinationRow: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  itinDestinationText: {
+    color: '#FFFDF8',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  itinBody: {
+    padding: 12,
+    gap: 8,
+  },
+  itinTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: WF_PAPER.inkPrimary,
+    lineHeight: 19,
+  },
+  itinBudgetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  itinBudgetLabel: {
+    fontSize: 12,
+    color: WF_PAPER.inkMuted,
+    fontWeight: '600',
+  },
+  itinBudgetValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: WF_PAPER.clay,
+  },
+  itinActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: WF_PAPER.pillBorder,
+  },
+  itinDetailBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.pillBorder,
+  },
+  itinDetailBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WF_PAPER.clay,
+  },
+  itinCloneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 5,
+    backgroundColor: WF_COLORS.primary,
+  },
+  itinCloneBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFDF8',
   },
 });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, useNavigation, useRouter } from 'expo-router';
 import { Animated, AppState, DeviceEventEmitter, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,8 +44,18 @@ function DynamicTabIcon({
 }
 
 function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentUser }: any) {
+  const router = useRouter();
   const animY = React.useRef(new Animated.Value(0)).current;
   const isVisibleRef = React.useRef(true);
+
+  // Safely resolve navigation with multiple fallbacks
+  let nav = navigation;
+  try {
+    const hookNav = useNavigation();
+    if (hookNav) nav = hookNav;
+  } catch {
+    // ignore
+  }
 
   React.useEffect(() => {
     return tabBarVisibility.subscribe((visible) => {
@@ -53,7 +63,7 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
       isVisibleRef.current = visible;
 
       Animated.spring(animY, {
-        toValue: visible ? 0 : 130,
+        toValue: visible ? 0 : 120,
         useNativeDriver: true,
         friction: 8,
         tension: 48,
@@ -61,22 +71,26 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
     });
   }, [animY]);
 
-  const visibleRoutes = state.routes.filter((route: any) => {
-    const { options } = descriptors[route.key];
-    return options.href !== null;
-  });
+  const visibleRoutes = state?.routes
+    ? state.routes.filter((route: any) => {
+        const descriptor = descriptors?.[route.key];
+        const options = descriptor?.options;
+        return options?.href !== null;
+      })
+    : [];
 
   return (
     <Animated.View
       style={[
         styles.customTabBarDock,
         {
-          paddingBottom: Math.max(insets.bottom, 8),
+          bottom: Math.max(insets?.bottom || 0, 12),
           transform: [{ translateY: animY }],
         },
       ]}>
       {visibleRoutes.map((route: any) => {
-        const { options } = descriptors[route.key];
+        const descriptor = descriptors?.[route.key];
+        const options = descriptor?.options || {};
         const label =
           options.tabBarLabel !== undefined
             ? options.tabBarLabel
@@ -84,25 +98,41 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
               ? options.title
               : route.name;
 
-        const isFocused = state.routes[state.index].key === route.key;
+        const isFocused = state.routes[state.index]?.key === route.key;
 
         const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
+          let defaultPrevented = false;
+          try {
+            if (nav?.emit) {
+              const event = nav.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              defaultPrevented = Boolean(event?.defaultPrevented);
+            }
+          } catch (e) {
+            console.warn('[CustomAnimatedTabBar] nav.emit warning:', e);
+          }
 
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
+          if (!isFocused && !defaultPrevented) {
+            if (nav?.navigate) {
+              nav.navigate(route.name);
+            } else {
+              router.push(`/(tabs)/${route.name}` as any);
+            }
           }
         };
 
         const onLongPress = () => {
-          navigation.emit({
-            type: 'tabLongPress',
-            target: route.key,
-          });
+          try {
+            nav?.emit?.({
+              type: 'tabLongPress',
+              target: route.key,
+            });
+          } catch {
+            // ignore
+          }
         };
 
         let iconName: any = 'globe';
@@ -665,19 +695,22 @@ const styles = StyleSheet.create({
   },
   customTabBarDock: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    left: 16,
+    right: 16,
+    height: 64,
+    borderRadius: 32,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(15, 23, 42, 0.08)',
-    paddingTop: 8,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
     elevation: 16,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    paddingHorizontal: 8,
   },
   customTabItem: {
     flex: 1,

@@ -113,8 +113,14 @@ export function PostCard({
               </Text>
             </TouchableOpacity>
 
+            {authorTier.name ? (
+              <View style={[styles.authorTierPill, { backgroundColor: authorTier.badgeBg || '#F1F5F9' }]}>
+                <Text style={styles.authorTierText}>{authorTier.icon} {authorTier.name}</Text>
+              </View>
+            ) : null}
+
             {post.sharedPost ? (
-              <Text style={styles.sharedActionText}>đã chia sẻ bài viết</Text>
+              <Text style={styles.sharedActionText}>đã chia sẻ</Text>
             ) : null}
 
             {isOwner ? (
@@ -145,8 +151,8 @@ export function PostCard({
                     if (placeId && onPressPlace) onPressPlace(placeId);
                   }}
                   disabled={!(post.placeId || post.sharedPost?.placeId) || !onPressPlace}
-                  style={styles.locationBtn}>
-                  <FontAwesome name="map-marker" size={11} color="#D9532F" />
+                  style={styles.locationPill}>
+                  <FontAwesome name="map-marker" size={10} color="#0EA5E9" style={{ marginRight: 3 }} />
                   <Text style={styles.locationText} numberOfLines={1}>
                     {locationText}
                   </Text>
@@ -338,12 +344,12 @@ export function PostCard({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.detailLinkBtn, isSmallScreen && { paddingLeft: 2 }]}
+          style={[styles.detailLinkBtn, isSmallScreen && { paddingHorizontal: 8, paddingVertical: 3.5 }]}
           onPress={onOpenDetail}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
           accessibilityLabel="Xem chi tiết bài viết">
-          <Text style={[styles.detailLinkText, isSmallScreen && { fontSize: 11.5 }]}>Xem bài</Text>
-          <FontAwesome name="angle-right" size={isSmallScreen ? 12 : 13} color="#D9532F" style={{ marginLeft: 2 }} />
+          <Text style={[styles.detailLinkText, isSmallScreen && { fontSize: 11 }]}>Xem bài</Text>
+          <FontAwesome name="angle-right" size={isSmallScreen ? 11 : 12} color="#FF5722" style={{ marginLeft: 3 }} />
         </TouchableOpacity>
       </View>
     </View>
@@ -428,17 +434,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#CBD5E1',
   },
-  locationBtn: {
+  authorTierPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+    marginLeft: 2,
+  },
+  authorTierText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#1E1A15',
+  },
+  locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    flexShrink: 1,
-    maxWidth: 180,
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    maxWidth: 160,
   },
   locationText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#0EA5E9',
+    color: '#0284C7',
   },
   menuBtn: {
     width: 36,
@@ -646,7 +665,10 @@ const styles = StyleSheet.create({
   detailLinkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 6,
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
   },
   detailLinkText: {
     fontSize: 12.5,

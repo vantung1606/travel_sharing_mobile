@@ -6,8 +6,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
 import { DS_COLOR } from '@/constants/DesignSystem';
 
 export interface StoryTopic {
@@ -73,32 +75,37 @@ export function CommunityStoriesReel({
   onCreatePress,
   onSelectTopic,
 }: CommunityStoriesReelProps) {
+  const { width } = useWindowDimensions();
+  const isSmall = width < 380;
+  const ringSize = isSmall ? 56 : 64;
+  const itemWidth = isSmall ? 62 : 70;
+
   return (
     <View style={styles.container}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}>
+        contentContainerStyle={[styles.scrollContent, isSmall && { paddingHorizontal: 10, gap: 10 }]}>
         {/* 1. Nút Tạo Khoảnh Khắc Của Tôi */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onCreatePress}
-          style={styles.storyItem}
+          style={[styles.storyItem, { width: itemWidth }]}
           accessibilityRole="button"
           accessibilityLabel="Đăng bài viết mới">
-          <View style={styles.myStoryRing}>
+          <View style={[styles.myStoryWrap, { width: ringSize, height: ringSize, borderRadius: ringSize / 2 }]}>
             {currentUserAvatar ? (
               <Image source={{ uri: currentUserAvatar }} style={styles.storyAvatar} />
             ) : (
               <View style={styles.fallbackAvatar}>
-                <FontAwesome name="user" size={24} color="#94A3B8" />
+                <FontAwesome name="user" size={isSmall ? 20 : 24} color="#94A3B8" />
               </View>
             )}
             <View style={styles.plusBadge}>
-              <FontAwesome name="plus" size={10} color="#FFFFFF" />
+              <FontAwesome name="plus" size={9} color="#FFFFFF" />
             </View>
           </View>
-          <Text style={styles.myStoryLabel} numberOfLines={1}>
+          <Text style={[styles.myStoryLabel, isSmall && { fontSize: 10.5 }]} numberOfLines={1}>
             Tạo bài
           </Text>
         </TouchableOpacity>
@@ -109,13 +116,22 @@ export function CommunityStoriesReel({
             key={story.id}
             activeOpacity={0.85}
             onPress={() => onSelectTopic(story)}
-            style={styles.storyItem}
+            style={[styles.storyItem, { width: itemWidth }]}
             accessibilityRole="button"
             accessibilityLabel={`Xem chủ đề ${story.label}`}>
-            <View style={styles.storyRing}>
-              <Image source={{ uri: story.imageUrl }} style={styles.storyAvatar} />
-            </View>
-            <Text style={styles.storyLabel} numberOfLines={1}>
+            <LinearGradient
+              colors={['#FF5722', '#F59E0B', '#EC4899']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[
+                styles.storyRingGradient,
+                { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
+              ]}>
+              <View style={styles.storyInnerBorder}>
+                <Image source={{ uri: story.imageUrl }} style={styles.storyAvatar} />
+              </View>
+            </LinearGradient>
+            <Text style={[styles.storyLabel, isSmall && { fontSize: 10.5 }]} numberOfLines={1}>
               {story.label}
             </Text>
           </TouchableOpacity>
@@ -130,21 +146,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(15, 23, 42, 0.06)',
   },
   scrollContent: {
     paddingHorizontal: 14,
-    gap: 14,
+    gap: 12,
     alignItems: 'center',
   },
   storyItem: {
     alignItems: 'center',
-    width: 66,
   },
-  myStoryRing: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  myStoryWrap: {
     padding: 2,
     borderWidth: 2,
     borderColor: '#E2E8F0',
@@ -152,49 +164,63 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
   },
-  storyRing: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    padding: 2,
-    borderWidth: 2.5,
-    borderColor: DS_COLOR.accent,
+  storyRingGradient: {
+    padding: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  storyInnerBorder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    padding: 2,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
   },
   storyAvatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 28,
+    borderRadius: 999,
     backgroundColor: '#E2E8F0',
   },
   fallbackAvatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 28,
+    borderRadius: 999,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   plusBadge: {
     position: 'absolute',
-    bottom: -1,
-    right: -1,
+    bottom: -2,
+    right: -2,
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: DS_COLOR.accent,
+    backgroundColor: '#FF5722',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   myStoryLabel: {
     marginTop: 5,
     fontSize: 11,
     fontWeight: '700',
-    color: DS_COLOR.ink,
+    color: '#0F172A',
     textAlign: 'center',
   },
   storyLabel: {

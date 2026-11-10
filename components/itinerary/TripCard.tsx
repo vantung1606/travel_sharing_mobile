@@ -1,12 +1,12 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import { ItineraryItem } from '@/src/services/api';
-import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
+import { computeItineraryStatus, formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 import { PLACE_IMAGE_POOL } from '@/src/utils/placeImagePool';
 
 const DESTINATION_COVERS: Record<string, string> = {
@@ -76,17 +76,10 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
     ? `~${item.budgetPerPerson.toLocaleString('vi-VN')} đ/người`
     : 'Chi phí linh hoạt';
 
-  const statusLower = (item.status || '').toLowerCase();
-  const isCompleted = statusLower === 'completed';
-  const isUpcoming =
-    statusLower === 'upcoming' ||
-    statusLower === 'active' ||
-    statusLower === 'planning' ||
-    !statusLower;
-
-  const statusLabel = isCompleted ? 'Đã xong' : isUpcoming ? 'Sắp tới' : 'Bản nháp';
-  const statusColor = isCompleted ? '#6B7280' : isUpcoming ? '#059669' : '#D97706';
-  const statusBg = isCompleted ? '#F3F4F6' : isUpcoming ? '#ECFDF5' : '#FEF3C7';
+  const statusInfo = computeItineraryStatus(item);
+  const statusLabel = statusInfo.label;
+  const statusColor = statusInfo.color;
+  const statusBg = statusInfo.bg;
 
   // Định dạng ngày ngắn gọn (ví dụ 07/11 - 09/11)
   let dateText = '';
@@ -118,10 +111,9 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
       : null;
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.92}
+    <Pressable
       onPress={onPress}
-      style={styles.card}
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.94 }]}
       accessibilityLabel={`Lịch trình ${item.title}`}
     >
       {/* ── Banner Ảnh 16:9 với Gradient Vipo ── */}
@@ -216,7 +208,7 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

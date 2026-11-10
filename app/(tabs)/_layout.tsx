@@ -55,15 +55,6 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
   const animY = React.useRef(new Animated.Value(0)).current;
   const isVisibleRef = React.useRef(true);
 
-  // Safely resolve navigation with multiple fallbacks
-  let nav = navigation;
-  try {
-    const hookNav = useNavigation();
-    if (hookNav) nav = hookNav;
-  } catch {
-    // ignore
-  }
-
   React.useEffect(() => {
     return tabBarVisibility.subscribe((visible) => {
       if (visible === isVisibleRef.current) return;
@@ -109,8 +100,8 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
         const onPress = () => {
           let defaultPrevented = false;
           try {
-            if (nav?.emit) {
-              const event = nav.emit({
+            if (navigation?.emit) {
+              const event = navigation.emit({
                 type: 'tabPress',
                 target: route.key,
                 canPreventDefault: true,
@@ -122,13 +113,17 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
           }
 
           if (!isFocused && !defaultPrevented) {
-            router.navigate(`/(tabs)/${route.name}` as any);
+            if (navigation?.navigate) {
+              navigation.navigate(route.name);
+            } else {
+              router.navigate(`/(tabs)/${route.name}` as any);
+            }
           }
         };
 
         const onLongPress = () => {
           try {
-            nav?.emit?.({
+            navigation?.emit?.({
               type: 'tabLongPress',
               target: route.key,
             });

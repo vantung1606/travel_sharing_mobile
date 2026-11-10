@@ -36,7 +36,7 @@ import {
 } from '@/src/services/api';
 import { aiService } from '@/src/services/aiService';
 import { authStorage, UserSession } from '@/src/services/authStorage';
-import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
+import { computeItineraryStatus, formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
 import { tabBarVisibility } from '@/src/services/tabBarVisibility';
 
 // ─── PRESET COVERS ──────────────────────────────────────────
@@ -204,11 +204,18 @@ export default function ItineraryScreen() {
   // ─── TAB COUNTS ──────────────────────────────────────────
   const tabCounts = useMemo(() => {
     const list = itineraries || [];
-    const upcomingCount = list.filter(i => {
-      const s = (i.status || '').toLowerCase();
-      return s === 'upcoming' || s === 'active' || s === 'planning' || !s;
-    }).length;
-    const completedCount = list.filter(i => (i.status || '').toLowerCase() === 'completed').length;
+    let upcomingCount = 0;
+    let completedCount = 0;
+
+    list.forEach((i) => {
+      const { statusKey } = computeItineraryStatus(i);
+      if (statusKey === 'completed') {
+        completedCount++;
+      } else if (statusKey === 'upcoming' || statusKey === 'ongoing') {
+        upcomingCount++;
+      }
+    });
+
     return {
       upcoming: upcomingCount,
       completed: completedCount,
@@ -218,13 +225,16 @@ export default function ItineraryScreen() {
 
   // ─── FILTERED ITINERARIES ────────────────────────────────
   const filteredItineraries = useMemo(() => {
-    return (itineraries || []).filter(itin => {
-      const statusLower = (itin.status || '').toLowerCase();
-      const isCompleted = statusLower === 'completed';
+    return (itineraries || []).filter((itin) => {
+      const { statusKey } = computeItineraryStatus(itin);
 
-      // Tab match
-      if (activeTab === 'upcoming' && isCompleted) return false;
-      if (activeTab === 'completed' && !isCompleted) return false;
+      // Tab match: Sắp tới bao gồm cả chuyến đi trong tương lai lẫn đang diễn ra
+      if (activeTab === 'upcoming' && statusKey !== 'upcoming' && statusKey !== 'ongoing') {
+        return false;
+      }
+      if (activeTab === 'completed' && statusKey !== 'completed') {
+        return false;
+      }
 
       // Filter tag
       if (activeFilterTag === 'ai' && !itin.isAiGenerated) return false;

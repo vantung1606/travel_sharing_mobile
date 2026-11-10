@@ -34,14 +34,25 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
         const left = (window.screen?.width ? (window.screen.width - width) / 2 : 200) + (window.screenX || 0);
         const top = (window.screen?.height ? (window.screen.height - height) / 2 : 100) + (window.screenY || 0);
 
-        // Mở cầu nối xác thực OAuth Bridge trên cổng 5173 (Origin đã được cấu hình trong Google Cloud Console)
-        // Điều này đảm bảo origin mở popup là http://localhost:5173, giải quyết triệt để lỗi Error 400: origin_mismatch
-        const bridgeUrl = `${GOOGLE_AUTHORIZED_WEB_REDIRECT_URI}/oauth-bridge.html?parent=${encodeURIComponent(
+        const redirectUri =
+          window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? GOOGLE_AUTHORIZED_WEB_REDIRECT_URI
+            : GOOGLE_AUTHORIZED_NATIVE_REDIRECT_URI;
+
+        // Mở trực tiếp Google OAuth 2.0 endpoint trên cửa sổ popup hướng về redirect_uri: http://localhost:5173
+        // (đã được cấp phép 100% trong Google Cloud Console).
+        // Cầu nối tại localhost:5173 (index.html) sẽ nhận token và tự động postMessage về window.opener rồi tự đóng.
+        // Tuyệt đối không qua trang trung gian gọi tokenClient.requestAccessToken() vì Chrome chặn popup-in-popup gây treo xoay!
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
+          GOOGLE_CLIENT_ID.trim()
+        )}&redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}&response_type=token%20id_token&scope=openid%20profile%20email&prompt=select_account&state=${encodeURIComponent(
           window.location.origin
-        )}`;
+        )}&nonce=wayfare_${Date.now()}`;
 
         const popup = window.open(
-          bridgeUrl,
+          authUrl,
           'google_oauth_popup',
           `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no`
         );

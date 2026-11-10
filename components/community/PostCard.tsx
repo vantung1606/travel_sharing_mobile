@@ -5,6 +5,7 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/Themed';
 import { FeedVideoPlayer } from '@/components/community/FeedVideoPlayer';
 import { ItineraryAttachCard } from '@/components/community/ItineraryAttachCard';
+import { PostMedia } from '@/components/community/PostMedia';
 import { RichPostText } from '@/components/community/RichTextToolbar';
 import { formatCount, getPostCommentCount, getPostImages } from '@/components/community/communityUtils';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
@@ -211,59 +212,40 @@ export function PostCard({
         ) : null}
       </View>
 
-      {/* ── 3. Khu vực Hình ảnh & Video Sắc nét (Không bị phủ gradient đen) ── */}
+      {/* ── 3. Khu vực Hình ảnh & Video Sắc nét (Ưu tiên Video đầu, sau đó đến Lưới Ảnh đa tầng) ── */}
       {hasMedia ? (
         <View style={styles.mediaContainer}>
-          {post.videoUrl ? (
-            <View style={styles.videoWrap}>
-              <FeedVideoPlayer
-                videoUrl={post.videoUrl}
-                isPlaying={Boolean(isVideoPlaying)}
-              />
-              {!isVideoPlaying && (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  style={styles.centerPlayBtn}
-                  onPress={onPressVideo}
-                  accessibilityLabel="Phát video">
-                  <View style={styles.playIconCircle}>
-                    <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={0.92}
-              onPress={() => onPressImage(0)}
-              style={styles.imageTouchable}
-              accessibilityRole="button"
-              accessibilityLabel="Xem ảnh bài viết">
-              <Image
-                source={{ uri: images[0] }}
-                style={styles.postImage}
-                resizeMode="cover"
-              />
-
-              {/* Huy hiệu số lượng ảnh */}
-              {images.length > 1 && (
-                <View style={styles.photoCountBadge}>
-                  <FontAwesome name="clone" size={11} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.photoCountText}>+{images.length - 1} ảnh</Text>
-                </View>
-              )}
-
-              {/* Tag điểm đến ở góc ảnh nếu có */}
-              {locationText ? (
-                <View style={styles.photoLocationTag}>
-                  <FontAwesome name="map-marker" size={11} color="#FBBF24" style={{ marginRight: 4 }} />
-                  <Text style={styles.photoLocationText} numberOfLines={1}>
-                    {locationText}
-                  </Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          )}
+          <PostMedia
+            images={images}
+            videoUrl={post.videoUrl}
+            locationText={locationText}
+            isVideoPlaying={Boolean(isVideoPlaying)}
+            renderVideo={
+              post.videoUrl
+                ? () => (
+                    <View style={styles.videoWrap}>
+                      <FeedVideoPlayer
+                        videoUrl={post.videoUrl!}
+                        isPlaying={Boolean(isVideoPlaying)}
+                      />
+                      {!isVideoPlaying && (
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          style={styles.centerPlayBtn}
+                          onPress={onPressVideo}
+                          accessibilityLabel="Phát video">
+                          <View style={styles.playIconCircle}>
+                            <FontAwesome name="play" size={20} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )
+                : undefined
+            }
+            onPressImage={onPressImage}
+            onPressVideo={onPressVideo}
+          />
         </View>
       ) : null}
 

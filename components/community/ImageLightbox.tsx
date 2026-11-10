@@ -19,6 +19,7 @@ interface ImageLightboxProps {
   images: string[];
   initialIndex?: number;
   authorName?: string;
+  authorAvatar?: string;
   onClose: () => void;
 }
 
@@ -34,6 +35,7 @@ export function ImageLightbox({
   images,
   initialIndex = 0,
   authorName,
+  authorAvatar,
   onClose,
 }: ImageLightboxProps) {
   const insets = useSafeAreaInsets();
@@ -75,7 +77,10 @@ export function ImageLightbox({
     <View style={styles.overlay}>
       {/* ── Top Bar ── */}
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
-        <View style={{ flex: 1 }}>
+        {authorAvatar ? (
+          <Image source={{ uri: authorAvatar }} style={styles.topAvatar} />
+        ) : null}
+        <View style={{ flex: 1, marginLeft: authorAvatar ? 10 : 0 }}>
           {authorName ? (
             <Text style={styles.author} numberOfLines={1}>
               {authorName}
@@ -202,6 +207,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
     zIndex: 10,
+  },
+  topAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#332D24',
   },
   author: {
     color: '#FFFDF8',

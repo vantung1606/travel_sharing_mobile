@@ -117,10 +117,11 @@ export default function CommunityScreen() {
   const [shareTarget, setShareTarget] = useState<PostItem | null>(null);
 
   // ── Place Check-in & Post Deep-link integration ───────────
-  const routeParams = useLocalSearchParams<{ checkinPlaceId?: string; postId?: string }>();
+  const routeParams = useLocalSearchParams<{ checkinPlaceId?: string; postId?: string; _t?: string }>();
   const [checkinPlaceId, setCheckinPlaceId] = useState<number | null>(null);
   const [activePlace, setActivePlace] = useState<PlaceItem | null>(null);
   const [placeDetailVisible, setPlaceDetailVisible] = useState(false);
+  const lastOpenedPostIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (routeParams?.checkinPlaceId) {
@@ -135,8 +136,10 @@ export default function CommunityScreen() {
   // Tự động mở modal chi tiết bài viết cụ thể khi bấm vào thông báo
   useEffect(() => {
     if (routeParams?.postId) {
-      const pid = Number(routeParams.postId);
+      const pidStr = String(routeParams.postId);
+      const pid = Number(pidStr);
       if (pid) {
+        lastOpenedPostIdRef.current = pidStr;
         const found =
           (pagedPosts || []).find((p) => p.id === pid) ||
           (fullPosts || []).find((p) => p.id === pid);
@@ -152,7 +155,7 @@ export default function CommunityScreen() {
         }
       }
     }
-  }, [routeParams?.postId, pagedPosts, fullPosts]);
+  }, [routeParams?.postId, routeParams?._t, pagedPosts, fullPosts]);
 
   const handleOpenPlace = useCallback(async (placeId: number) => {
     try {

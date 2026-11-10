@@ -23,6 +23,9 @@ import { FollowModal } from '@/components/FollowModal';
 import { TripActionSheet } from '@/components/itinerary/TripActionSheet';
 import { TripCard } from '@/components/itinerary/TripCard';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { ImageLightbox } from '@/components/community/ImageLightbox';
+import { PostMedia } from '@/components/community/PostMedia';
+import { getPostImages } from '@/components/community/communityUtils';
 import { BadgesModal } from '@/components/profile/BadgesModal';
 import { SettingsSheet } from '@/components/profile/SettingsSheet';
 import { Text, TextInput } from '@/components/Themed';
@@ -117,6 +120,10 @@ export default function ProfileScreen() {
   const [itineraryDetailVisible, setItineraryDetailVisible] = useState<boolean>(false);
   const [actionSheetVisible, setActionSheetVisible] = useState<boolean>(false);
   const [actionSheetItem, setActionSheetItem] = useState<ItineraryItem | null>(null);
+
+  // Lightbox state
+  const [lightboxPost, setLightboxPost] = useState<PostItem | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const resetAuthForm = useCallback(() => {
     setAuthMode('login');
@@ -654,6 +661,7 @@ export default function ProfileScreen() {
     const loc = post.locationTag || post.locationName || 'Việt Nam';
     const likes = post.likeCount ?? post.likesCount ?? 0;
     const comments = post.commentCount ?? post.commentsCount ?? 0;
+    const postImages = getPostImages(post);
 
     return (
       <View style={styles.postCard}>
@@ -674,8 +682,17 @@ export default function ProfileScreen() {
           </Text>
         ) : null}
 
-        {post.images && post.images.length > 0 ? (
-          <Image source={{ uri: post.images[0] }} style={styles.postSingleImage} resizeMode="cover" />
+        {postImages.length > 0 || Boolean(post.videoUrl) ? (
+          <View style={{ marginTop: 8 }}>
+            <PostMedia
+              images={postImages}
+              videoUrl={post.videoUrl}
+              onPressImage={(idx) => {
+                setLightboxPost(post);
+                setLightboxIndex(idx);
+              }}
+            />
+          </View>
         ) : null}
 
         <View style={styles.postFooter}>
@@ -1194,6 +1211,19 @@ export default function ProfileScreen() {
         visible={Boolean(selectedUserIdForModal)}
         userId={selectedUserIdForModal}
         onClose={() => setSelectedUserIdForModal(null)}
+      />
+
+      {/* Lightbox Modal */}
+      <ImageLightbox
+        visible={lightboxIndex !== null && Boolean(lightboxPost)}
+        images={lightboxPost ? getPostImages(lightboxPost) : []}
+        initialIndex={lightboxIndex ?? 0}
+        onClose={() => {
+          setLightboxIndex(null);
+          setLightboxPost(null);
+        }}
+        authorName={lightboxPost?.authorName || displayName}
+        authorAvatar={lightboxPost?.authorAvatar || avatarUrl}
       />
     </View>
   );

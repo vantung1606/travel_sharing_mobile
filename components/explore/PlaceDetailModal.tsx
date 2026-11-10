@@ -7,11 +7,13 @@ import { showToast } from '@/components/Toast';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { Text } from '@/components/Themed';
 import { PlaceImage } from '@/components/explore/PlaceImage';
+import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { WF_COLORS } from '@/constants/Colors';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
 import { getPostImages } from '@/components/community/communityUtils';
+import { pickFallbackImage, resolvePlaceImage } from '@/src/utils/placeImages';
 import { fetchLiveWeather } from '@/src/utils/weather';
 
 interface PlaceDetailModalProps {
@@ -72,6 +74,7 @@ export function PlaceDetailModal({
 
   const { width: windowWidth } = useWindowDimensions();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const handleModalClose = () => {
     // Dọn dẹp khi đóng modal (setState trong event handler — hợp lệ về quy tắc)
@@ -354,16 +357,26 @@ export function PlaceDetailModal({
                     style={{ width: windowWidth, height: 270 }}
                   >
                     {place.images.map((imgUri, index) => (
-                      <Image
+                      <TouchableOpacity
                         key={`${imgUri}-${index}`}
-                        source={{ uri: imgUri }}
-                        style={{ width: windowWidth, height: 270 }}
-                        resizeMode="cover"
-                      />
+                        activeOpacity={0.9}
+                        onPress={() => setLightboxIndex(index)}
+                      >
+                        <Image
+                          source={{ uri: imgUri }}
+                          style={{ width: windowWidth, height: 270 }}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 ) : (
-                  <PlaceImage place={place} style={styles.hero} />
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => setLightboxIndex(0)}
+                  >
+                    <PlaceImage place={place} style={styles.hero} />
+                  </TouchableOpacity>
                 )}
                 <View style={styles.heroScrim} pointerEvents="none" />
 
@@ -853,6 +866,21 @@ export function PlaceDetailModal({
         targetId={reportTarget?.id ?? null}
         targetTitle={reportTarget?.title}
         onClose={() => setReportTarget(null)}
+      />
+
+      <ImageLightbox
+        visible={lightboxIndex !== null && Boolean(place)}
+        images={
+          place
+            ? (place.images && place.images.length > 0
+                ? place.images
+                : [resolvePlaceImage(place)])
+            : []
+        }
+        initialIndex={lightboxIndex ?? 0}
+        onClose={() => setLightboxIndex(null)}
+        authorName={place?.name || 'Địa điểm'}
+        authorAvatar={place ? resolvePlaceImage(place) : undefined}
       />
     </Modal>
   );

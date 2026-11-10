@@ -129,16 +129,22 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       if (matchRoom) {
         roomId = matchRoom[1];
       }
+      const matchUser = rawUrl.match(/[?&]userId=([^&]+)/i);
+      const targetUserId = matchUser ? Number(matchUser[1]) : (item.actorId ? Number(item.actorId) : undefined);
+
       if (onOpenChat) {
         setTimeout(() => {
-          onOpenChat(roomId, item.actorId ? Number(item.actorId) : undefined);
+          onOpenChat(roomId, targetUserId);
         }, 200);
       }
       return;
     }
 
     // 2. Bài viết cộng đồng: Like, Bình luận, Tag, Duyệt bài -> Trỏ tới chính xác bài viết đó
-    const matchPost = rawUrl.match(/[?&]postId=([^&]+)/i) || rawUrl.match(/\/posts\/(\d+)/i);
+    const matchPost =
+      rawUrl.match(/[?&]postId=([^&]+)/i) ||
+      rawUrl.match(/\/posts\/(\d+)/i) ||
+      rawUrl.match(/[?&]post=([^&]+)/i);
     const targetPostId = matchPost ? matchPost[1] : undefined;
 
     if (
@@ -154,12 +160,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       onClose();
       setTimeout(() => {
         if (targetPostId) {
-          router.push({
+          router.replace({
             pathname: '/(tabs)/community',
-            params: { postId: String(targetPostId) },
+            params: { postId: String(targetPostId), _t: String(Date.now()) },
           });
         } else {
-          router.push('/(tabs)/community');
+          router.replace('/(tabs)/community');
         }
       }, 200);
       return;

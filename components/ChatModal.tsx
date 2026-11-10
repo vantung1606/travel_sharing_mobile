@@ -74,6 +74,7 @@ interface ChatModalProps {
   visible: boolean;
   onClose: () => void;
   initialRoomId?: string | number;
+  initialUserId?: number;
 }
 
 type ChatListItem =
@@ -463,7 +464,7 @@ function MessagesSkeleton() {
 
 // ─── Main component ─────────────────────────────────────────
 
-export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
+export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: ChatModalProps) {
   const insets = useSafeAreaInsets();
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -923,6 +924,26 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
             initialRoomHandledRef.current = true;
             handleSelectRoom(found);
           }
+        } else if (initialUserId && !initialRoomHandledRef.current) {
+          const foundByUser = data.find((room) =>
+            room.type === 'DIRECT' &&
+            room.members?.some((m) => Number(m.userId) === Number(initialUserId))
+          );
+          if (foundByUser) {
+            initialRoomHandledRef.current = true;
+            handleSelectRoom(foundByUser);
+          } else {
+            initialRoomHandledRef.current = true;
+            chatApi
+              .createDirectRoom(Number(initialUserId))
+              .then((newRoom) => {
+                if (newRoom) {
+                  setRooms((prev) => [newRoom, ...prev]);
+                  handleSelectRoom(newRoom);
+                }
+              })
+              .catch((err) => console.warn('Could not create direct room:', err));
+          }
         }
       } catch {
         setRoomsError('Không tải được hộp thư. Kiểm tra kết nối và thử lại.');
@@ -930,7 +951,7 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         if (showSkeleton) setLoadingRooms(false);
       }
     },
-    [handleSelectRoom, initialRoomId]
+    [handleSelectRoom, initialRoomId, initialUserId]
   );
 
   // Mở/đóng modal
@@ -956,9 +977,20 @@ export function ChatModal({ visible, onClose, initialRoomId }: ChatModalProps) {
         initialRoomHandledRef.current = true;
         handleSelectRoom(foundInCache);
       }
+    } else if (initialUserId) {
+      initialRoomHandledRef.current = false;
+      const foundInCache = rooms.find(
+        (r) =>
+          r.type === 'DIRECT' &&
+          r.members?.some((m) => Number(m.userId) === Number(initialUserId))
+      );
+      if (foundInCache) {
+        initialRoomHandledRef.current = true;
+        handleSelectRoom(foundInCache);
+      }
     }
     loadRooms();
-  }, [visible, initialRoomId, loadRooms, stopRoomRealtime]);
+  }, [visible, initialRoomId, initialUserId, loadRooms, stopRoomRealtime]);
 
   // Tự cập nhật danh sách phòng thời gian thực qua WebSocket STOMP
   useEffect(() => {

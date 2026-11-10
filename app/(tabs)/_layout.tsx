@@ -51,6 +51,7 @@ export default function TabLayout() {
   const router = useRouter();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialRoomId, setChatInitialRoomId] = useState<string | number | undefined>(undefined);
+  const [chatInitialUserId, setChatInitialUserId] = useState<number | undefined>(undefined);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -406,9 +407,11 @@ export default function TabLayout() {
       <ChatModal
         visible={isChatOpen}
         initialRoomId={chatInitialRoomId}
+        initialUserId={chatInitialUserId}
         onClose={() => {
           setIsChatOpen(false);
           setChatInitialRoomId(undefined);
+          setChatInitialUserId(undefined);
           refreshUnreadChatCount();
         }}
       />
@@ -421,8 +424,9 @@ export default function TabLayout() {
           refreshUnreadCount();
         }}
         onNotificationRead={refreshUnreadCount}
-        onOpenChat={(roomId) => {
+        onOpenChat={(roomId, actorId) => {
           setChatInitialRoomId(roomId);
+          setChatInitialUserId(actorId);
           setIsChatOpen(true);
         }}
       />

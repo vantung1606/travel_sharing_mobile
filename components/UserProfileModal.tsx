@@ -14,6 +14,8 @@ import {
 import { Text } from '@/components/Themed';
 import { RichPostText } from '@/components/community/RichTextToolbar';
 import { PostMedia } from '@/components/community/PostMedia';
+import { ImageLightbox } from '@/components/community/ImageLightbox';
+import { getPostImages } from '@/components/community/communityUtils';
 import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { showToast } from '@/components/Toast';
 import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
@@ -50,6 +52,8 @@ export function UserProfileModal({
   const [followLoading, setFollowLoading] = useState<boolean>(false);
   const [followersCount, setFollowersCount] = useState<number>(0);
   const [reportVisible, setReportVisible] = useState<boolean>(false);
+  const [lightboxPost, setLightboxPost] = useState<PostItem | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!visible || !userId) {
@@ -344,9 +348,16 @@ export function UserProfileModal({
                       ) : null}
 
                       {/* Media Thumbnails */}
-                      {post.images && post.images.length > 0 && (
+                      {(getPostImages(post).length > 0 || Boolean(post.videoUrl)) && (
                         <View style={styles.postMediaWrap}>
-                          <PostMedia images={post.images} videoUrl={post.videoUrl} />
+                          <PostMedia
+                            images={getPostImages(post)}
+                            videoUrl={post.videoUrl}
+                            onPressImage={(idx) => {
+                              setLightboxPost(post);
+                              setLightboxIndex(idx);
+                            }}
+                          />
                         </View>
                       )}
 
@@ -377,6 +388,18 @@ export function UserProfileModal({
         targetId={userId}
         targetTitle={profile?.fullName || 'Người dùng'}
         onClose={() => setReportVisible(false)}
+      />
+
+      <ImageLightbox
+        visible={lightboxIndex !== null && Boolean(lightboxPost)}
+        images={lightboxPost ? getPostImages(lightboxPost) : []}
+        initialIndex={lightboxIndex ?? 0}
+        onClose={() => {
+          setLightboxIndex(null);
+          setLightboxPost(null);
+        }}
+        authorName={profile?.fullName || 'Người dùng'}
+        authorAvatar={profile?.avatarUrl || FALLBACK_AVATAR}
       />
     </Modal>
   );

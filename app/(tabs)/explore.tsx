@@ -37,6 +37,19 @@ const PAGE_SIZE = 50;
 const ALL = 'Tất cả';
 const SEARCH_DEBOUNCE_MS = 320;
 
+const HOT_EXPLORE_CITIES = [
+  { name: 'Tất cả', icon: '✨' },
+  { name: 'Đà Lạt', icon: '🌸' },
+  { name: 'Đà Nẵng', icon: '🌊' },
+  { name: 'Phú Quốc', icon: '🏖️' },
+  { name: 'Sa Pa', icon: '🏔️' },
+  { name: 'Ninh Bình', icon: '🛶' },
+  { name: 'Hà Nội', icon: '☕' },
+  { name: 'Hội An', icon: '🏮' },
+  { name: 'TP. Hồ Chí Minh', icon: '🌆' },
+  { name: 'Quy Nhơn', icon: '🏝️' },
+];
+
 /** Một dòng trong danh sách: hero 16:9 hoặc card địa điểm thường. */
 type ExploreRow =
   | { kind: 'hero'; place: PlaceItem; key: string }
@@ -507,7 +520,6 @@ export default function ExploreScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />}
         onEndReached={viewMode === 'saved' ? undefined : loadMorePlaces}
         onEndReachedThreshold={0.4}
-        stickyHeaderIndices={[0]}
         ListHeaderComponent={
           <View style={styles.feedHeader}>
             <SegmentedTabs
@@ -574,6 +586,32 @@ export default function ExploreScreen() {
                     <FontAwesome name="map" size={16} color={DS_COLOR.inkSecondary} />
                   </TouchableOpacity>
                 </View>
+
+                {/* Dải Tọa Độ / Thành Phố Thịnh Hành */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.cityPillRow}>
+                  {HOT_EXPLORE_CITIES.map((c) => {
+                    const isSelected = (c.name === 'Tất cả' && selectedCity === ALL) || selectedCity === c.name;
+                    return (
+                      <TouchableOpacity
+                        key={c.name}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          const newCity = c.name === 'Tất cả' ? ALL : c.name;
+                          setSelectedCity(newCity);
+                          scrollToTop();
+                        }}
+                        style={[styles.cityPill, isSelected && styles.cityPillActive]}>
+                        <Text style={styles.cityPillIcon}>{c.icon}</Text>
+                        <Text style={[styles.cityPillText, isSelected && styles.cityPillTextActive]}>
+                          {c.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
 
                 <ScrollView
                   horizontal
@@ -912,7 +950,7 @@ const styles = StyleSheet.create({
     backgroundColor: DS_COLOR.bg,
   },
   list: {
-    paddingBottom: 96,
+    paddingBottom: 116,
   },
   listFooter: {
     paddingVertical: 12,
@@ -978,6 +1016,48 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  cityPillRow: {
+    gap: 8,
+    paddingTop: 10,
+    paddingRight: 16,
+  },
+  cityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cityPillActive: {
+    backgroundColor: DS_COLOR.accent,
+    borderColor: DS_COLOR.accent,
+    shadowColor: DS_COLOR.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  cityPillIcon: {
+    fontSize: 13,
+  },
+  cityPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  cityPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   chipRow: {
     gap: 8,

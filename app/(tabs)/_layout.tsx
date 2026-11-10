@@ -257,17 +257,23 @@ export default function TabLayout() {
           tabBarActiveTintColor: WF_PAPER.clay,
           tabBarInactiveTintColor: '#64748B',
           tabBarStyle: {
-            backgroundColor: '#FFFFFF',
-            borderTopColor: 'rgba(15, 23, 42, 0.07)',
-            borderTopWidth: 1,
-            height: 62 + Math.max(insets.bottom, 12),
-            paddingBottom: Math.max(insets.bottom, 10) + 2,
-            paddingTop: 8,
-            elevation: 12,
+            position: 'absolute',
+            left: 16,
+            right: 16,
+            bottom: Math.max(insets.bottom, 12),
+            height: 64,
+            borderRadius: 32,
+            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+            borderTopWidth: 0,
+            borderWidth: 1.2,
+            borderColor: 'rgba(226, 232, 240, 0.9)',
+            elevation: 16,
             shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.12,
+            shadowRadius: 20,
+            paddingBottom: 6,
+            paddingTop: 6,
           },
           tabBarLabel: ({ focused, children }) => (
             <View style={styles.tabLabelWrap}>
@@ -286,17 +292,23 @@ export default function TabLayout() {
                   paddingBottom: 8,
                 },
               ]}>
-              {/* Brand Logo - Điều hướng về Bảng tin Cộng đồng giống Facebook */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => router.push('/(tabs)/community')}
-                style={styles.logoWrapper}>
-                <Image
-                  source={require('@/assets/images/wayfare-logo.png')}
-                  style={styles.headerLogo}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
+              {/* Brand Logo & Explore Status */}
+              <View style={styles.headerLeftContainer}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/(tabs)/community')}
+                  style={styles.logoWrapper}>
+                  <Image
+                    source={require('@/assets/images/wayfare-logo.png')}
+                    style={styles.headerLogo}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+                <View style={styles.headerExploreBadge}>
+                  <View style={styles.headerLiveDot} />
+                  <Text style={styles.headerExploreBadgeText}>Việt Nam</Text>
+                </View>
+              </View>
 
               {/* Action Buttons: Notification & Chat */}
               <View style={styles.headerRightActions}>
@@ -464,19 +476,24 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   customHeader: {
-    backgroundColor: WF_PAPER.card,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.05)',
+    borderBottomColor: 'rgba(15, 23, 42, 0.06)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 6,
-    elevation: 2,
+    paddingBottom: 8,
+    elevation: 3,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
+  },
+  headerLeftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   logoWrapper: {
     flexDirection: 'row',
@@ -484,8 +501,30 @@ const styles = StyleSheet.create({
     height: 38,
   },
   headerLogo: {
-    width: 128,
-    height: 36,
+    width: 124,
+    height: 34,
+  },
+  headerExploreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  headerLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  headerExploreBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -493,13 +532,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F1F5F9',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   headerBadge: {
     position: 'absolute',

@@ -649,9 +649,55 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />
         }
-        stickyHeaderIndices={[0]}
         ListHeaderComponent={
           <View style={styles.feedHeader}>
+            {/* WanderAI Creative Banner */}
+            <View style={styles.aiHeroBanner}>
+              <View style={styles.aiHeroHeader}>
+                <View style={styles.aiSparkleBadge}>
+                  <FontAwesome name="magic" size={13} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.aiHeroTitle}>WanderAI Lịch Trình</Text>
+                  <Text style={styles.aiHeroSubtitle}>
+                    Lên tour theo sở thích & ngân sách trong 10 giây
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.aiCreateBtn}
+                  onPress={() => setAiModalVisible(true)}
+                  activeOpacity={0.85}>
+                  <Text style={styles.aiCreateBtnText}>Tạo ngay</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Prompt Suggestions */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.aiPromptRow}>
+                {[
+                  { dest: 'Đà Lạt', days: 3, label: '🌸 Đà Lạt 3N2Đ' },
+                  { dest: 'Phú Quốc', days: 4, label: '🏖️ Phú Quốc 4N3Đ' },
+                  { dest: 'Hà Giang', days: 3, label: '🏔️ Hà Giang 3N2Đ' },
+                  { dest: 'Đà Nẵng', days: 3, label: '🌊 Đà Nẵng 3N2Đ' },
+                  { dest: 'Ninh Bình', days: 2, label: '🛶 Ninh Bình 2N1Đ' },
+                ].map((p) => (
+                  <TouchableOpacity
+                    key={p.label}
+                    style={styles.aiPromptChip}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setAiDest(p.dest);
+                      setAiDays(p.days);
+                      setAiModalVisible(true);
+                    }}>
+                    <Text style={styles.aiPromptChipText}>{p.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
             {/* 1. Segmented Tabs 3 trạng thái */}
             <SegmentedTabs
               items={[
@@ -1109,7 +1155,82 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 0,
-    paddingBottom: 96,
+    paddingBottom: 116,
+  },
+  aiHeroBanner: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1.2,
+    borderColor: '#FED7AA',
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    marginBottom: 4,
+  },
+  aiHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  aiSparkleBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF5722',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiHeroTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  aiHeroSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+    lineHeight: 15,
+  },
+  aiCreateBtn: {
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiCreateBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  aiPromptRow: {
+    gap: 7,
+    paddingTop: 10,
+  },
+  aiPromptChip: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  aiPromptChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
   },
   feedHeader: {
     backgroundColor: DS_COLOR.bg,

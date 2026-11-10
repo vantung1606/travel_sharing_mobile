@@ -1250,7 +1250,7 @@ const styles = StyleSheet.create({
     color: DS_COLOR.inkMuted,
   },
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 116,
   },
 
   // ─── HERO CARD (~290px) ──────────────────────────────────

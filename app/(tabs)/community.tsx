@@ -18,6 +18,7 @@ import { Text, TextInput } from '@/components/Themed';
 import { CommunityFeedSkeleton } from '@/components/CommunityFeedSkeleton';
 import { ActionSheet, ActionSheetOption } from '@/components/community/ActionSheet';
 import { CommunityFilterSheet } from '@/components/community/CommunityFilterSheet';
+import { CommunityStoriesReel, StoryTopic } from '@/components/community/CommunityStoriesReel';
 import { CreatePostModal } from '@/components/community/CreatePostModal';
 import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { PostCard } from '@/components/community/PostCard';
@@ -927,14 +928,22 @@ export default function CommunityScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[WF_PAPER.clay]} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
-        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View style={styles.feedHeader}>
-            <SegmentedTabs
-              items={FEED_SCOPES.map((item) => ({ key: item.key, label: item.label }))}
-              value={scope}
-              onChange={handleScopeChange}
+          <>
+            <CommunityStoriesReel
+              currentUserAvatar={session?.avatarUrl}
+              onCreatePress={openCreate}
+              onSelectTopic={(story: StoryTopic) => {
+                setSearch(story.query);
+                scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+              }}
             />
+            <View style={styles.feedHeader}>
+              <SegmentedTabs
+                items={FEED_SCOPES.map((item) => ({ key: item.key, label: item.label }))}
+                value={scope}
+                onChange={handleScopeChange}
+              />
 
             <View style={styles.toolbarRow}>
               <View style={styles.searchBox}>
@@ -995,6 +1004,7 @@ export default function CommunityScreen() {
               ))}
             </ScrollView>
           </View>
+          </>
         }
         ListFooterComponent={
           <View style={styles.listFooter}>
@@ -1201,7 +1211,7 @@ const styles = StyleSheet.create({
     backgroundColor: WF_PAPER.bg,
   },
   list: {
-    paddingBottom: 96,
+    paddingBottom: 116,
   },
   listFooter: {
     paddingVertical: 12,

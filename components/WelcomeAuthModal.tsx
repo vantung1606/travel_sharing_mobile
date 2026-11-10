@@ -101,17 +101,9 @@ export function WelcomeAuthModal({
       setCountdown(60);
       showToast({
         kind: 'success',
-        title: 'Đã gửi mã OTP',
-        message: 'Mã xác thực 6 số đã được gửi qua email Resend.',
+        title: 'Đã gửi mã xác thực',
+        message: 'Mã OTP 6 số đã được gửi về hộp thư email của bạn (vui lòng kiểm tra cả mục Spam).',
       });
-      if (res.devOtp) {
-        showToast({
-          kind: 'info',
-          title: 'Mã OTP thử nghiệm',
-          message: `Mã OTP của bạn là: ${res.devOtp}`,
-          duration: 10000,
-        });
-      }
     } catch (err: any) {
       setLoading(false);
       showToast({

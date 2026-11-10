@@ -41,22 +41,22 @@ const FALLBACK_AVATAR =
 interface PostDetailModalProps {
   visible: boolean;
   post: PostItem | null;
-  liked: boolean;
-  likeCount: number;
-  bookmarked: boolean;
+  liked?: boolean;
+  likeCount?: number;
+  bookmarked?: boolean;
   isFollowingAuthor?: boolean;
   followLoading?: boolean;
   cloningItinerary?: boolean;
   currentUserId?: number | null;
-  menuOptions: ActionSheetOption[];
+  menuOptions?: ActionSheetOption[];
   onClose: () => void;
-  onToggleLike: () => void;
+  onToggleLike?: () => void;
   onPressLikers?: () => void;
-  onToggleBookmark: () => void;
+  onToggleBookmark?: () => void;
   onToggleFollow?: () => void;
-  onShare: () => void;
-  onViewItinerary: () => void;
-  onCloneItinerary: () => void;
+  onShare?: () => void;
+  onViewItinerary?: () => void;
+  onCloneItinerary?: () => void;
   onPressPlace?: (placeId: number) => void;
   onPressAuthor?: (userId: number) => void;
   onSubmitReport?: (post: PostItem, reason: string, details: string) => Promise<void>;
@@ -66,22 +66,22 @@ interface PostDetailModalProps {
 export function PostDetailModal({
   visible,
   post,
-  liked,
-  likeCount,
-  bookmarked,
-  isFollowingAuthor,
-  followLoading,
-  cloningItinerary,
+  liked = false,
+  likeCount = 0,
+  bookmarked = false,
+  isFollowingAuthor = false,
+  followLoading = false,
+  cloningItinerary = false,
   currentUserId,
   onClose,
-  onToggleLike,
+  onToggleLike = () => {},
   onPressLikers,
-  onToggleBookmark,
+  onToggleBookmark = () => {},
   onToggleFollow,
-  onShare,
-  menuOptions,
-  onViewItinerary,
-  onCloneItinerary,
+  onShare = () => {},
+  menuOptions = [],
+  onViewItinerary = () => {},
+  onCloneItinerary = () => {},
   onPressPlace,
   onPressAuthor,
   onSubmitReport,

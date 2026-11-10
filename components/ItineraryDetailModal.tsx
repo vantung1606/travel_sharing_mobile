@@ -396,6 +396,8 @@ export function ItineraryDetailModal({
 
               <ScrollView
                 horizontal
+                nestedScrollEnabled={true}
+                overScrollMode="never"
                 showsHorizontalScrollIndicator={false}
                 style={styles.heroBadgesScroll}
                 contentContainerStyle={styles.heroBadgesRow}>
@@ -1114,13 +1116,13 @@ const styles = StyleSheet.create({
   },
   heroBadgesScroll: {
     marginBottom: 6,
-    maxHeight: 34,
+    flexGrow: 0,
   },
   heroBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingRight: 16,
+    paddingRight: 28,
   },
   destBadge: {
     flexDirection: 'row',

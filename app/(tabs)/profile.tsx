@@ -23,6 +23,7 @@ import { FollowModal } from '@/components/FollowModal';
 import { TripActionSheet } from '@/components/itinerary/TripActionSheet';
 import { TripCard } from '@/components/itinerary/TripCard';
 import { ItineraryDetailModal } from '@/components/ItineraryDetailModal';
+import { PostDetailModal } from '@/components/community/PostDetailModal';
 import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { PostMedia } from '@/components/community/PostMedia';
 import { getPostImages } from '@/components/community/communityUtils';
@@ -83,6 +84,8 @@ export default function ProfileScreen() {
   // Bookmarked posts
   const [savedPosts, setSavedPosts] = useState<PostItem[]>([]);
   const [loadingSaved, setLoadingSaved] = useState<boolean>(false);
+  const [bookmarkedMap, setBookmarkedMap] = useState<Record<number, boolean>>({});
+  const [detailPost, setDetailPost] = useState<PostItem | null>(null);
 
   // Settings Sheet & Badges Modal
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -187,12 +190,45 @@ export default function ProfileScreen() {
       setLoadingSaved(true);
       const res = await postApi.getBookmarkedPosts();
       setSavedPosts(res);
+      const map: Record<number, boolean> = {};
+      res.forEach((p) => {
+        map[p.id] = true;
+      });
+      setBookmarkedMap((prev) => ({ ...prev, ...map }));
     } catch (err) {
       console.warn('Could not load saved posts', err);
     } finally {
       setLoadingSaved(false);
     }
   }, []);
+
+  const handleToggleBookmark = async (postId: number) => {
+    try {
+      const res = await postApi.toggleBookmark(postId);
+      const isBookmarked = res.isBookmarked;
+      setBookmarkedMap((prev) => ({ ...prev, [postId]: isBookmarked }));
+      if (!isBookmarked) {
+        setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
+        showToast({
+          kind: 'info',
+          title: 'Đã gỡ lưu',
+          message: 'Đã gỡ bài viết khỏi danh sách Đã lưu.',
+        });
+      } else {
+        showToast({
+          kind: 'success',
+          title: 'Đã lưu',
+          message: 'Đã ghim lưu bài viết vào danh sách Đã lưu của bạn.',
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Thao tác thất bại',
+        message: err?.response?.data?.message || 'Không thể thay đổi trạng thái lưu.',
+      });
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'saved' && user?.token) {
@@ -676,12 +712,14 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
-        {post.content ? (
-          <Text style={styles.postContent} numberOfLines={3}>
-            {post.content}
-          </Text>
-        ) : null}
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setDetailPost(post)}>
+          {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
+          {post.content ? (
+            <Text style={styles.postContent} numberOfLines={3}>
+              {post.content}
+            </Text>
+          ) : null}
+        </TouchableOpacity>
 
         {postImages.length > 0 || Boolean(post.videoUrl) ? (
           <View style={{ marginTop: 8 }}>
@@ -705,6 +743,30 @@ export default function ProfileScreen() {
             <FontAwesome name="comment-o" size={13} color={DS_COLOR.inkMuted} style={{ marginRight: 5 }} />
             <Text style={styles.postStatText}>{comments} bình luận</Text>
           </View>
+
+          <View style={{ flex: 1 }} />
+
+          {/* Nút Ghim/Lưu (Bookmark) & Gỡ ghim */}
+          <TouchableOpacity
+            style={styles.postBookmarkBtn}
+            onPress={() => handleToggleBookmark(post.id)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel={bookmarkedMap[post.id] || activeTab === 'saved' ? 'Bỏ lưu bài viết' : 'Lưu bài viết'}
+          >
+            <FontAwesome
+              name={bookmarkedMap[post.id] || activeTab === 'saved' ? 'bookmark' : 'bookmark-o'}
+              size={16}
+              color={bookmarkedMap[post.id] || activeTab === 'saved' ? '#F59E0B' : DS_COLOR.inkMuted}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.postDetailLinkBtn}
+            onPress={() => setDetailPost(post)}
+          >
+            <Text style={styles.postDetailLinkText}>Xem bài</Text>
+            <FontAwesome name="angle-right" size={12} color={DS_COLOR.accent} style={{ marginLeft: 3 }} />
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -838,7 +900,7 @@ export default function ProfileScreen() {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.statValue}>{itinsCount}</Text>
-                      <Text style={styles.statLabel}>Chuyến đi</Text>
+                      <Text style={styles.statLabel}>Lịch trình</Text>
                     </TouchableOpacity>
 
                     <View style={styles.statDivider} />
@@ -874,7 +936,7 @@ export default function ProfileScreen() {
             <View style={styles.stickyTabBar}>
               <SegmentedTabs
                 items={[
-                  { key: 'itineraries', label: `Chuyến đi (${itinsCount})` },
+                  { key: 'itineraries', label: `Lịch trình (${itinsCount})` },
                   { key: 'posts', label: `Bài viết (${postsCount})` },
                   { key: 'saved', label: `Đã lưu (${savedPosts.length})` },
                 ]}
@@ -1228,6 +1290,15 @@ export default function ProfileScreen() {
         authorName={lightboxPost?.authorName || displayName}
         authorAvatar={lightboxPost?.authorAvatar || avatarUrl}
       />
+
+      {/* Post Detail Modal */}
+      <PostDetailModal
+        visible={Boolean(detailPost)}
+        post={detailPost}
+        onClose={() => setDetailPost(null)}
+        bookmarked={detailPost ? Boolean(bookmarkedMap[detailPost.id] || activeTab === 'saved') : false}
+        onToggleBookmark={() => detailPost && handleToggleBookmark(detailPost.id)}
+      />
     </View>
   );
 }
@@ -1527,6 +1598,23 @@ const styles = StyleSheet.create({
   postStatText: {
     fontSize: 11.5,
     color: DS_COLOR.inkMuted,
+  },
+  postBookmarkBtn: {
+    padding: 6,
+    marginRight: 6,
+  },
+  postDetailLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    backgroundColor: '#F5F5F4',
+  },
+  postDetailLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: DS_COLOR.accent,
   },
 
   // Empty Container

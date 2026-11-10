@@ -261,12 +261,40 @@ export default function ItineraryScreen() {
   const handleShareTrip = async (itin: ItineraryItem) => {
     try {
       const link = webItineraryUrl(itin.id);
+      const message = `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination || 'Việt Nam'} trên Wayfare Travel! 🌟${link ? `\n\nXem tại: ${link}` : ''}`;
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: itin.title,
+              text: message,
+              url: link || undefined,
+            });
+            return;
+          } catch (e: any) {
+            if (e?.name === 'AbortError') return;
+          }
+        }
+        await navigator.clipboard.writeText(link || message);
+        showToast({
+          kind: 'success',
+          title: 'Đã sao chép liên kết',
+          message: 'Đã sao chép liên kết chia sẻ lịch trình vào bộ nhớ tạm! 🎉',
+        });
+        return;
+      }
+
       await Share.share({
-        message: `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination} trên Wayfare Travel! 🌟${link ? `\n${link}` : ''}`,
+        message,
         title: itin.title,
+        url: link || undefined,
       });
     } catch {
-      // Ignore
+      showToast({
+        kind: 'info',
+        title: 'Chia sẻ lịch trình',
+        message: 'Không thể mở hộp thoại chia sẻ.',
+      });
     }
   };
 

@@ -18,7 +18,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { WF_COLORS } from '@/constants/Colors';
 import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
-import { itineraryApi, ItineraryItem, ItineraryDetailItem } from '@/src/services/api';
+import { itineraryApi, ItineraryItem, ItineraryDetailItem, webItineraryUrl } from '@/src/services/api';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 
 const PACKING_CHECKLIST = [
@@ -99,13 +99,42 @@ export function ItineraryDetailModal({
 
   const handleShareTrip = async () => {
     if (!fullItin) return;
+    const link = webItineraryUrl(fullItin.id);
+    const message = `Khám phá kế hoạch chuyến đi "${fullItin.title}" tại ${fullItin.destination || 'Việt Nam'} trên Wayfare Travel! 🌟${link ? `\n\nXem tại: ${link}` : ''}`;
     try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: fullItin.title,
+              text: message,
+              url: link || undefined,
+            });
+            return;
+          } catch (e: any) {
+            if (e?.name === 'AbortError') return;
+          }
+        }
+        await navigator.clipboard.writeText(link || message);
+        showToast({
+          kind: 'success',
+          title: 'Đã sao chép liên kết',
+          message: 'Đã sao chép liên kết chia sẻ lịch trình vào bộ nhớ tạm! 🎉',
+        });
+        return;
+      }
+
       await Share.share({
-        message: `Khám phá kế hoạch chuyến đi "${fullItin.title}" tại ${fullItin.destination} trên Wayfare Travel! 🌟`,
+        message,
         title: fullItin.title,
+        url: link || undefined,
       });
     } catch {
-      // Ignore
+      showToast({
+        kind: 'info',
+        title: 'Chia sẻ lịch trình',
+        message: 'Không thể mở hộp thoại chia sẻ.',
+      });
     }
   };
 
@@ -198,8 +227,9 @@ export function ItineraryDetailModal({
     }
   };
 
-  // State thêm trạm dừng mới (hoàn toàn do người dùng tự điền)
+  // State thêm / sửa trạm dừng mới
   const [addStopVisible, setAddStopVisible] = useState<boolean>(false);
+  const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
   const [newStopDay, setNewStopDay] = useState<number>(1);
   const [newStopTime, setNewStopTime] = useState<string>('08:30');
   const [newStopLocation, setNewStopLocation] = useState<string>('');
@@ -207,6 +237,28 @@ export function ItineraryDetailModal({
   const [newStopCost, setNewStopCost] = useState<string>('50,000');
   const [newStopNote, setNewStopNote] = useState<string>('');
   const [submittingStop, setSubmittingStop] = useState<boolean>(false);
+
+  const handleOpenAddStop = (day?: number) => {
+    setEditingDetailId(null);
+    setNewStopDay(day || (selectedDay === 'all' ? 1 : selectedDay));
+    setNewStopTime('08:30');
+    setNewStopLocation('');
+    setNewStopCategory('Tham quan');
+    setNewStopCost('50,000');
+    setNewStopNote('');
+    setAddStopVisible(true);
+  };
+
+  const handleEditStop = (detail: ItineraryDetailItem) => {
+    setEditingDetailId(detail.id || null);
+    setNewStopDay(detail.dayNumber || (selectedDay === 'all' ? 1 : selectedDay));
+    setNewStopTime((detail.startTime || '08:30').slice(0, 5));
+    setNewStopLocation(detail.locationName || '');
+    setNewStopCategory(detail.category || 'Tham quan');
+    setNewStopCost(detail.estimatedCost != null ? String(detail.estimatedCost) : '');
+    setNewStopNote(detail.note || detail.aiTip || '');
+    setAddStopVisible(true);
+  };
 
   const handleSaveStop = async () => {
     if (!newStopLocation.trim()) {
@@ -227,23 +279,42 @@ export function ItineraryDetailModal({
         ? (newStopTime.length === 5 ? `${newStopTime}:00` : newStopTime)
         : '08:30:00';
 
-      await itineraryApi.addDetail(fullItin.id, {
-        dayNumber: newStopDay,
-        startTime: startTimeFormatted,
-        locationName: newStopLocation.trim(),
-        locationAddress: fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam',
-        category: newStopCategory,
-        estimatedCost: costNum,
-        note: newStopNote.trim(),
-      });
+      if (editingDetailId) {
+        await itineraryApi.updateDetail(editingDetailId, {
+          dayNumber: newStopDay,
+          startTime: startTimeFormatted,
+          locationName: newStopLocation.trim(),
+          locationAddress: fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam',
+          category: newStopCategory,
+          estimatedCost: costNum,
+          note: newStopNote.trim(),
+        });
 
-      showToast({
-        kind: 'success',
-        title: 'Đã thêm trạm dừng',
-        message: `"${newStopLocation.trim()}" đã được thêm vào Ngày ${newStopDay}.`,
-      });
+        showToast({
+          kind: 'success',
+          title: 'Đã cập nhật trạm dừng',
+          message: `Đã lưu thay đổi cho "${newStopLocation.trim()}".`,
+        });
+      } else {
+        await itineraryApi.addDetail(fullItin.id, {
+          dayNumber: newStopDay,
+          startTime: startTimeFormatted,
+          locationName: newStopLocation.trim(),
+          locationAddress: fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam',
+          category: newStopCategory,
+          estimatedCost: costNum,
+          note: newStopNote.trim(),
+        });
+
+        showToast({
+          kind: 'success',
+          title: 'Đã thêm trạm dừng',
+          message: `"${newStopLocation.trim()}" đã được thêm vào Ngày ${newStopDay}.`,
+        });
+      }
 
       setAddStopVisible(false);
+      setEditingDetailId(null);
       setNewStopLocation('');
       setNewStopNote('');
       fetchFullDetail(fullItin.id);
@@ -251,7 +322,7 @@ export function ItineraryDetailModal({
     } catch (e: any) {
       showToast({
         kind: 'error',
-        title: 'Thêm trạm dừng thất bại',
+        title: editingDetailId ? 'Cập nhật thất bại' : 'Thêm trạm dừng thất bại',
         message: e?.message || 'Không thể lưu trạm dừng.',
       });
     } finally {
@@ -555,12 +626,9 @@ export function ItineraryDetailModal({
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={styles.addFirstStopBtn}
-                      onPress={() => {
-                        setNewStopDay(selectedDay === 'all' ? 1 : selectedDay);
-                        setAddStopVisible(true);
-                      }}>
+                      onPress={() => handleOpenAddStop(selectedDay === 'all' ? 1 : selectedDay)}>
                       <FontAwesome name="plus" size={13} color="#FFFDF8" style={{ marginRight: 6 }} />
-                      <Text style={styles.addFirstStopBtnText}>+ Thêm trạm dừng đầu tiên</Text>
+                      <Text style={styles.addFirstStopBtnText}>Thêm trạm dừng đầu tiên</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -602,6 +670,14 @@ export function ItineraryDetailModal({
                                   style={[styles.deleteTouch, { opacity: index === filteredDetails.length - 1 ? 0.25 : 1 }]}
                                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                                   <FontAwesome name="arrow-down" size={12} color="#0284C7" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  onPress={() => handleEditStop(detail)}
+                                  style={styles.deleteTouch}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                  accessibilityLabel="Chỉnh sửa trạm dừng này">
+                                  <FontAwesome name="pencil" size={12} color="#0284C7" />
                                 </TouchableOpacity>
 
                                 {detail.id ? (
@@ -701,13 +777,10 @@ export function ItineraryDetailModal({
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={styles.addMoreStopBtn}
-                      onPress={() => {
-                        setNewStopDay(selectedDay === 'all' ? 1 : selectedDay);
-                        setAddStopVisible(true);
-                      }}>
+                      onPress={() => handleOpenAddStop(selectedDay === 'all' ? 1 : selectedDay)}>
                       <FontAwesome name="plus" size={12} color="#B0522F" style={{ marginRight: 6 }} />
                       <Text style={styles.addMoreStopBtnText}>
-                        + Thêm trạm dừng vào Ngày {selectedDay === 'all' ? 1 : selectedDay}
+                        Thêm trạm dừng vào Ngày {selectedDay === 'all' ? 1 : selectedDay}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -753,7 +826,7 @@ export function ItineraryDetailModal({
           <View style={styles.addModalOverlay}>
             <View style={styles.addModalCard}>
               <View style={styles.addModalHeader}>
-                <Text style={styles.addModalTitle}>Thêm trạm dừng mới</Text>
+                <Text style={styles.addModalTitle}>{editingDetailId ? 'Chỉnh sửa trạm dừng' : 'Thêm trạm dừng mới'}</Text>
                 <TouchableOpacity onPress={() => setAddStopVisible(false)}>
                   <FontAwesome name="times" size={18} color="#5A5146" />
                 </TouchableOpacity>
@@ -853,7 +926,7 @@ export function ItineraryDetailModal({
                   {submittingStop ? (
                     <ActivityIndicator size="small" color="#FFFDF8" />
                   ) : (
-                    <Text style={styles.submitModalBtnText}>Thêm vào lịch trình</Text>
+                    <Text style={styles.submitModalBtnText}>{editingDetailId ? 'Lưu thay đổi' : 'Thêm vào lịch trình'}</Text>
                   )}
                 </TouchableOpacity>
               </View>

@@ -872,6 +872,11 @@ export const itineraryApi = {
     return res.data.data;
   },
 
+  async updateDetail(detailId: number, detail: Partial<ItineraryDetailItem>): Promise<ItineraryDetailItem> {
+    const res = await apiClient.put<ApiResponse<ItineraryDetailItem>>(`/itineraries/details/${detailId}`, detail);
+    return res.data.data;
+  },
+
   async deleteDetail(detailId: number): Promise<void> {
     await apiClient.delete(`/itineraries/details/${detailId}`);
   },

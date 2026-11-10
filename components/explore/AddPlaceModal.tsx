@@ -1,5 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,14 +27,15 @@ interface AddPlaceModalProps {
   onPlaceCreated: (place: PlaceItem) => void;
 }
 
-const CATEGORIES = [
-  'Núi Rừng & Mây Ngàn',
-  'Di Sản & Phố Cổ',
-  'Biển Đảo & Nghỉ Dưỡng',
-  'Danh Lam & Thắng Cảnh',
-  'Quán Cafe & Săn Mây',
-  'Ẩm thực & Check-in',
-  'Văn hóa & Lịch sử',
+const CATEGORY_ITEMS = [
+  { id: 'Danh Lam & Thắng Cảnh', label: 'Thắng Cảnh' },
+  { id: 'Biển Đảo & Nghỉ Dưỡng', label: 'Biển Đảo' },
+  { id: 'Cà Phê', label: 'Cà Phê' },
+  { id: 'Ẩm Thực & Đặc Sản', label: 'Ẩm Thực' },
+  { id: 'Di Sản & Văn Hóa', label: 'Di Sản Văn Hóa' },
+  { id: 'Homestay & Khách Sạn', label: 'Homestay' },
+  { id: 'Cắm Trại & Hoạt Động', label: 'Cắm Trại & Phượt' },
+  { id: 'Núi Rừng & Mây Ngàn', label: 'Núi Rừng' },
 ];
 
 const POPULAR_CITIES = [
@@ -58,11 +60,17 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
   const [categoryName, setCategoryName] = useState('Danh Lam & Thắng Cảnh');
   const [city, setCity] = useState('Đà Lạt');
   const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [description, setDescription] = useState('');
   const [openHours, setOpenHours] = useState('07:30 - 21:00');
   const [ticketPrice, setTicketPrice] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [showUrlFallback, setShowUrlFallback] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,11 +79,127 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
     setCategoryName('Danh Lam & Thắng Cảnh');
     setCity('Đà Lạt');
     setAddress('');
+    setLatitude('');
+    setLongitude('');
     setDescription('');
     setOpenHours('07:30 - 21:00');
     setTicketPrice('');
     setPhoneNumber('');
     setImages([]);
+    setShowUrlFallback(false);
+    setUrlInput('');
+  };
+
+  const handleAutoGeocode = async () => {
+    const cleanAddr = address.trim();
+    const cleanCity = city.trim();
+    if (!cleanAddr && !cleanCity) {
+      showToast({
+        kind: 'info',
+        title: 'Nhập địa chỉ trước',
+        message: 'Vui lòng nhập địa chỉ cụ thể hoặc tỉnh/thành để tìm tọa độ GPS.',
+      });
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const sanitized = cleanAddr.replace(/-/g, ', ').replace(/\//g, ', ').trim();
+      const query = `${sanitized}, ${cleanCity}, Việt Nam`;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=vn`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'vi,en;q=0.9' } });
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
+        setLatitude(Number(data[0].lat).toFixed(6));
+        setLongitude(Number(data[0].lon).toFixed(6));
+        showToast({
+          kind: 'success',
+          title: 'Đã ghim GPS',
+          message: `Tọa độ: ${Number(data[0].lat).toFixed(4)}, ${Number(data[0].lon).toFixed(4)}`,
+        });
+      } else {
+        const cityUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanCity + ', Việt Nam')}&format=json&limit=1&countrycodes=vn`;
+        const cityRes = await fetch(cityUrl);
+        const cityData = await cityRes.json();
+        if (Array.isArray(cityData) && cityData.length > 0 && cityData[0].lat && cityData[0].lon) {
+          setLatitude(Number(cityData[0].lat).toFixed(6));
+          setLongitude(Number(cityData[0].lon).toFixed(6));
+          showToast({
+            kind: 'success',
+            title: 'Đã ghim GPS khu vực',
+            message: `Tọa độ: ${Number(cityData[0].lat).toFixed(4)}, ${Number(cityData[0].lon).toFixed(4)}`,
+          });
+        } else {
+          showToast({
+            kind: 'info',
+            title: 'Không tìm thấy tọa độ tự động',
+            message: 'Hệ thống sẽ định vị ngầm khi Ban Quản Trị duyệt địa điểm.',
+          });
+        }
+      }
+    } catch {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi định vị GPS',
+        message: 'Không thể kết nối đến máy chủ bản đồ vệ tinh OpenStreetMap.',
+      });
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const handleGetCurrentLocation = async () => {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showToast({
+          kind: 'info',
+          title: 'Quyền vị trí bị từ chối',
+          message: 'Vui lòng cấp quyền vị trí thiết bị để lấy tọa độ hiện tại.',
+        });
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (loc?.coords) {
+        setLatitude(loc.coords.latitude.toFixed(6));
+        setLongitude(loc.coords.longitude.toFixed(6));
+        showToast({
+          kind: 'success',
+          title: 'Đã ghim vị trí hiện tại',
+          message: `GPS: ${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`,
+        });
+      }
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Lỗi lấy vị trí',
+        message: e?.message || 'Không thể lấy vị trí hiện tại của thiết bị.',
+      });
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleAddImageUrl = () => {
+    const raw = urlInput.trim();
+    if (!raw) return;
+    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+      showToast({
+        kind: 'error',
+        title: 'URL không hợp lệ',
+        message: 'Link ảnh phải bắt đầu bằng https:// hoặc http://',
+      });
+      return;
+    }
+    setImages((prev) => [...prev, raw].slice(0, 6));
+    setUrlInput('');
+    setShowUrlFallback(false);
+    showToast({
+      kind: 'success',
+      title: 'Đã thêm ảnh',
+      message: 'Đã thêm liên kết ảnh vào danh sách ảnh địa điểm.',
+    });
   };
 
   const handlePickImages = async () => {
@@ -147,11 +271,15 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
     setSubmitting(true);
     try {
       const priceNum = ticketPrice.trim() ? parseFloat(ticketPrice.replace(/\D/g, '')) : undefined;
+      const latNum = latitude.trim() ? parseFloat(latitude) : undefined;
+      const lngNum = longitude.trim() ? parseFloat(longitude) : undefined;
       const payload: CreatePlacePayload = {
         name: name.trim(),
         categoryName: categoryName || undefined,
         city: city || undefined,
         address: address.trim(),
+        latitude: latNum && !isNaN(latNum) ? latNum : undefined,
+        longitude: lngNum && !isNaN(lngNum) ? lngNum : undefined,
         description: description.trim() || undefined,
         openHours: openHours.trim() || undefined,
         ticketPrice: priceNum && !isNaN(priceNum) ? priceNum : undefined,
@@ -218,16 +346,16 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
               />
 
               {/* Danh mục */}
-              <Text style={styles.label}>Danh mục du lịch</Text>
+              <Text style={styles.label}>Danh mục trải nghiệm</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                {CATEGORIES.map((cat) => {
-                  const active = categoryName === cat;
+                {CATEGORY_ITEMS.map((cat) => {
+                  const active = categoryName === cat.id;
                   return (
                     <TouchableOpacity
-                      key={cat}
+                      key={cat.id}
                       style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setCategoryName(cat)}>
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat}</Text>
+                      onPress={() => setCategoryName(cat.id)}>
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -250,16 +378,64 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
               </ScrollView>
 
               {/* Địa chỉ cụ thể */}
-              <Text style={styles.label}>
-                Địa chỉ chi tiết <Text style={styles.required}>*</Text>
-              </Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>
+                  Địa chỉ chi tiết <Text style={styles.required}>*</Text>
+                </Text>
+                <Text style={styles.addressRuleHint}>Kèm Phường/Quận & Tỉnh/Thành</Text>
+              </View>
               <TextInput
                 style={styles.input}
-                placeholder="Số nhà, Tên đường, Phường/Xã..."
+                placeholder="VD: 202 Chương Dương - Sơn Trà - Đà Nẵng"
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={address}
                 onChangeText={setAddress}
               />
+
+              {/* Định vị GPS thông minh */}
+              <View style={styles.gpsRow}>
+                <TouchableOpacity
+                  style={[styles.gpsBtn, isGeocoding && { opacity: 0.6 }]}
+                  onPress={handleAutoGeocode}
+                  disabled={isGeocoding}
+                  activeOpacity={0.8}>
+                  {isGeocoding ? (
+                    <ActivityIndicator size="small" color="#059669" style={{ marginRight: 6 }} />
+                  ) : (
+                    <FontAwesome name="compass" size={13} color="#059669" style={{ marginRight: 6 }} />
+                  )}
+                  <Text style={styles.gpsBtnText}>Lấy GPS từ địa chỉ</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.gpsBtn, isLocating && { opacity: 0.6 }]}
+                  onPress={handleGetCurrentLocation}
+                  disabled={isLocating}
+                  activeOpacity={0.8}>
+                  {isLocating ? (
+                    <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
+                  ) : (
+                    <FontAwesome name="location-arrow" size={13} color="#2563EB" style={{ marginRight: 6 }} />
+                  )}
+                  <Text style={[styles.gpsBtnText, { color: '#2563EB' }]}>Vị trí hiện tại</Text>
+                </TouchableOpacity>
+              </View>
+
+              {latitude && longitude ? (
+                <View style={styles.gpsBadgeSuccess}>
+                  <FontAwesome name="check-circle" size={12} color="#059669" style={{ marginRight: 6 }} />
+                  <Text style={styles.gpsBadgeText}>
+                    Đã ghim GPS: {latitude}, {longitude}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.gpsBadgePending}>
+                  <FontAwesome name="info-circle" size={12} color="#D97706" style={{ marginRight: 6 }} />
+                  <Text style={styles.gpsBadgePendingText}>
+                    Chưa ghim GPS (Hệ thống sẽ định vị ngầm tự động khi duyệt)
+                  </Text>
+                </View>
+              )}
 
               {/* Mô tả */}
               <Text style={styles.label}>Mô tả / Kinh nghiệm trải nghiệm</Text>
@@ -312,7 +488,30 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
               {/* Hình ảnh Cloud CDN */}
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Hình ảnh tải lên Cloud CDN ({images.length}/6)</Text>
+                <TouchableOpacity
+                  onPress={() => setShowUrlFallback(!showUrlFallback)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.urlToggleText}>
+                    {showUrlFallback ? 'Ẩn ô dán link' : 'Hoặc dán URL ảnh'}
+                  </Text>
+                </TouchableOpacity>
               </View>
+
+              {showUrlFallback ? (
+                <View style={styles.urlInputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                    placeholder="Dán link ảnh: https://..."
+                    placeholderTextColor={WF_PAPER.inkMuted}
+                    value={urlInput}
+                    onChangeText={setUrlInput}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity style={styles.urlAddBtn} onPress={handleAddImageUrl} activeOpacity={0.8}>
+                    <Text style={styles.urlAddBtnText}>Thêm</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               <View style={styles.imageGrid}>
                 {images.map((uri, idx) => (
                   <View key={`${uri}-${idx}`} style={styles.imageThumb}>
@@ -518,6 +717,94 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: WF_PAPER.clay,
+  },
+  addressRuleHint: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  gpsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.pillBg,
+    borderWidth: 1,
+    borderColor: WF_PAPER.cardBorder,
+  },
+  gpsBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  gpsBadgeSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 5,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 10,
+  },
+  gpsBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  gpsBadgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 5,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 10,
+  },
+  gpsBadgePendingText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  urlToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WF_PAPER.clay,
+  },
+  urlInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  urlAddBtn: {
+    paddingHorizontal: 14,
+    height: 42,
+    borderRadius: 5,
+    backgroundColor: WF_PAPER.clay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  urlAddBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   footer: {
     paddingHorizontal: 16,

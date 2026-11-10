@@ -31,14 +31,35 @@ interface UniversalReportModalProps {
   onSuccess?: () => void;
 }
 
-const REPORT_CATEGORIES = [
-  { key: 'SPAM', label: 'Spam / Quảng cáo rác', icon: 'ban' },
-  { key: 'SCAM', label: 'Thông tin sai sự thật / Lừa đảo', icon: 'exclamation-triangle' },
-  { key: 'OFFENSIVE', label: 'Nội dung xúc phạm / Thù ghét', icon: 'frown-o' },
-  { key: 'HARASSMENT', label: 'Quấy rối / Công kích cá nhân', icon: 'user-times' },
-  { key: 'INAPPROPRIATE', label: 'Hình ảnh nhạy cảm / Đồi trụy', icon: 'eye-slash' },
-  { key: 'OTHER', label: 'Vi phạm quy chuẩn khác', icon: 'flag' },
-];
+const CATEGORY_OPTIONS: Record<ReportTargetType, string[]> = {
+  PLACE: [
+    'Thông tin sai lệch / Địa danh không đúng',
+    'Địa điểm lừa đảo / Chặt chém du khách',
+    'Đã đóng cửa vĩnh viễn / Không còn tồn tại',
+    'Nguy hiểm an toàn / Vi phạm pháp luật',
+    'Khác',
+  ],
+  USER: [
+    'Tài khoản giả mạo danh tính',
+    'Quấy rối / Đả kích / Ngôn từ thù địch',
+    'Spam thương mại / Lừa đảo tài chính',
+    'Hành vi độc hại trong cộng đồng',
+    'Khác',
+  ],
+  POST: [
+    'Nội dung sai sự thật / Lừa đảo',
+    'Hình ảnh / Video độc hại, phản cảm',
+    'Spam rác / Quảng cáo trái phép',
+    'Vi phạm bản quyền hình ảnh',
+    'Khác',
+  ],
+  REVIEW: [
+    'Đánh giá giả mạo / Đánh giá bẩn',
+    'Ngôn từ xúc phạm / Thiếu văn hóa',
+    'Nội dung không liên quan đến địa điểm',
+    'Khác',
+  ],
+};
 
 const TARGET_TYPE_LABELS: Record<ReportTargetType, string> = {
   POST: 'Bài viết',
@@ -56,15 +77,27 @@ export function UniversalReportModal({
   onSuccess,
 }: UniversalReportModalProps) {
   const insets = useSafeAreaInsets();
+  const options = CATEGORY_OPTIONS[targetType] || CATEGORY_OPTIONS.PLACE;
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('SPAM');
+  const [selectedCategory, setSelectedCategory] = useState<string>(options[0]);
+  const [customReason, setCustomReason] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [evidenceImage, setEvidenceImage] = useState<string>('');
   const [uploadingImage, setUploadingImage] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    if (visible) {
+      setSelectedCategory(options[0]);
+      setCustomReason('');
+      setDescription('');
+      setEvidenceImage('');
+    }
+  }, [visible, targetType]);
+
   const resetForm = () => {
-    setSelectedCategory('SPAM');
+    setSelectedCategory(options[0]);
+    setCustomReason('');
     setDescription('');
     setEvidenceImage('');
   };
@@ -111,15 +144,31 @@ export function UniversalReportModal({
 
   const handleSubmit = async () => {
     if (!targetId) return;
-    const cat = REPORT_CATEGORIES.find((c) => c.key === selectedCategory) || REPORT_CATEGORIES[0];
+    if (!selectedCategory) {
+      showToast({
+        kind: 'error',
+        title: 'Chưa chọn lý do',
+        message: 'Vui lòng chọn danh mục vi phạm!',
+      });
+      return;
+    }
+    const finalReason = selectedCategory === 'Khác' ? customReason.trim() : selectedCategory;
+    if (!finalReason) {
+      showToast({
+        kind: 'error',
+        title: 'Thiếu lý do cụ thể',
+        message: 'Vui lòng nhập lý do báo cáo cụ thể!',
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
       await reportApi.submitReport({
         targetType,
         targetId,
-        category: cat.key,
-        reason: cat.label,
+        category: selectedCategory,
+        reason: finalReason,
         description: description.trim() || undefined,
         evidenceImageUrl: evidenceImage || undefined,
       });
@@ -175,23 +224,23 @@ export function UniversalReportModal({
               
               <Text style={styles.label}>1. Chọn lý do vi phạm</Text>
               <View style={styles.categoryList}>
-                {REPORT_CATEGORIES.map((item) => {
-                  const selected = selectedCategory === item.key;
+                {options.map((item) => {
+                  const selected = selectedCategory === item;
                   return (
                     <TouchableOpacity
-                      key={item.key}
+                      key={item}
                       style={[styles.categoryItem, selected && styles.categoryItemActive]}
-                      onPress={() => setSelectedCategory(item.key)}
+                      onPress={() => setSelectedCategory(item)}
                       activeOpacity={0.75}>
                       <View style={[styles.iconCircle, selected && styles.iconCircleActive]}>
                         <FontAwesome
-                          name={item.icon as any}
-                          size={14}
+                          name="flag"
+                          size={13}
                           color={selected ? '#FFF' : WF_PAPER.clay}
                         />
                       </View>
                       <Text style={[styles.categoryLabel, selected && styles.categoryLabelActive]}>
-                        {item.label}
+                        {item}
                       </Text>
                       <FontAwesome
                         name={selected ? 'check-circle' : 'circle-o'}
@@ -202,6 +251,21 @@ export function UniversalReportModal({
                   );
                 })}
               </View>
+
+              {selectedCategory === 'Khác' ? (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.label}>
+                    Lý do cụ thể <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Mô tả cụ thể hành vi vi phạm..."
+                    placeholderTextColor={WF_PAPER.inkMuted}
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                  />
+                </View>
+              ) : null}
 
               <Text style={styles.label}>2. Chi tiết vi phạm (không bắt buộc)</Text>
               <TextInput

@@ -94,6 +94,7 @@ function RootLayoutNav() {
     <ThemeProvider value={WAYFARE_THEME}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="oauth" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

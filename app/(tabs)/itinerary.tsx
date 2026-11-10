@@ -13,6 +13,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -90,6 +91,9 @@ function formatCurrency(num: number | string): string {
 }
 
 export default function ItineraryScreen() {
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallScreen = screenWidth < 380;
+
   // ─── MAIN DATA STATE ─────────────────────────────────────
   const [itineraries, setItineraries] = useState<ItineraryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -691,24 +695,24 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DS_COLOR.accent]} />
         }
         ListHeaderComponent={
-          <View style={styles.feedHeader}>
+          <View style={[styles.feedHeader, isSmallScreen && { paddingHorizontal: 12, gap: 6 }]}>
             {/* WanderAI Creative Banner */}
-            <View style={styles.aiHeroBanner}>
+            <View style={[styles.aiHeroBanner, isSmallScreen && { padding: 10, borderRadius: 14 }]}>
               <View style={styles.aiHeroHeader}>
                 <View style={styles.aiSparkleBadge}>
-                  <FontAwesome name="magic" size={13} color="#FFFFFF" />
+                  <FontAwesome name="magic" size={isSmallScreen ? 11 : 13} color="#FFFFFF" />
                 </View>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={styles.aiHeroTitle}>WanderAI Lịch Trình</Text>
-                  <Text style={styles.aiHeroSubtitle}>
+                <View style={{ flex: 1, paddingRight: 6 }}>
+                  <Text style={[styles.aiHeroTitle, isSmallScreen && { fontSize: 13.5 }]}>WanderAI Lịch Trình</Text>
+                  <Text style={[styles.aiHeroSubtitle, isSmallScreen && { fontSize: 11 }]}>
                     Lên tour theo sở thích & ngân sách trong 10 giây
                   </Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.aiCreateBtn}
+                  style={[styles.aiCreateBtn, isSmallScreen && { paddingHorizontal: 10, paddingVertical: 6 }]}
                   onPress={() => setAiModalVisible(true)}
                   activeOpacity={0.85}>
-                  <Text style={styles.aiCreateBtnText}>Tạo ngay</Text>
+                  <Text style={[styles.aiCreateBtnText, isSmallScreen && { fontSize: 11 }]}>Tạo ngay</Text>
                 </TouchableOpacity>
               </View>
 
@@ -774,8 +778,11 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
               </View>
             </View>
 
-            {/* 3. Chips lọc nhanh 1 dòng */}
-            <View style={styles.chipsRow}>
+            {/* 3. Chips lọc nhanh 1 dòng cuộn ngang mượt mà */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.chipsRow, isSmallScreen && { gap: 6 }]}>
               <Chip
                 label="Tất cả"
                 active={activeFilterTag === 'all'}
@@ -796,7 +803,7 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                 active={activeFilterTag === 'family'}
                 onPress={() => setActiveFilterTag(activeFilterTag === 'family' ? 'all' : 'family')}
               />
-            </View>
+            </ScrollView>
           </View>
         }
         ListEmptyComponent={

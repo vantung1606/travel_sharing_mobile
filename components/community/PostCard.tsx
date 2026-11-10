@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { FeedVideoPlayer } from '@/components/community/FeedVideoPlayer';
@@ -76,6 +76,8 @@ export function PostCard({
   onPressPlace,
 }: PostCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallScreen = screenWidth < 380;
 
   const images = useMemo(() => getPostImages(post), [post]);
   const hasMedia = !post.sharedPost && (images.length > 0 || Boolean(post.videoUrl));
@@ -92,9 +94,9 @@ export function PostCard({
   const locationText = post.locationTag || post.locationName;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isSmallScreen && { marginHorizontal: 12, marginBottom: 12 }]}>
       {/* ── 1. Tác giả & Công cụ Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, isSmallScreen && { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10 }]}>
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onPressAuthor}
@@ -290,58 +292,58 @@ export function PostCard({
       )}
 
       {/* ── 6. Thanh tương tác hiện đại ── */}
-      <View style={styles.actionBar}>
+      <View style={[styles.actionBar, isSmallScreen && { paddingHorizontal: 10, paddingVertical: 9 }]}>
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.actionBtn, isSmallScreen && { marginRight: 10, gap: 4 }]}
           onPress={onToggleLike}
           activeOpacity={0.7}
           accessibilityLabel={liked ? 'Bỏ thích bài viết' : 'Thích bài viết'}>
-          <FontAwesome name={liked ? 'heart' : 'heart-o'} size={18} color={liked ? '#EF4444' : '#6B7280'} />
-          <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{formatCount(likeCount)}</Text>
+          <FontAwesome name={liked ? 'heart' : 'heart-o'} size={isSmallScreen ? 16 : 18} color={liked ? '#EF4444' : '#6B7280'} />
+          <Text style={[styles.actionText, isSmallScreen && { fontSize: 11.5 }, liked && styles.actionTextLiked]}>{formatCount(likeCount)}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.actionBtn, isSmallScreen && { marginRight: 10, gap: 4 }]}
           onPress={onOpenComments}
           activeOpacity={0.7}
           accessibilityLabel="Xem bình luận">
-          <FontAwesome name="comment-o" size={18} color="#6B7280" />
-          <Text style={styles.actionText}>{formatCount(commentCount)}</Text>
+          <FontAwesome name="comment-o" size={isSmallScreen ? 16 : 18} color="#6B7280" />
+          <Text style={[styles.actionText, isSmallScreen && { fontSize: 11.5 }]}>{formatCount(commentCount)}</Text>
           {post.commentLocked ? (
             <FontAwesome name="lock" size={12} color="#B45309" style={{ marginLeft: -2 }} />
           ) : null}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.actionBtn, isSmallScreen && { marginRight: 6, gap: 4 }]}
           onPress={onShare}
           activeOpacity={0.7}
           accessibilityLabel="Chia sẻ bài viết">
-          <FontAwesome name="share-alt" size={17} color="#6B7280" />
-          <Text style={styles.actionText}>Chia sẻ</Text>
+          <FontAwesome name="share-alt" size={isSmallScreen ? 15 : 17} color="#6B7280" />
+          {!isSmallScreen && <Text style={styles.actionText}>Chia sẻ</Text>}
         </TouchableOpacity>
 
         <View style={{ flex: 1 }} />
 
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.actionBtn, isSmallScreen && { marginRight: 6 }]}
           onPress={onToggleBookmark}
           activeOpacity={0.7}
           accessibilityLabel={bookmarked ? 'Bỏ lưu bài viết' : 'Lưu bài viết'}>
           <FontAwesome
             name={bookmarked ? 'bookmark' : 'bookmark-o'}
-            size={18}
+            size={isSmallScreen ? 16 : 18}
             color={bookmarked ? '#F59E0B' : '#6B7280'}
           />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.detailLinkBtn}
+          style={[styles.detailLinkBtn, isSmallScreen && { paddingLeft: 2 }]}
           onPress={onOpenDetail}
           activeOpacity={0.7}
           accessibilityLabel="Xem chi tiết bài viết">
-          <Text style={styles.detailLinkText}>Xem bài</Text>
-          <FontAwesome name="angle-right" size={13} color="#D9532F" style={{ marginLeft: 3 }} />
+          <Text style={[styles.detailLinkText, isSmallScreen && { fontSize: 11.5 }]}>Xem bài</Text>
+          <FontAwesome name="angle-right" size={isSmallScreen ? 12 : 13} color="#D9532F" style={{ marginLeft: 2 }} />
         </TouchableOpacity>
       </View>
     </View>

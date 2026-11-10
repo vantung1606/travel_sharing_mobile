@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useNavigation, useRouter } from 'expo-router';
-import { Animated, AppState, DeviceEventEmitter, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Animated, AppState, DeviceEventEmitter, Image, View, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WF_PAPER } from '@/constants/Colors';
@@ -19,24 +19,26 @@ function DynamicTabIcon({
   name,
   focused,
   avatarUrl,
+  isSmallScreen,
 }: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   focused: boolean;
   avatarUrl?: string | null;
+  isSmallScreen?: boolean;
 }) {
   if (avatarUrl) {
     return (
-      <View style={[styles.tabAvatarWrap, focused && styles.tabAvatarWrapActive]}>
+      <View style={[styles.tabAvatarWrap, isSmallScreen && { width: 25, height: 25, borderRadius: 12.5 }, focused && styles.tabAvatarWrapActive]}>
         <Image source={{ uri: avatarUrl }} style={styles.tabAvatarImg} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.tabCapsule, focused && styles.tabCapsuleActive]}>
+    <View style={[styles.tabCapsule, isSmallScreen && { width: 38, height: 26, borderRadius: 13 }, focused && styles.tabCapsuleActive]}>
       <FontAwesome
         name={name}
-        size={focused ? 18 : 17}
+        size={focused ? (isSmallScreen ? 16 : 18) : (isSmallScreen ? 15 : 17)}
         color={focused ? WF_PAPER.clay : '#64748B'}
       />
     </View>
@@ -50,7 +52,7 @@ const TAB_DEFINITIONS: Record<string, { label: string; icon: any; activeIcon?: a
   profile: { label: 'Tài khoản', icon: 'user' },
 };
 
-function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentUser }: any) {
+function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentUser, isSmallScreen }: any) {
   const router = useRouter();
   const animY = React.useRef(new Animated.Value(0)).current;
   const isVisibleRef = React.useRef(true);
@@ -146,9 +148,9 @@ function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentU
             onLongPress={onLongPress}
             style={styles.customTabItem}
             activeOpacity={0.75}>
-            <DynamicTabIcon name={iconName} focused={isFocused} avatarUrl={avatarUrl} />
+            <DynamicTabIcon name={iconName} focused={isFocused} avatarUrl={avatarUrl} isSmallScreen={isSmallScreen} />
             <View style={styles.tabLabelWrap}>
-              <Text style={[styles.tabLabelText, isFocused && styles.tabLabelTextActive]}>
+              <Text style={[styles.tabLabelText, isSmallScreen && { fontSize: 9.5 }, isFocused && styles.tabLabelTextActive]}>
                 {label}
               </Text>
               {isFocused ? (
@@ -171,6 +173,8 @@ export const unstable_settings = {
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallScreen = screenWidth < 380;
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialRoomId, setChatInitialRoomId] = useState<string | number | undefined>(undefined);
   const [chatInitialUserId, setChatInitialUserId] = useState<number | undefined>(undefined);
@@ -382,7 +386,7 @@ export default function TabLayout() {
     <>
       <Tabs
         backBehavior="initialRoute"
-        tabBar={(props) => <CustomAnimatedTabBar {...props} currentUser={currentUser} />}
+        tabBar={(props) => <CustomAnimatedTabBar {...props} currentUser={currentUser} isSmallScreen={isSmallScreen} />}
         screenOptions={{
           tabBarActiveTintColor: WF_PAPER.clay,
           tabBarInactiveTintColor: '#64748B',
@@ -397,7 +401,7 @@ export default function TabLayout() {
           },
           tabBarLabel: ({ focused, children }) => (
             <View style={styles.tabLabelWrap}>
-              <Text style={[styles.tabLabelText, focused && styles.tabLabelTextActive]}>
+              <Text style={[styles.tabLabelText, isSmallScreen && { fontSize: 9.5 }, focused && styles.tabLabelTextActive]}>
                 {typeof children === 'string' ? children : ''}
               </Text>
               {focused ? <View style={styles.tabActiveDot} /> : <View style={styles.tabDotPlaceholder} />}
@@ -410,36 +414,37 @@ export default function TabLayout() {
                 {
                   paddingTop: Math.max(insets.top, 8),
                   paddingBottom: 8,
+                  paddingHorizontal: isSmallScreen ? 12 : 16,
                 },
               ]}>
               {/* Brand Logo & Explore Status */}
-              <View style={styles.headerLeftContainer}>
+              <View style={[styles.headerLeftContainer, isSmallScreen && { gap: 6 }]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => router.push('/(tabs)/community')}
                   style={styles.logoWrapper}>
                   <Image
                     source={require('@/assets/images/wayfare-logo.png')}
-                    style={styles.headerLogo}
+                    style={[styles.headerLogo, isSmallScreen && { width: 104, height: 28 }]}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
-                <View style={styles.headerExploreBadge}>
+                <View style={[styles.headerExploreBadge, isSmallScreen && { paddingHorizontal: 6, paddingVertical: 2, gap: 3 }]}>
                   <View style={styles.headerLiveDot} />
-                  <Text style={styles.headerExploreBadgeText}>Việt Nam</Text>
+                  <Text style={[styles.headerExploreBadgeText, isSmallScreen && { fontSize: 10 }]}>Việt Nam</Text>
                 </View>
               </View>
 
               {/* Action Buttons: Notification & Chat */}
-              <View style={styles.headerRightActions}>
+              <View style={[styles.headerRightActions, isSmallScreen && { gap: 6 }]}>
                 {/* Nút Trò chuyện / Chat */}
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => setIsChatOpen(true)}
-                  style={styles.headerCircleBtn}
+                  style={[styles.headerCircleBtn, isSmallScreen && { width: 36, height: 36, borderRadius: 18 }]}
                   accessibilityRole="button"
                   accessibilityLabel="Mở tin nhắn và trợ lý AI">
-                  <FontAwesome name="comments-o" size={17} color={WF_PAPER.inkSecondary} />
+                  <FontAwesome name="comments-o" size={isSmallScreen ? 15 : 17} color={WF_PAPER.inkSecondary} />
                   {unreadChatCount > 0 && (
                     <View style={styles.headerBadge}>
                       <Text style={styles.headerBadgeText}>
@@ -459,10 +464,10 @@ export default function TabLayout() {
                       setIsAuthOpen(true);
                     }
                   }}
-                  style={styles.headerCircleBtn}
+                  style={[styles.headerCircleBtn, isSmallScreen && { width: 36, height: 36, borderRadius: 18 }]}
                   accessibilityRole="button"
                   accessibilityLabel="Mở thông báo">
-                  <FontAwesome name="bell-o" size={16} color={WF_PAPER.inkSecondary} />
+                  <FontAwesome name="bell-o" size={isSmallScreen ? 14 : 16} color={WF_PAPER.inkSecondary} />
                   {unreadNotifCount > 0 && (
                     <View style={styles.headerBadge}>
                       <Text style={styles.headerBadgeText}>

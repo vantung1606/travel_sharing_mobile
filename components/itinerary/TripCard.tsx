@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { Image, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
@@ -67,6 +67,8 @@ export interface TripCardProps {
  * - Hiển thị ngân sách rõ ràng, trạng thái chuyến đi sắc nét
  */
 export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
   const imageUrl = resolveItineraryCover(item);
   const durationText = formatItineraryDuration(getItineraryDayCount(item));
 
@@ -113,11 +115,15 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.94 }]}
+      style={({ pressed }) => [
+        styles.card,
+        isSmallScreen && { marginHorizontal: 12, marginBottom: 12 },
+        pressed && { opacity: 0.94 },
+      ]}
       accessibilityLabel={`Lịch trình ${item.title}`}
     >
       {/* ── Banner Ảnh 16:9 với Gradient Vipo ── */}
-      <View style={styles.bannerWrap}>
+      <View style={[styles.bannerWrap, isSmallScreen && { height: 138 }]}>
         <Image source={{ uri: imageUrl }} style={styles.bannerImage} resizeMode="cover" />
 
         {/* Lớp Gradient tối màu ở đáy và đỉnh để nổi bật các badge */}
@@ -175,15 +181,15 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
       </View>
 
       {/* ── Thân Card Thông Tin Chi Tiết ── */}
-      <View style={styles.cardBody}>
-        <Text style={styles.title} numberOfLines={2}>
+      <View style={[styles.cardBody, isSmallScreen && { padding: 11 }]}>
+        <Text style={[styles.title, isSmallScreen && { fontSize: 15, lineHeight: 20 }]} numberOfLines={2}>
           {item.title}
         </Text>
 
         {dateText ? (
           <View style={styles.dateRow}>
-            <FontAwesome name="calendar" size={12} color="#D9532F" style={{ marginRight: 6 }} />
-            <Text style={styles.dateText}>{dateText}</Text>
+            <FontAwesome name="calendar" size={11} color="#D9532F" style={{ marginRight: 5 }} />
+            <Text style={[styles.dateText, isSmallScreen && { fontSize: 11.5 }]}>{dateText}</Text>
           </View>
         ) : null}
 
@@ -191,19 +197,23 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
 
         {/* Hàng đáy: Dự toán chi phí & Trạng thái */}
         <View style={styles.footerRow}>
-          <View>
+          <View style={{ flexShrink: 1, marginRight: 8 }}>
             <Text style={styles.budgetCaption}>DỰ TOÁN CHI PHÍ</Text>
-            <Text style={styles.budgetValue}>{budgetDisplay}</Text>
+            <Text style={[styles.budgetValue, isSmallScreen && { fontSize: 14 }]} numberOfLines={1}>
+              {budgetDisplay}
+            </Text>
           </View>
 
-          <View style={styles.footerRight}>
-            <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+          <View style={[styles.footerRight, isSmallScreen && { gap: 5 }]}>
+            <View style={[styles.statusBadge, { backgroundColor: statusBg }, isSmallScreen && { paddingHorizontal: 7, paddingVertical: 3 }]}>
               <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-              <Text style={[styles.statusLabel, { color: statusColor }]}>{statusLabel}</Text>
+              <Text style={[styles.statusLabel, { color: statusColor }, isSmallScreen && { fontSize: 10.5 }]}>
+                {statusLabel}
+              </Text>
             </View>
 
-            <View style={styles.arrowCircle}>
-              <FontAwesome name="angle-right" size={15} color="#D9532F" />
+            <View style={[styles.arrowCircle, isSmallScreen && { width: 24, height: 24, borderRadius: 12 }]}>
+              <FontAwesome name="angle-right" size={isSmallScreen ? 13 : 15} color="#D9532F" />
             </View>
           </View>
         </View>

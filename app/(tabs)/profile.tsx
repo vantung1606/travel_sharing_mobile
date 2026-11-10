@@ -15,6 +15,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -72,6 +73,8 @@ export type ProfileTab = 'itineraries' | 'posts' | 'saved';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallScreen = screenWidth < 380;
 
   const [user, setUser] = useState<UserSession | null>(null);
   const [profileData, setProfileData] = useState<UserProfileItem | null>(null);
@@ -701,21 +704,21 @@ export default function ProfileScreen() {
     const postImages = getPostImages(post);
 
     return (
-      <View style={styles.postCard}>
+      <View style={[styles.postCard, isSmallScreen && { marginHorizontal: 12, padding: 10 }]}>
         <View style={styles.postHeader}>
-          <Image source={{ uri: post.authorAvatar || avatarUrl }} style={styles.postAvatar} />
+          <Image source={{ uri: post.authorAvatar || avatarUrl }} style={[styles.postAvatar, isSmallScreen && { width: 32, height: 32, borderRadius: 16, marginRight: 8 }]} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.postAuthorName}>{author}</Text>
-            <Text style={styles.postMeta}>
+            <Text style={[styles.postAuthorName, isSmallScreen && { fontSize: 12.5 }]}>{author}</Text>
+            <Text style={[styles.postMeta, isSmallScreen && { fontSize: 10.5 }]}>
               {time} • 📍 {loc}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => setDetailPost(post)}>
-          {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
+          {post.title ? <Text style={[styles.postTitle, isSmallScreen && { fontSize: 13.5 }]}>{post.title}</Text> : null}
           {post.content ? (
-            <Text style={styles.postContent} numberOfLines={3}>
+            <Text style={[styles.postContent, isSmallScreen && { fontSize: 12, lineHeight: 17 }]} numberOfLines={3}>
               {post.content}
             </Text>
           ) : null}
@@ -734,14 +737,14 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        <View style={styles.postFooter}>
+        <View style={[styles.postFooter, isSmallScreen && { gap: 10 }]}>
           <View style={styles.postStatItem}>
-            <FontAwesome name="heart" size={13} color="#EF4444" style={{ marginRight: 5 }} />
-            <Text style={styles.postStatText}>{likes} thích</Text>
+            <FontAwesome name="heart" size={isSmallScreen ? 11 : 13} color="#EF4444" style={{ marginRight: 4 }} />
+            <Text style={[styles.postStatText, isSmallScreen && { fontSize: 11 }]}>{likes} thích</Text>
           </View>
           <View style={styles.postStatItem}>
-            <FontAwesome name="comment-o" size={13} color={DS_COLOR.inkMuted} style={{ marginRight: 5 }} />
-            <Text style={styles.postStatText}>{comments} bình luận</Text>
+            <FontAwesome name="comment-o" size={isSmallScreen ? 11 : 13} color={DS_COLOR.inkMuted} style={{ marginRight: 4 }} />
+            <Text style={[styles.postStatText, isSmallScreen && { fontSize: 11 }]}>{comments} bình luận</Text>
           </View>
 
           <View style={{ flex: 1 }} />
@@ -766,7 +769,7 @@ export default function ProfileScreen() {
             style={styles.postDetailLinkBtn}
             onPress={() => setDetailPost(post)}
           >
-            <Text style={styles.postDetailLinkText}>Xem bài</Text>
+            <Text style={[styles.postDetailLinkText, isSmallScreen && { fontSize: 11 }]}>Xem bài</Text>
             <FontAwesome name="angle-right" size={12} color={DS_COLOR.accent} style={{ marginLeft: 3 }} />
           </TouchableOpacity>
         </View>
@@ -791,9 +794,9 @@ export default function ProfileScreen() {
         ListHeaderComponent={
           <>
             {/* ─── 1. HERO PROFILE CARD GỌN GÀNG (~290px) ─────────── */}
-            <View style={styles.heroCard}>
+            <View style={[styles.heroCard, isSmallScreen && { marginHorizontal: 12, marginTop: 8 }]}>
               {/* Cover Photo 120px */}
-              <View style={styles.coverWrapper}>
+              <View style={[styles.coverWrapper, isSmallScreen && { height: 95 }]}>
                 <Image source={{ uri: coverUrl }} style={styles.coverImage} />
                 <View style={styles.coverOverlay} />
                 <TouchableOpacity
@@ -812,9 +815,9 @@ export default function ProfileScreen() {
               </View>
 
               {/* Profile Info Content */}
-              <View style={styles.profileInfoContent}>
+              <View style={[styles.profileInfoContent, isSmallScreen && { paddingHorizontal: 10, paddingBottom: 10 }]}>
                 {/* Avatar Row */}
-                <View style={styles.avatarRow}>
+                <View style={[styles.avatarRow, isSmallScreen && { marginTop: -26, marginBottom: 6 }]}>
                   {/* Avatar 72x72 */}
                   <TouchableOpacity
                     onPress={handlePickAvatar}
@@ -824,7 +827,11 @@ export default function ProfileScreen() {
                   >
                     <Image
                       source={{ uri: avatarUrl }}
-                      style={[styles.avatarImage, { borderColor: currentTier.avatarRingColor }]}
+                      style={[
+                        styles.avatarImage,
+                        isSmallScreen && { width: 60, height: 60, borderRadius: 30, borderWidth: 2.5 },
+                        { borderColor: currentTier.avatarRingColor },
+                      ]}
                     />
                     {isUploadingAvatar ? (
                       <View style={styles.avatarLoadingOverlay}>
@@ -841,23 +848,23 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
 
                   {/* Top-Right Action Buttons: Chỉnh sửa & Cài đặt ⚙ */}
-                  <View style={styles.actionRow}>
+                  <View style={[styles.actionRow, isSmallScreen && { gap: 6 }]}>
                     <TouchableOpacity
                       onPress={() => setIsEditModalOpen(true)}
-                      style={styles.editProfileBtn}
+                      style={[styles.editProfileBtn, isSmallScreen && { paddingHorizontal: 10, paddingVertical: 5 }]}
                       activeOpacity={0.8}
                     >
-                      <FontAwesome name="pencil" size={12} color={DS_COLOR.ink} style={{ marginRight: 6 }} />
-                      <Text style={styles.editProfileBtnText}>Chỉnh sửa</Text>
+                      <FontAwesome name="pencil" size={11} color={DS_COLOR.ink} style={{ marginRight: 4 }} />
+                      <Text style={[styles.editProfileBtnText, isSmallScreen && { fontSize: 11 }]}>Chỉnh sửa</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={() => setIsSettingsOpen(true)}
-                      style={styles.settingsCogBtn}
+                      style={[styles.settingsCogBtn, isSmallScreen && { width: 28, height: 28, borderRadius: 14 }]}
                       activeOpacity={0.8}
                       accessibilityLabel="Cài đặt & Tài khoản"
                     >
-                      <FontAwesome name="cog" size={16} color={DS_COLOR.ink} />
+                      <FontAwesome name="cog" size={isSmallScreen ? 14 : 16} color={DS_COLOR.ink} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -865,7 +872,7 @@ export default function ProfileScreen() {
                 {/* Name & Tier */}
                 <View style={styles.userNameBlock}>
                   <View style={styles.nameRow}>
-                    <Text style={styles.fullNameText} numberOfLines={1}>
+                    <Text style={[styles.fullNameText, isSmallScreen && { fontSize: 15 }]} numberOfLines={1}>
                       {displayName}
                     </Text>
                     <TouchableOpacity
@@ -876,32 +883,32 @@ export default function ProfileScreen() {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.tierBadgeText}>
+                      <Text style={[styles.tierBadgeText, isSmallScreen && { fontSize: 9.5 }]}>
                         {currentTier.icon} {currentTier.name}
                       </Text>
                     </TouchableOpacity>
                   </View>
 
                   {/* Meta: Handle · Location · Style */}
-                  <Text style={styles.metaLine} numberOfLines={1}>
+                  <Text style={[styles.metaLine, isSmallScreen && { fontSize: 10.5 }]} numberOfLines={1}>
                     {displayHandle} · 📍 {displayLocation} · 🧭 {displayTravelStyle}
                   </Text>
 
                   {/* Bio */}
                   {profileData?.bio ? (
-                    <Text style={styles.bioText} numberOfLines={2}>
+                    <Text style={[styles.bioText, isSmallScreen && { fontSize: 11.5 }]} numberOfLines={2}>
                       {profileData.bio}
                     </Text>
                   ) : null}
 
                   {/* 1 Hàng 3 Stat Nhấn Được */}
-                  <View style={styles.statBar}>
+                  <View style={[styles.statBar, isSmallScreen && { paddingVertical: 6, marginTop: 6 }]}>
                     <TouchableOpacity
                       style={styles.statItem}
                       onPress={() => setActiveTab('itineraries')}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.statValue}>{itinsCount}</Text>
+                      <Text style={[styles.statValue, isSmallScreen && { fontSize: 14 }]}>{itinsCount}</Text>
                       <Text style={styles.statLabel}>Lịch trình</Text>
                     </TouchableOpacity>
 
@@ -912,7 +919,7 @@ export default function ProfileScreen() {
                       onPress={() => setActiveTab('posts')}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.statValue}>{postsCount}</Text>
+                      <Text style={[styles.statValue, isSmallScreen && { fontSize: 14 }]}>{postsCount}</Text>
                       <Text style={styles.statLabel}>Bài viết</Text>
                     </TouchableOpacity>
 
@@ -926,7 +933,7 @@ export default function ProfileScreen() {
                       }}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.statValue}>{activeFollowersCount}</Text>
+                      <Text style={[styles.statValue, isSmallScreen && { fontSize: 14 }]}>{activeFollowersCount}</Text>
                       <Text style={styles.statLabel}>Theo dõi</Text>
                     </TouchableOpacity>
                   </View>
@@ -935,7 +942,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* ─── 2. STICKY SEGMENTED TABS (3 TABS) ─────────────── */}
-            <View style={styles.stickyTabBar}>
+            <View style={[styles.stickyTabBar, isSmallScreen && { paddingHorizontal: 12, paddingVertical: 4 }]}>
               <SegmentedTabs
                 items={[
                   { key: 'itineraries', label: `Lịch trình (${itinsCount})` },

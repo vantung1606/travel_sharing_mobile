@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 
@@ -19,8 +19,11 @@ interface SegmentedTabsProps<T extends string> {
  * Cao 40px, mỗi tab chia đều và đủ vùng chạm.
  */
 export function SegmentedTabs<T extends string>({ items, value, onChange }: SegmentedTabsProps<T>) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
+
   return (
-    <View style={styles.track} accessibilityRole="tablist">
+    <View style={[styles.track, isSmallScreen && { height: 38, borderRadius: 19 }]} accessibilityRole="tablist">
       {items.map((item) => {
         const active = item.key === value;
         return (
@@ -29,9 +32,9 @@ export function SegmentedTabs<T extends string>({ items, value, onChange }: Segm
             activeOpacity={0.85}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            style={[styles.tab, active && styles.tabActive]}
+            style={[styles.tab, isSmallScreen && { borderRadius: 16, paddingHorizontal: 2 }, active && styles.tabActive]}
             onPress={() => onChange(item.key)}>
-            <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>
+            <Text style={[styles.label, isSmallScreen && { fontSize: 11.5 }, active && styles.labelActive]} numberOfLines={1}>
               {item.label}
             </Text>
           </TouchableOpacity>

@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { PlaceImage } from '@/components/explore/PlaceImage';
@@ -38,6 +38,8 @@ interface PlaceCardProps {
  * Card địa điểm: ảnh 88×88 bo tròn bên trái, thông tin nổi bật, tag giá bắt mắt bên phải.
  */
 export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProps) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
   const showRating = hasRealRating(place);
   const priceInfo = formatPrice(place);
 
@@ -46,8 +48,8 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
       activeOpacity={0.88}
       onPress={onPress}
       accessibilityLabel={`Xem chi tiết ${place.name}`}
-      style={styles.card}>
-      <View style={styles.thumbWrapper}>
+      style={[styles.card, isSmallScreen && { marginHorizontal: 12, marginBottom: 10, padding: 8 }]}>
+      <View style={[styles.thumbWrapper, isSmallScreen && { width: 80, height: 80, borderRadius: 14 }]}>
         <PlaceImage place={place} style={styles.thumb} />
         {place.category ? (
           <View style={styles.thumbCategoryBadge}>
@@ -58,9 +60,9 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
         ) : null}
       </View>
 
-      <View style={styles.body}>
+      <View style={[styles.body, isSmallScreen && { marginLeft: 10, marginRight: 4, gap: 2 }]}>
         <View style={styles.nameRow}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={[styles.name, isSmallScreen && { fontSize: 14 }]} numberOfLines={1}>
             {place.name}
           </Text>
           {place.isVerifiedHost ? (
@@ -69,8 +71,8 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
         </View>
 
         <View style={styles.locationRow}>
-          <FontAwesome name="map-marker" size={12} color={DS_COLOR.accent} style={{ marginRight: 4 }} />
-          <Text style={styles.meta} numberOfLines={1}>
+          <FontAwesome name="map-marker" size={11} color={DS_COLOR.accent} style={{ marginRight: 3 }} />
+          <Text style={[styles.meta, isSmallScreen && { fontSize: 11.5 }]} numberOfLines={1}>
             {place.city || 'Việt Nam'}
           </Text>
         </View>
@@ -78,16 +80,16 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
         <View style={styles.bottomRow}>
           {showRating ? (
             <View style={styles.rating}>
-              <FontAwesome name="star" size={12} color="#F59E0B" />
-              <Text style={styles.ratingText}>{place.rating!.toFixed(1)}</Text>
+              <FontAwesome name="star" size={11} color="#F59E0B" />
+              <Text style={[styles.ratingText, isSmallScreen && { fontSize: 12 }]}>{place.rating!.toFixed(1)}</Text>
               <Text style={styles.ratingCount}>({place.reviewsCount})</Text>
             </View>
           ) : (
             <Text style={styles.noRating}>Mới khám phá</Text>
           )}
 
-          <View style={[styles.pricePill, priceInfo.isFree ? styles.pricePillFree : styles.pricePillPaid]}>
-            <Text style={[styles.pricePillText, priceInfo.isFree ? styles.pricePillTextFree : styles.pricePillTextPaid]} numberOfLines={1}>
+          <View style={[styles.pricePill, priceInfo.isFree ? styles.pricePillFree : styles.pricePillPaid, isSmallScreen && { paddingHorizontal: 7, paddingVertical: 2.5 }]}>
+            <Text style={[styles.pricePillText, priceInfo.isFree ? styles.pricePillTextFree : styles.pricePillTextPaid, isSmallScreen && { fontSize: 10.5 }]} numberOfLines={1}>
               {priceInfo.label}
             </Text>
           </View>
@@ -95,7 +97,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
       </View>
 
       <TouchableOpacity
-        style={[styles.favBtn, saved && styles.favBtnActive]}
+        style={[styles.favBtn, isSmallScreen && { width: 34, height: 34, borderRadius: 17 }, saved && styles.favBtnActive]}
         activeOpacity={0.7}
         onPress={(e) => {
           e.stopPropagation();
@@ -104,7 +106,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
         accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
         <FontAwesome
           name={saved ? 'heart' : 'heart-o'}
-          size={16}
+          size={isSmallScreen ? 14 : 16}
           color={saved ? '#EF4444' : DS_COLOR.inkMuted}
         />
       </TouchableOpacity>
@@ -121,6 +123,8 @@ interface FeaturedPlaceCardProps {
  * Hero nổi bật 16:9 với gradient mượt mà, huy hiệu VIP và thông tin ấn tượng.
  */
 export function FeaturedPlaceCard({ place, onPress }: FeaturedPlaceCardProps) {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
   const showRating = hasRealRating(place);
   const priceInfo = formatPrice(place);
 
@@ -129,7 +133,7 @@ export function FeaturedPlaceCard({ place, onPress }: FeaturedPlaceCardProps) {
       activeOpacity={0.92}
       onPress={onPress}
       accessibilityLabel={`Địa điểm nổi bật ${place.name}`}
-      style={styles.hero}>
+      style={[styles.hero, isSmallScreen && { marginHorizontal: 12, height: 180 }]}>
       <PlaceImage place={place} style={styles.heroImage} />
 
       {/* Gradient chuyển màu cao cấp từ trong suốt xuống đen đậm */}

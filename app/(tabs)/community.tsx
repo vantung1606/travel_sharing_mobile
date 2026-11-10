@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Clipboard from 'expo-clipboard';
@@ -67,6 +68,9 @@ interface LightboxState {
 }
 
 export default function CommunityScreen() {
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallScreen = screenWidth < 380;
+
   // ── Session ───────────────────────────────────────────────
   const [session, setSession] = useState<UserSession | null>(null);
 
@@ -941,7 +945,7 @@ export default function CommunityScreen() {
                 scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
               }}
             />
-            <View style={styles.feedHeader}>
+            <View style={[styles.feedHeader, isSmallScreen && { paddingHorizontal: 12 }]}>
               <SegmentedTabs
                 items={FEED_SCOPES.map((item) => ({ key: item.key, label: item.label }))}
                 value={scope}

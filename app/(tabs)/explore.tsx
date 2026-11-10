@@ -11,6 +11,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { BrandedLoading } from '@/components/BrandedLoading';
@@ -59,6 +60,8 @@ type ExploreRow =
 export default function ExploreScreen() {
   const router = useRouter();
   const scrollRef = useRef<FlatList<ExploreRow>>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallScreen = screenWidth < 380;
 
   const [places, setPlaces] = useState<PlaceItem[]>([]);
   const [hasMorePlaces, setHasMorePlaces] = useState<boolean>(false);
@@ -524,7 +527,7 @@ export default function ExploreScreen() {
         onEndReached={viewMode === 'saved' ? undefined : loadMorePlaces}
         onEndReachedThreshold={0.4}
         ListHeaderComponent={
-          <View style={styles.feedHeader}>
+          <View style={[styles.feedHeader, isSmallScreen && { paddingHorizontal: 12 }]}>
             <SegmentedTabs
               items={[
                 { key: 'explore', label: 'Khám phá' },

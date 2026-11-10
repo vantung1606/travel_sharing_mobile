@@ -45,7 +45,6 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={onPress}
-      accessibilityRole="button"
       accessibilityLabel={`Xem chi tiết ${place.name}`}
       style={styles.card}>
       <View style={styles.thumbWrapper}>
@@ -129,7 +128,6 @@ export function FeaturedPlaceCard({ place, onPress }: FeaturedPlaceCardProps) {
     <TouchableOpacity
       activeOpacity={0.92}
       onPress={onPress}
-      accessibilityRole="button"
       accessibilityLabel={`Địa điểm nổi bật ${place.name}`}
       style={styles.hero}>
       <PlaceImage place={place} style={styles.heroImage} />

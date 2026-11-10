@@ -122,7 +122,6 @@ export function TripCard({ item, onPress, onMenuPress }: TripCardProps) {
       activeOpacity={0.92}
       onPress={onPress}
       style={styles.card}
-      accessibilityRole="button"
       accessibilityLabel={`Lịch trình ${item.title}`}
     >
       {/* ── Banner Ảnh 16:9 với Gradient Vipo ── */}

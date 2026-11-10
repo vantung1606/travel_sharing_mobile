@@ -1108,11 +1108,12 @@ const styles = StyleSheet.create({
     backgroundColor: DS_COLOR.bg,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 84,
+    paddingHorizontal: 0,
+    paddingBottom: 96,
   },
   feedHeader: {
     backgroundColor: DS_COLOR.bg,
+    paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 10,
     gap: 8,

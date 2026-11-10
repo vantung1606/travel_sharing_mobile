@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#F43F5E',
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: WF_PAPER.card,
+    borderColor: '#FFFFFF',
   },
   headerBadgeText: {
     color: '#FFFFFF',
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   tabCapsuleActive: {
-    backgroundColor: 'rgba(217, 107, 67, 0.12)',
+    backgroundColor: 'rgba(255, 87, 34, 0.14)',
   },
   tabAvatarWrap: {
     width: 28,

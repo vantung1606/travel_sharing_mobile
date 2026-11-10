@@ -10,40 +10,48 @@ import { formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itine
 import { PLACE_IMAGE_POOL } from '@/src/utils/placeImagePool';
 
 const DESTINATION_COVERS: Record<string, string> = {
-  'đà nẵng': 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=800&q=80',
-  'hà tĩnh': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-  'hội an': 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=800&q=80',
-  'hà nội': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80',
+  'da nang': 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=800&q=80',
+  'ha tinh': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+  'hoi an': 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=800&q=80',
+  'ha noi': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80',
+  'sa pa': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
   'sapa': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
-  'phú quốc': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
-  'đà lạt': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80',
-  'ninh bình': 'https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&w=800&q=80',
-  'huế': 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=800&q=80',
+  'phu quoc': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+  'da lat': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80',
+  'ninh binh': 'https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&w=800&q=80',
+  'hue': 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=800&q=80',
+  'quy nhon': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+  'nha trang': 'https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&w=800&q=80',
+  'ha giang': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
 };
+
+const removeTones = (str = '') =>
+  str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd');
 
 function resolveItineraryCover(item: ItineraryItem): string {
   const raw = item.coverImageUrl || item.coverImage;
   if (raw && !raw.includes('/uploads/posts/') && !raw.includes('commons.wikimedia.org')) {
-    // Nếu không phải ảnh camper van mặc định trùng nhau
+    // Nếu người dùng đã tự upload ảnh riêng biệt
     if (!raw.includes('photo-1528127269322-539801943592') && !raw.includes('photo-1506744038136-46273834b3fb')) {
       return raw;
     }
   }
 
-  // Khớp theo tên điểm đến
-  const destLower = (item.destination || item.title || '').toLowerCase();
+  // Khớp thông minh không dấu theo điểm đến hoặc tiêu đề
+  const textNormalized = removeTones(`${item.destination || ''} ${item.title || ''}`);
   for (const [key, url] of Object.entries(DESTINATION_COVERS)) {
-    if (destLower.includes(key)) return url;
+    if (textNormalized.includes(key)) return url;
   }
 
-  // Băm ổn định theo ID để mỗi chuyến đi có ảnh riêng biệt
+  // Băm ổn định theo ID để mỗi chuyến đi luôn có một ảnh phong cảnh riêng biệt
   const poolLen = PLACE_IMAGE_POOL.length;
   if (poolLen > 0) {
-    const idx = Math.abs(Math.imul(item.id || 1, 2654435761)) % poolLen;
+    const safeId = typeof item.id === 'number' ? item.id : Number(String(item.id).replace(/\D/g, '')) || 7;
+    const idx = Math.abs(Math.imul(safeId, 2654435761)) % poolLen;
     return PLACE_IMAGE_POOL[idx];
   }
 
-  return 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80';
+  return 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
 }
 
 export interface TripCardProps {
@@ -218,13 +226,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#EDE7DE',
+    borderColor: 'rgba(15, 23, 42, 0.06)',
     marginHorizontal: 16,
     marginBottom: 16,
     overflow: 'hidden',
     elevation: 3,
-    shadowColor: '#201608',
-    shadowOpacity: 0.08,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.07,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 10,
   },
@@ -232,7 +240,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 155,
     position: 'relative',
-    backgroundColor: '#1E1A15',
+    backgroundColor: '#0F172A',
   },
   bannerImage: {
     width: '100%',
@@ -255,20 +263,25 @@ const styles = StyleSheet.create({
   aiBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#8B5CF6',
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 14,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
   aiBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   groupBadge: {
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 14,
     borderWidth: 1,
@@ -277,7 +290,7 @@ const styles = StyleSheet.create({
   groupBadgeText: {
     color: '#FFFFFF',
     fontSize: 10.5,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   menuCircleBtn: {
     width: 32,
@@ -308,7 +321,7 @@ const styles = StyleSheet.create({
   destPillText: {
     color: '#FFFFFF',
     fontSize: 11.5,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   durationPill: {
     backgroundColor: '#F59E0B',
@@ -319,7 +332,7 @@ const styles = StyleSheet.create({
   durationPillText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.3,
   },
   cardBody: {
@@ -327,10 +340,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   title: {
-    fontSize: 16.5,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#1C1917',
-    lineHeight: 22,
+    color: '#0F172A',
+    lineHeight: 23,
     letterSpacing: -0.2,
   },
   dateRow: {
@@ -340,12 +353,12 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12.5,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontWeight: '600',
+    color: '#64748B',
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3EFE9',
+    backgroundColor: '#F1F5F9',
     marginVertical: 10,
   },
   footerRow: {
@@ -355,14 +368,14 @@ const styles = StyleSheet.create({
   },
   budgetCaption: {
     fontSize: 9.5,
-    fontWeight: '700',
-    color: '#9CA3AF',
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.6,
   },
   budgetValue: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: '#D9532F',
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FF5722',
     marginTop: 1,
   },
   footerRight: {
@@ -385,13 +398,13 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 11.5,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   arrowCircle: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFF1ED',
+    backgroundColor: '#FFF3E0',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -7,26 +7,30 @@
 import { WF_PAPER } from '@/constants/Colors';
 
 export const DS_COLOR = {
-  /** Màu hành động duy nhất. */
+  /** Màu hành động duy nhất: Vibrant Sunset Orange. */
   accent: WF_PAPER.clay,
   accentSoft: WF_PAPER.clayLight,
   accentPressed: WF_PAPER.clayDark,
 
   ink: '#0F172A',
-  inkSecondary: '#475569',
-  inkMuted: '#94A3B8',
-  line: 'rgba(15, 23, 42, 0.07)',
+  inkSecondary: '#334155',
+  inkMuted: '#64748B',
+  line: 'rgba(15, 23, 42, 0.08)',
 
-  bg: '#F7F7F5',
+  bg: '#F8FAFC',
   surface: '#FFFFFF',
   surfaceMuted: '#F1F5F9',
 
-  success: '#059669',
+  sky: '#0EA5E9',
+  skySoft: '#E0F2FE',
+  violet: '#8B5CF6',
+  violetSoft: '#EDE9FE',
+  success: '#10B981',
   successSoft: '#D1FAE5',
-  warning: '#B45309',
+  warning: '#F59E0B',
   warningSoft: '#FEF3C7',
-  danger: '#DC2626',
-  dangerSoft: '#FEE2E2',
+  danger: '#F43F5E',
+  dangerSoft: '#FFE4E6',
 } as const;
 
 export const DS_SPACE = {

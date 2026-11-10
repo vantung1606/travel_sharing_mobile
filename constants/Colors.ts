@@ -1,44 +1,54 @@
-// Wayfare Modern Wanderlust Design System (Airbnb x Arc Style)
+// Wayfare Modern Vibrant Travel Design System (Airbnb x Lemon8 Style)
 export const WF_COLORS = {
-  primary: '#E05A36',       // Vibrant Terracotta 600
-  primaryHover: '#C24422',  // Terracotta 700
-  primaryLight: '#FDF2EE',  // Terracotta 50
-  primarySoft: '#FAF7F4',   // Warm Pearl
-  secondary: '#475569',     // Slate Secondary
-  amber: '#D97706',         // Warm Amber
+  primary: '#FF5722',       // Vibrant Sunset Orange (Rực rỡ, năng động, tươi mới)
+  primaryHover: '#E64A19',  // Deep Sunset 700
+  primaryLight: '#FFF3E0',  // Warm Orange 50
+  primarySoft: '#FFF8F1',   // Warm Pearl Peach
+  secondary: '#334155',     // Slate Secondary
+  amber: '#F59E0B',         // Vibrant Warm Amber (Vàng nắng sao đánh giá)
   amberLight: '#FEF3C7',
-  rose: '#E11D48',          // Rose Red
+  rose: '#F43F5E',          // Vibrant Rose / Pink Coral (Hồng san hô tim yêu thích)
   roseLight: '#FFE4E6',
-  emerald: '#059669',       // Deep Emerald
+  emerald: '#10B981',       // Tropical Emerald Green (Xanh ngọc lục bảo thiên nhiên)
   emeraldLight: '#D1FAE5',
-  violet: '#7C3AED',        // Vibrant Violet
+  sky: '#0EA5E9',           // Ocean Sky Blue (Xanh biển biếc check-in)
+  skyLight: '#E0F2FE',
+  violet: '#8B5CF6',        // Vibrant AI Violet (Tím mộng mơ WanderAI)
   violetLight: '#EDE9FE',
-  slate900: '#0F172A',      // Crisp Deep Slate
+  slate900: '#0F172A',      // Crisp Deep Slate (Chữ đậm nét cao cấp)
   slate700: '#334155',      // Neutral Dark
   slate600: '#475569',      // Neutral Medium
   slate500: '#64748B',      // Neutral Muted
   slate400: '#94A3B8',      // Icon Slate
   slate200: '#E2E8F0',      // Soft Border
   slate100: '#F1F5F9',      // Light Pill
-  slate50: '#F8FAFC',       // Clean Canvas
+  slate50: '#F8FAFC',       // Crisp Canvas White
   white: '#FFFFFF',         // Pure White Card
 };
 
 // Modern Wanderlust Palette (Airy, Crisp, Clean & Tactile)
 export const WF_PAPER = {
-  bg: '#F8F9FA',                        // Nền canvas sáng sạch, hiện đại
+  bg: '#F8FAFC',                        // Nền canvas sáng sạch, hiện đại
   card: '#FFFFFF',                      // Thẻ card trắng tinh tế nổi bật
-  cardBorder: 'rgba(15, 23, 42, 0.06)', // Viền siêu mỏng tự nhiên
+  cardBorder: 'rgba(15, 23, 42, 0.08)', // Viền siêu mỏng tự nhiên
   inkPrimary: '#0F172A',                // Màu chữ chính đậm nét, dễ đọc
-  inkSecondary: '#475569',              // Màu chữ phụ trung tính
-  inkMuted: '#94A3B8',                  // Màu chữ mờ cho timestamp / meta
+  inkSecondary: '#334155',              // Màu chữ phụ trung tính sắc nét
+  inkMuted: '#64748B',                  // Màu chữ mờ cho timestamp / meta
   pillBg: '#F1F5F9',                    // Nền pill chip bo tròn
-  pillBorder: 'rgba(15, 23, 42, 0.05)',
-  clay: '#E05A36',                      // Đất nung Terracotta năng động
-  clayDark: '#C24422',
-  clayLight: '#FDF2EE',                 // Đất nung nhạt
-  sky: '#0284C7',                       // Xanh da trời Wayfare
+  pillBorder: 'rgba(15, 23, 42, 0.06)',
+  clay: '#FF5722',                      // Vibrant Sunset Orange năng động
+  clayDark: '#E64A19',
+  clayLight: '#FFF3E0',                 // Cam đào nhạt
+  sky: '#0EA5E9',                       // Xanh biển ngọc Wayfare
   skyLight: '#E0F2FE',
+  emerald: '#10B981',
+  emeraldLight: '#D1FAE5',
+  amber: '#F59E0B',
+  amberLight: '#FEF3C7',
+  rose: '#F43F5E',
+  roseLight: '#FFE4E6',
+  violet: '#8B5CF6',
+  violetLight: '#EDE9FE',
 };
 
 /** Bo góc hiện đại chuẩn mobile: card 18px-24px, button/pill dạng con nhộng (999px). */

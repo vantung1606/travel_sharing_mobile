@@ -211,14 +211,14 @@ export default function ProfileScreen() {
         setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
         showToast({
           kind: 'info',
-          title: 'Đã gỡ lưu',
+          title: 'Đã bỏ lưu',
           message: 'Đã gỡ bài viết khỏi danh sách Đã lưu.',
         });
       } else {
         showToast({
           kind: 'success',
           title: 'Đã lưu',
-          message: 'Đã ghim lưu bài viết vào danh sách Đã lưu của bạn.',
+          message: 'Đã lưu bài viết vào danh sách Đã lưu của bạn.',
         });
       }
     } catch (err: any) {
@@ -746,19 +746,21 @@ export default function ProfileScreen() {
 
           <View style={{ flex: 1 }} />
 
-          {/* Nút Ghim/Lưu (Bookmark) & Gỡ ghim */}
-          <TouchableOpacity
-            style={styles.postBookmarkBtn}
-            onPress={() => handleToggleBookmark(post.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityLabel={bookmarkedMap[post.id] || activeTab === 'saved' ? 'Bỏ lưu bài viết' : 'Lưu bài viết'}
-          >
-            <FontAwesome
-              name={bookmarkedMap[post.id] || activeTab === 'saved' ? 'bookmark' : 'bookmark-o'}
-              size={16}
-              color={bookmarkedMap[post.id] || activeTab === 'saved' ? '#F59E0B' : DS_COLOR.inkMuted}
-            />
-          </TouchableOpacity>
+          {/* Nút Gỡ lưu (chỉ hiển thị khi đang xem tab Bài viết Đã lưu) */}
+          {activeTab === 'saved' ? (
+            <TouchableOpacity
+              style={styles.postBookmarkBtn}
+              onPress={() => handleToggleBookmark(post.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Bỏ lưu bài viết"
+            >
+              <FontAwesome
+                name="bookmark"
+                size={16}
+                color="#F59E0B"
+              />
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             style={styles.postDetailLinkBtn}

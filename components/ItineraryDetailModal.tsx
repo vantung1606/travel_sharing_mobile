@@ -21,15 +21,6 @@ import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem, webItineraryUrl } from '@/src/services/api';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 
-const PACKING_CHECKLIST = [
-  { id: '1', label: 'Căn cước công dân / Hộ chiếu & Giấy tờ tùy thân' },
-  { id: '2', label: 'Vé máy bay / Vé tàu / Xác nhận phòng khách sạn' },
-  { id: '3', label: 'Sạc dự phòng, cáp sạc & gậy chụp ảnh selfie' },
-  { id: '4', label: 'Trang phục phù hợp thời tiết & đồ bơi/áo khoác' },
-  { id: '5', label: 'Túi thuốc cá nhân (hạ sốt, tiêu hóa, băng gạc)' },
-  { id: '6', label: 'Kem chống nắng, kính râm & nón rộng vành' },
-];
-
 export interface ItineraryDetailModalProps {
   visible: boolean;
   onClose: () => void;
@@ -48,7 +39,6 @@ export function ItineraryDetailModal({
   const [fullItin, setFullItin] = useState<ItineraryItem | null>(itinerary);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
-  const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
   const [togglingVisibility, setTogglingVisibility] = useState<boolean>(false);
 
   const handleToggleVisibility = async () => {
@@ -136,10 +126,6 @@ export function ItineraryDetailModal({
         message: 'Không thể mở hộp thoại chia sẻ.',
       });
     }
-  };
-
-  const toggleChecklist = (id: string) => {
-    setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const detailsList: ItineraryDetailItem[] = fullItin?.details || [];
@@ -786,33 +772,6 @@ export function ItineraryDetailModal({
                   )}
                 </>
               )}
-            </View>
-
-            {/* Checklist */}
-            <View style={styles.checklistSection}>
-              <Text style={styles.sectionTitle}>Hành Trang Chuẩn Bị</Text>
-              <View style={styles.checklistCard}>
-                {PACKING_CHECKLIST.map(item => {
-                  const isChecked = Boolean(checkedItems[item.id]);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.8}
-                      style={styles.checkRow}
-                      onPress={() => toggleChecklist(item.id)}>
-                      <FontAwesome
-                        name={isChecked ? 'check-square' : 'square-o'}
-                        size={17}
-                        color={isChecked ? '#B0522F' : '#8A7F70'}
-                        style={{ marginRight: 10 }}
-                      />
-                      <Text style={[styles.checkText, isChecked && styles.checkTextDone]}>
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
             </View>
           </ScrollView>
         )}
@@ -1489,33 +1448,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#5A5146',
     fontFamily: SERIF_FONT,
-  },
-  checklistSection: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  checklistCard: {
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E4DACB',
-    gap: 10,
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkText: {
-    fontSize: 12,
-    color: '#3B332A',
-    flex: 1,
-    lineHeight: 17,
-    fontFamily: SERIF_FONT,
-  },
-  checkTextDone: {
-    textDecorationLine: 'line-through',
-    color: '#8A7F70',
   },
   addFirstStopBtn: {
     flexDirection: 'row',

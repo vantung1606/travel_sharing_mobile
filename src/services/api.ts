@@ -319,6 +319,39 @@ export const authApi = {
     }
   },
 
+  async forgotPassword(email: string): Promise<{ email: string; expiresInSeconds?: number; emailSent?: boolean; devOtp?: string }> {
+    const res = await apiClient.post<ApiResponse<{ email: string; expiresInSeconds?: number; emailSent?: boolean; devOtp?: string }>>(
+      '/auth/forgot-password',
+      { email: email.trim().toLowerCase() }
+    );
+    if (res.data.success && res.data.data) {
+      return res.data.data;
+    }
+    throw new Error(res.data.message || 'Không thể gửi mã xác nhận OTP');
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<{ email: string; resetToken: string }> {
+    const res = await apiClient.post<ApiResponse<{ email: string; resetToken: string }>>('/auth/verify-otp', {
+      email: email.trim().toLowerCase(),
+      otp: otp.trim(),
+    });
+    if (res.data.success && res.data.data) {
+      return res.data.data;
+    }
+    throw new Error(res.data.message || 'Mã OTP không hợp lệ hoặc đã hết hạn');
+  },
+
+  async resetPassword(email: string, resetToken: string, newPassword: string): Promise<void> {
+    const res = await apiClient.post<ApiResponse<void>>('/auth/reset-password', {
+      email: email.trim().toLowerCase(),
+      resetToken: resetToken.trim(),
+      newPassword: newPassword.trim(),
+    });
+    if (!res.data.success) {
+      throw new Error(res.data.message || 'Không thể đặt lại mật khẩu');
+    }
+  },
+
   async changePassword(currentPassword: string, newPassword: string, confirmPassword?: string): Promise<void> {
     const res = await apiClient.post<ApiResponse<void>>('/users/change-password', {
       currentPassword,

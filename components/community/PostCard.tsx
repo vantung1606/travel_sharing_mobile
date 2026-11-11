@@ -107,16 +107,14 @@ export function PostCard({
 
         <View style={styles.headerInfo}>
           <View style={styles.nameRow}>
-            <TouchableOpacity activeOpacity={0.7} onPress={onPressAuthor} style={{ flexShrink: 1 }}>
+            <TouchableOpacity activeOpacity={0.7} onPress={onPressAuthor} style={styles.authorBtn}>
               <Text style={styles.authorName} numberOfLines={1}>
                 {post.authorName || 'Thành viên Wayfare'}
               </Text>
             </TouchableOpacity>
 
-            {authorTier.name ? (
-              <View style={[styles.authorTierPill, { backgroundColor: authorTier.badgeBg || '#F1F5F9' }]}>
-                <Text style={styles.authorTierText}>{authorTier.icon} {authorTier.name}</Text>
-              </View>
+            {authorTier.icon ? (
+              <Text style={styles.tierIconText}>{authorTier.icon}</Text>
             ) : null}
 
             {post.sharedPost ? (
@@ -157,6 +155,14 @@ export function PostCard({
                     {locationText}
                   </Text>
                 </TouchableOpacity>
+              </>
+            ) : null}
+            {authorTier.name ? (
+              <>
+                <Text style={styles.metaDot}>·</Text>
+                <View style={[styles.authorTierPill, { backgroundColor: authorTier.badgeBg || '#F1F5F9' }]}>
+                  <Text style={styles.authorTierText} numberOfLines={1}>{authorTier.name}</Text>
+                </View>
               </>
             ) : null}
             {isPrivate ? (
@@ -399,12 +405,18 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
+  },
+  authorBtn: {
+    flexShrink: 1,
   },
   authorName: {
     fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  tierIconText: {
+    fontSize: 13,
   },
   youTag: {
     fontSize: 11.5,
@@ -422,6 +434,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 4,
     marginTop: 2,
   },

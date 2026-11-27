@@ -46,6 +46,7 @@ import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 import { UserProfileModal } from './UserProfileModal';
 import { NewChatSheet } from './chat/NewChatSheet';
+import { CreateGroupSheet, ManageGroupSheet } from './chat/GroupChatSheets';
 import { ConfirmHost, confirmDialog } from './ConfirmDialog';
 import { ToastHost, showToast } from './Toast';
 
@@ -180,7 +181,7 @@ function senderKey(message: ChatMessage): string {
 }
 
 function messagePreview(message: ChatMessage): string {
-  switch (message.messageType) {
+  switch (message.messageType as string) {
     case 'IMAGE':
       return 'Đã gửi một ảnh';
     case 'VIDEO':
@@ -194,6 +195,13 @@ function messagePreview(message: ChatMessage): string {
       return 'Đã chia sẻ một lịch trình';
     case 'LOCATION':
       return 'Đã chia sẻ vị trí';
+    case 'AI_RICH': {
+      try {
+        const parsed = JSON.parse(message.content || '{}');
+        if (parsed?.reply) return String(parsed.reply);
+      } catch {}
+      return message.content;
+    }
     default:
       return message.content;
   }
@@ -202,6 +210,15 @@ function messagePreview(message: ChatMessage): string {
 function normalizeIncomingMessage(raw: any, myId: number | null, myEmail?: string | null): ChatMessage {
   const createdAt = raw?.createdAt || '';
   const parsed = parseDateSafe(createdAt);
+  let normalizedContent = raw?.content ?? '';
+  if (raw?.messageType === 'AI_RICH' && typeof normalizedContent === 'string') {
+    try {
+      const aiObj = JSON.parse(normalizedContent);
+      if (aiObj?.reply) {
+        normalizedContent = String(aiObj.reply);
+      }
+    } catch {}
+  }
   const isMatchId = myId != null && raw?.senderId != null && Number(raw.senderId) === myId;
   const isMatchEmail = Boolean(myEmail) && Boolean(raw?.senderEmail) &&
     String(raw.senderEmail).toLowerCase().trim() === String(myEmail).toLowerCase().trim();
@@ -214,8 +231,8 @@ function normalizeIncomingMessage(raw: any, myId: number | null, myEmail?: strin
     senderName: raw?.senderName,
     senderHandle: raw?.senderHandle,
     senderAvatar: raw?.senderAvatar,
-    content: raw?.content ?? '',
-    messageType: raw?.messageType || 'TEXT',
+    content: normalizedContent,
+    messageType: (raw?.messageType === 'AI_RICH' ? 'TEXT' : raw?.messageType || 'TEXT') as ChatMessageType,
     createdAt: createdAt || undefined,
     time: raw?.time || (parsed ? formatClock(parsed) : formatClock(new Date())),
     isMe:
@@ -488,6 +505,8 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
   >('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isManageGroupOpen, setIsManageGroupOpen] = useState(false);
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedItinForModal, setSelectedItinForModal] = useState<ItineraryItem | null>(null);
@@ -1090,6 +1109,17 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
         : sortRooms([room, ...prev])
     );
     handleSelectRoom(room);
+  };
+
+  const handleGroupRoomChanged = (room: ChatRoom | null) => {
+    if (!room) {
+      setActiveRoom(null);
+      setMessages([]);
+      void loadRooms();
+      return;
+    }
+    setActiveRoom(room);
+    setRooms((prev) => prev.map((item) => String(item.id) === String(room.id) ? room : item));
   };
 
   // ── Sending ───────────────────────────────────────────────
@@ -1837,11 +1867,11 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
 
               <TouchableOpacity
                 style={styles.threadHeaderCenter}
-                activeOpacity={activeRoom.type === 'DIRECT' ? 0.7 : 1}
-                disabled={activeRoom.type !== 'DIRECT'}
-                onPress={handleOpenPartnerProfile}
-                accessibilityRole={activeRoom.type === 'DIRECT' ? 'button' : undefined}
-                accessibilityLabel={activeRoom.type === 'DIRECT' ? `Xem trang cá nhân của ${activeRoom.name}` : undefined}>
+                activeOpacity={activeRoom.type === 'AI' ? 1 : 0.7}
+                disabled={activeRoom.type === 'AI'}
+                onPress={() => activeRoom.type === 'DIRECT' ? handleOpenPartnerProfile() : setIsManageGroupOpen(true)}
+                accessibilityRole={activeRoom.type === 'AI' ? undefined : 'button'}
+                accessibilityLabel={activeRoom.type === 'DIRECT' ? `Xem trang cá nhân của ${activeRoom.name}` : `Quản lý thành viên nhóm ${activeRoom.name}`}>
                 <View style={styles.threadAvatarWrap}>
                   <Image
                     source={{ uri: activeRoom.avatarUrl || FALLBACK_AVATAR }}
@@ -1903,6 +1933,15 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
                 accessibilityRole="button"
                 accessibilityLabel="Bắt đầu cuộc trò chuyện mới">
                 <FontAwesome name="pencil" size={15} color={WF_COLORS.white} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.headerIconBtn, { marginLeft: 8 }]}
+                activeOpacity={0.8}
+                onPress={() => setIsCreateGroupOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Tạo nhóm trò chuyện">
+                <FontAwesome name="users" size={15} color={WF_COLORS.slate700} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2289,6 +2328,18 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
           visible={isNewChatOpen}
           onClose={() => setIsNewChatOpen(false)}
           onSelectRoom={handleCreatedRoom}
+        />
+
+        <CreateGroupSheet
+          visible={isCreateGroupOpen}
+          onClose={() => setIsCreateGroupOpen(false)}
+          onCreated={handleCreatedRoom}
+        />
+        <ManageGroupSheet
+          visible={isManageGroupOpen}
+          room={activeRoom && (activeRoom.type === 'GROUP' || activeRoom.type === 'ITINERARY') ? activeRoom : null}
+          onClose={() => setIsManageGroupOpen(false)}
+          onRoomChanged={handleGroupRoomChanged}
         />
 
         {/* Full-screen image preview */}

@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, TextInput } from '@/components/Themed';
 import { showToast } from '@/components/Toast';
-import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { reportApi, uploadApi } from '@/src/services/api';
 
@@ -79,27 +79,13 @@ export function UniversalReportModal({
   const insets = useSafeAreaInsets();
   const options = CATEGORY_OPTIONS[targetType] || CATEGORY_OPTIONS.PLACE;
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(options[0]);
-  const [customReason, setCustomReason] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [evidenceImage, setEvidenceImage] = useState<string>('');
+  const [form, setForm] = useState({ category: '', reason: '', description: '', evidenceImage: '' });
+  const { category: selectedCategory, reason, description, evidenceImage } = form;
   const [uploadingImage, setUploadingImage] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  React.useEffect(() => {
-    if (visible) {
-      setSelectedCategory(options[0]);
-      setCustomReason('');
-      setDescription('');
-      setEvidenceImage('');
-    }
-  }, [visible, targetType]);
-
   const resetForm = () => {
-    setSelectedCategory(options[0]);
-    setCustomReason('');
-    setDescription('');
-    setEvidenceImage('');
+    setForm({ category: '', reason: '', description: '', evidenceImage: '' });
   };
 
   const handlePickEvidence = async () => {
@@ -124,7 +110,7 @@ export function UniversalReportModal({
       setUploadingImage(true);
       const url = await uploadApi.uploadSingle(asset.uri, asset.fileName || 'evidence.jpg');
       if (url) {
-        setEvidenceImage(url);
+        setForm((current) => ({ ...current, evidenceImage: url }));
         showToast({
           kind: 'success',
           title: 'Đã tải ảnh bằng chứng',
@@ -152,8 +138,7 @@ export function UniversalReportModal({
       });
       return;
     }
-    const finalReason = selectedCategory === 'Khác' ? customReason.trim() : selectedCategory;
-    if (!finalReason) {
+    if (!reason.trim()) {
       showToast({
         kind: 'error',
         title: 'Thiếu lý do cụ thể',
@@ -168,7 +153,7 @@ export function UniversalReportModal({
         targetType,
         targetId,
         category: selectedCategory,
-        reason: finalReason,
+        reason: reason.trim(),
         description: description.trim() || undefined,
         evidenceImageUrl: evidenceImage || undefined,
       });
@@ -230,7 +215,7 @@ export function UniversalReportModal({
                     <TouchableOpacity
                       key={item}
                       style={[styles.categoryItem, selected && styles.categoryItemActive]}
-                      onPress={() => setSelectedCategory(item)}
+                      onPress={() => setForm((current) => ({ ...current, category: item }))}
                       activeOpacity={0.75}>
                       <View style={[styles.iconCircle, selected && styles.iconCircleActive]}>
                         <FontAwesome
@@ -252,37 +237,34 @@ export function UniversalReportModal({
                 })}
               </View>
 
-              {selectedCategory === 'Khác' ? (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={styles.label}>
-                    Lý do cụ thể <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Mô tả cụ thể hành vi vi phạm..."
-                    placeholderTextColor={WF_PAPER.inkMuted}
-                    value={customReason}
-                    onChangeText={setCustomReason}
-                  />
-                </View>
-              ) : null}
+              <Text style={styles.label}>
+                Lý do báo cáo chính <Text style={{ color: '#EF4444' }}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nêu ngắn gọn lý do bạn báo cáo..."
+                placeholderTextColor={WF_PAPER.inkMuted}
+                value={reason}
+                onChangeText={(value) => setForm((current) => ({ ...current, reason: value }))}
+                accessibilityLabel="Lý do báo cáo chính, bắt buộc"
+              />
 
-              <Text style={styles.label}>2. Chi tiết vi phạm (không bắt buộc)</Text>
+              <Text style={styles.label}>3. Chi tiết vi phạm (không bắt buộc)</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Mô tả cụ thể hành vi vi phạm hoặc cung cấp thêm thông tin cho quản trị viên..."
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={description}
-                onChangeText={setDescription}
+                onChangeText={(value) => setForm((current) => ({ ...current, description: value }))}
                 multiline
                 numberOfLines={3}
               />
 
-              <Text style={styles.label}>3. Ảnh chụp màn hình bằng chứng (Cloud CDN)</Text>
+              <Text style={styles.label}>4. Ảnh chụp màn hình bằng chứng (Cloud CDN)</Text>
               {evidenceImage ? (
                 <View style={styles.evidenceWrap}>
                   <Image source={{ uri: evidenceImage }} style={styles.evidenceImage} resizeMode="cover" />
-                  <TouchableOpacity style={styles.removeEvidenceBtn} onPress={() => setEvidenceImage('')}>
+                  <TouchableOpacity style={styles.removeEvidenceBtn} onPress={() => setForm((current) => ({ ...current, evidenceImage: '' }))}>
                     <FontAwesome name="times" size={11} color="#FFF" />
                   </TouchableOpacity>
                 </View>

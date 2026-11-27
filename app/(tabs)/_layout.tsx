@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs, useNavigation, useRouter } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Animated, AppState, DeviceEventEmitter, Image, View, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { NotificationModal } from '@/components/NotificationModal';
 import { showToast } from '@/components/Toast';
 import { WelcomeAuthModal } from '@/components/WelcomeAuthModal';
 import { authStorage, UserSession } from '@/src/services/authStorage';
-import { authPrompt } from '@/src/services/authPrompt';
+import { authPrompt, type AuthEntryMode } from '@/src/services/authPrompt';
 import { notificationApi, chatApi, mapChatRoom } from '@/src/services/api';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 import { tabBarVisibility } from '@/src/services/tabBarVisibility';
@@ -54,7 +54,7 @@ const TAB_DEFINITIONS: Record<string, { label: string; icon: any; activeIcon?: a
 
 function CustomAnimatedTabBar({ state, descriptors, navigation, insets, currentUser, isSmallScreen }: any) {
   const router = useRouter();
-  const animY = React.useRef(new Animated.Value(0)).current;
+  const [animY] = useState(() => new Animated.Value(0));
   const isVisibleRef = React.useRef(true);
 
   React.useEffect(() => {
@@ -182,7 +182,13 @@ export default function TabLayout() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authEntryMode, setAuthEntryMode] = useState<AuthEntryMode>('login');
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
+
+  const openAuth = useCallback((mode: AuthEntryMode = 'login') => {
+    setAuthEntryMode(mode);
+    setIsAuthOpen(true);
+  }, []);
 
   const prevNotifCountRef = React.useRef(0);
   const recentNotifKeysRef = React.useRef(new Set<string>());
@@ -216,8 +222,8 @@ export default function TabLayout() {
   useEffect(() => {
     authStorage.getSession().then((session) => {
       setCurrentUser(session);
-      if (!session) {
-        setIsAuthOpen(true);
+      if (!session?.token) {
+        openAuth();
       } else {
         refreshUnreadCount();
         refreshUnreadChatCount();
@@ -237,7 +243,7 @@ export default function TabLayout() {
         setIsChatOpen(false);
         setIsNotificationOpen(false);
         setUnreadNotifCount(0);
-        setIsAuthOpen(true);
+        openAuth();
         router.replace('/(tabs)/community');
       }
     });
@@ -246,7 +252,7 @@ export default function TabLayout() {
       setCurrentUser(null);
       setIsChatOpen(false);
       setIsNotificationOpen(false);
-      setIsAuthOpen(true);
+      openAuth();
       // Chờ modal đăng nhập mở xong rồi mới báo, để thông báo hiện đúng
       // bên trong modal thay vì bị lớp phủ che mất.
       setTimeout(() => {
@@ -262,10 +268,10 @@ export default function TabLayout() {
 
     // Màn hình nào cần người dùng đăng nhập (thêm địa điểm vào lịch trình, thả
     // tim...) thì gọi authPrompt.open() để mở thẳng form đăng nhập toàn màn hình.
-    const unsubscribePrompt = authPrompt.subscribe(() => {
+    const unsubscribePrompt = authPrompt.subscribe((mode) => {
       setIsChatOpen(false);
       setIsNotificationOpen(false);
-      setIsAuthOpen(true);
+      openAuth(mode);
     });
 
     const subChatOpen = DeviceEventEmitter.addListener('wayfare_open_chat', (data: { userId?: number; roomId?: string | number }) => {
@@ -280,7 +286,7 @@ export default function TabLayout() {
       unsubscribePrompt();
       subChatOpen.remove();
     };
-  }, [refreshUnreadCount]);
+  }, [openAuth, refreshUnreadCount, refreshUnreadChatCount, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -461,7 +467,7 @@ export default function TabLayout() {
                     if (currentUser) {
                       setIsNotificationOpen(true);
                     } else {
-                      setIsAuthOpen(true);
+                      openAuth();
                     }
                   }}
                   style={[styles.headerCircleBtn, isSmallScreen && { width: 36, height: 36, borderRadius: 18 }]}
@@ -480,15 +486,7 @@ export default function TabLayout() {
             </View>
           ),
         }}>
-        {/* 1. Trang chủ (Ẩn khỏi thanh Tab bar theo yêu cầu người dùng) */}
-        <Tabs.Screen
-          name="index"
-          options={{
-            href: null,
-          }}
-        />
-
-        {/* 2. CỘNG ĐỒNG (Tab Đầu Tiên khi vào App giống Facebook) */}
+        {/* CỘNG ĐỒNG */}
         <Tabs.Screen
           name="community"
           options={{
@@ -571,6 +569,7 @@ export default function TabLayout() {
       {/* Màn hình Xác thực Chào mừng / Đăng nhập VIP (Google & Email) */}
       <WelcomeAuthModal
         visible={isAuthOpen}
+        initialMode={authEntryMode}
         onLoginSuccess={(sess, mode) => {
           setCurrentUser(sess);
           setIsAuthOpen(false);

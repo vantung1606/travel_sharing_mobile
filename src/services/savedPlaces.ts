@@ -1,77 +1,91 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STORAGE_KEY = 'wayfare_mobile_saved_places';
+import { PlaceItem, savedPlaceApi } from './api';
+import { authStorage } from './authStorage';
 
 type Listener = (ids: number[]) => void;
 const listeners = new Set<Listener>();
-let cache: number[] | null = null;
+let accountToken: string | null = null;
+let accountVersion = 0;
+let revision = 0;
+let loadVersion = 0;
+let ids: number[] = [];
+let hydrated = false;
+const pending = new Map<string, Promise<boolean>>();
 
-function emit(ids: number[]) {
-  cache = ids;
-  listeners.forEach((cb) => {
-    try {
-      cb(ids);
-    } catch (e) {
-      console.warn('savedPlaces listener error', e);
-    }
+function publish(next: number[]) {
+  ids = [...new Set(next)];
+  listeners.forEach(listener => {
+    try { listener([...ids]); }
+    catch (error) { console.warn('Saved places listener failed', error); }
   });
 }
 
-/**
- * Danh sách địa điểm người dùng đánh dấu "muốn đi", lưu bền ngay trên thiết bị
- * (chưa cần backend). Nhờ vậy nút trái tim ở tab Địa điểm là thật: bấm lưu rồi
- * mở lại app vẫn còn.
- */
+function setAccount(token: string | null) {
+  if (token === accountToken) return;
+  accountToken = token;
+  accountVersion += 1;
+  revision += 1;
+  loadVersion += 1;
+  hydrated = false;
+  publish([]);
+}
+
+// Session changes immediately discard the previous account's cached IDs.
+authStorage.subscribe(session => setAccount(session?.token || null));
+
+async function getItems(): Promise<PlaceItem[]> {
+  const session = await authStorage.getSession();
+  setAccount(session?.token || null);
+  if (!accountToken) return [];
+  const version = accountVersion;
+  const request = ++loadVersion;
+  const before = revision;
+  const items = await savedPlaceApi.getSavedPlaceItems();
+  if (version !== accountVersion) return [];
+  if (request === loadVersion && before === revision) {
+    hydrated = true;
+    publish(items.map(item => item.id));
+  }
+  return before === revision ? items : items.filter(item => ids.includes(item.id));
+}
+
+async function mutate(id: number, desired?: boolean): Promise<boolean> {
+  const session = await authStorage.getSession();
+  setAccount(session?.token || null);
+  if (!accountToken) throw new Error('Vui lòng đăng nhập để lưu địa điểm.');
+  const version = accountVersion;
+  const key = version + ':' + id;
+  const existing = pending.get(key);
+  if (existing) return existing;
+  const operation = (async () => {
+    if (!hydrated) await getItems();
+    if (version !== accountVersion) throw new Error('Tài khoản đã thay đổi. Vui lòng thử lại.');
+    const nextSaved = desired ?? !ids.includes(id);
+    revision += 1;
+    if (nextSaved) await savedPlaceApi.addSavedPlace(id);
+    else await savedPlaceApi.removeSavedPlace(id);
+    if (version === accountVersion) {
+      revision += 1;
+      publish(nextSaved ? [...ids, id] : ids.filter(value => value !== id));
+    }
+    return nextSaved;
+  })();
+  pending.set(key, operation);
+  try { return await operation; }
+  finally { pending.delete(key); }
+}
+
+/** Shared cache reflects successful server responses only; MySQL owns saved data. */
 export const savedPlaces = {
+  getItems,
   async getAll(): Promise<number[]> {
-    if (cache) return cache;
-    try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      const ids: number[] = Array.isArray(parsed) ? parsed.filter((n) => typeof n === 'number') : [];
-      cache = ids;
-      return ids;
-    } catch (e) {
-      console.warn('Could not read saved places', e);
-      return [];
-    }
+    await getItems();
+    return [...ids];
   },
-
-  /** Bật/tắt lưu, trả về trạng thái mới (true = đã lưu). */
-  async toggle(id: number): Promise<boolean> {
-    const current = await savedPlaces.getAll();
-    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
-    emit(next);
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch (e) {
-      console.warn('Could not persist saved places', e);
-    }
-    return next.includes(id);
-  },
-
-  /**
-   * Hợp nhất danh sách từ SERVER (bảng saved_places) với danh sách local
-   * theo phép UNION — địa điểm đã lưu từ web/thiết bị khác cũng xuất hiện,
-   * những gì đã lưu offline trên máy này không bị mất.
-   */
-  async merge(ids: number[]): Promise<number[]> {
-    const current = await savedPlaces.getAll();
-    const next = [...current, ...ids.filter((n) => typeof n === 'number' && !current.includes(n))];
-    if (next.length === current.length) return next;
-    emit(next);
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch (e) {
-      console.warn('Could not persist merged saved places', e);
-    }
-    return next;
-  },
-
-  subscribe(cb: Listener): () => void {
-    listeners.add(cb);
-    return () => {
-      listeners.delete(cb);
-    };
+  toggle(id: number): Promise<boolean> { return mutate(id); },
+  async remove(id: number): Promise<void> { await mutate(id, false); },
+  subscribe(listener: Listener): () => void {
+    listeners.add(listener);
+    listener([...ids]);
+    return () => { listeners.delete(listener); };
   },
 };

@@ -1,4 +1,6 @@
-type Listener = () => void;
+export type AuthEntryMode = 'login' | 'register';
+
+type Listener = (mode: AuthEntryMode) => void;
 const listeners = new Set<Listener>();
 
 /**
@@ -7,10 +9,10 @@ const listeners = new Set<Listener>();
  * tìm chỗ đăng nhập.
  */
 export const authPrompt = {
-  open(): void {
+  open(mode: AuthEntryMode = 'login'): void {
     listeners.forEach((cb) => {
       try {
-        cb();
+        cb(mode);
       } catch (e) {
         console.warn('authPrompt listener error', e);
       }

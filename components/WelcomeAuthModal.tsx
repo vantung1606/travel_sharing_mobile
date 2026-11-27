@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,41 +9,64 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  TextInput as NativeTextInput,
+  useWindowDimensions,
 } from 'react-native';
+import { isAxiosError } from 'axios';
 import { Text, TextInput } from '@/components/Themed';
-import { SERIF_FONT } from '@/constants/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
-import { WF_COLORS } from '@/constants/Colors';
+import { WF_COLORS, WF_RADIUS } from '@/constants/Colors';
 import { ToastHost, showToast } from '@/components/Toast';
 import { authApi } from '@/src/services/api';
 import { UserSession } from '@/src/services/authStorage';
+import type { AuthEntryMode } from '@/src/services/authPrompt';
 import { startGoogleSignIn } from '@/src/services/googleAuth';
 
 interface WelcomeAuthModalProps {
   visible: boolean;
+  initialMode?: AuthEntryMode;
   onLoginSuccess: (session: UserSession, mode: 'login' | 'register' | 'google') => void;
   onContinueAsGuest?: () => void;
 }
 
-export type AuthMode = 'login' | 'register' | 'forgot_email' | 'forgot_otp' | 'forgot_password';
+export type AuthMode = AuthEntryMode | 'forgot_email' | 'forgot_otp' | 'forgot_password';
+
+// Sky 700 keeps the web authentication palette readable on white.
+const AUTH_ACCENT = '#0369A1';
+
+const isValidEmail = (value: string) => value.length <= 100 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+function authErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message || (error.response ? fallback : 'Không thể kết nối máy chủ. Vui lòng kiểm tra mạng và thử lại.');
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function WelcomeAuthModal({
   visible,
+  initialMode = 'login',
   onLoginSuccess,
   onContinueAsGuest,
 }: WelcomeAuthModalProps) {
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<AuthMode>('login');
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
+  const requestInFlight = useRef(false);
+  const emailInputRef = useRef<React.ComponentRef<typeof NativeTextInput>>(null);
+  const passwordInputRef = useRef<React.ComponentRef<typeof NativeTextInput>>(null);
+  const confirmPasswordInputRef = useRef<React.ComponentRef<typeof NativeTextInput>>(null);
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+  const isBusy = loading || googleLoading;
   const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | 'forgotEmail' | 'otp' | 'newPassword' | 'confirmPassword' | null>(null);
 
   // Forgot Password States
@@ -56,18 +79,19 @@ export function WelcomeAuthModal({
   const [countdown, setCountdown] = useState<number>(0);
 
   useEffect(() => {
-    let timer: any;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     if (countdown > 0) {
       timer = setTimeout(() => setCountdown(countdown - 1), 1000);
     }
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Mỗi lần mở lại form (sau khi đăng xuất hoặc bấm từ header) luôn trả về
-  // đúng trạng thái ban đầu: tab Đăng nhập, ô nhập trống, mật khẩu đang ẩn.
+  // Mỗi lần mở lại form, chọn đúng tab được yêu cầu và xóa thông tin lần trước.
   useEffect(() => {
     if (!visible) return;
-    setMode('login');
+    // Reset the authentication form when this full-screen modal is opened.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMode(initialMode);
     setFullName('');
     setEmail('');
     setPassword('');
@@ -77,26 +101,65 @@ export function WelcomeAuthModal({
     setNewPassword('');
     setConfirmPassword('');
     setShowPassword(false);
+    setRememberMe(true);
     setShowNewPassword(false);
     setFocusedField(null);
     setLoading(false);
     setGoogleLoading(false);
     setCountdown(0);
-  }, [visible]);
+  }, [visible, initialMode]);
+
+  const clearRecoveryForm = () => {
+    setOtpCode('');
+    setResetToken('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPassword(false);
+    setCountdown(0);
+    setFocusedField(null);
+  };
+
+  const returnToLogin = () => {
+    if (requestInFlight.current) return;
+    clearRecoveryForm();
+    setMode('login');
+    setShowPassword(false);
+  };
+
+  const openPasswordRecovery = () => {
+    if (requestInFlight.current) return;
+    clearRecoveryForm();
+    setForgotEmail(isValidEmail(email.trim()) ? email.trim() : '');
+    setMode('forgot_email');
+  };
+
+  const handleRequestClose = () => {
+    if (requestInFlight.current) return;
+    if (mode.startsWith('forgot_')) {
+      returnToLogin();
+    } else {
+      onContinueAsGuest?.();
+    }
+  };
 
   const handleSendOtp = async () => {
-    if (!forgotEmail.trim()) {
+    if (requestInFlight.current || (mode !== 'forgot_email' && mode !== 'forgot_otp')) return;
+    if (mode === 'forgot_otp' && countdown > 0) return;
+    const normalizedEmail = forgotEmail.trim();
+    if (!isValidEmail(normalizedEmail)) {
       showToast({
         kind: 'error',
-        title: 'Thiếu email',
-        message: 'Vui lòng nhập địa chỉ email tài khoản của bạn.',
+        title: 'Email chưa hợp lệ',
+        message: 'Vui lòng nhập email tài khoản đúng định dạng, tối đa 100 ký tự.',
       });
       return;
     }
+    requestInFlight.current = true;
     setLoading(true);
     try {
-      const res = await authApi.forgotPassword(forgotEmail.trim());
-      setLoading(false);
+      await authApi.forgotPassword(normalizedEmail);
+      clearRecoveryForm();
+      setForgotEmail(normalizedEmail);
       setMode('forgot_otp');
       setCountdown(60);
       showToast({
@@ -104,18 +167,21 @@ export function WelcomeAuthModal({
         title: 'Đã gửi mã xác thực',
         message: 'Mã OTP 6 số đã được gửi về hộp thư email của bạn (vui lòng kiểm tra cả mục Spam).',
       });
-    } catch (err: any) {
-      setLoading(false);
+    } catch (err: unknown) {
       showToast({
         kind: 'error',
         title: 'Gửi mã thất bại',
-        message: err?.message || 'Không thể gửi mã xác nhận. Vui lòng kiểm tra lại email.',
+        message: authErrorMessage(err, 'Không thể gửi mã xác nhận. Vui lòng kiểm tra lại email.'),
       });
+    } finally {
+      requestInFlight.current = false;
+      setLoading(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpCode.trim() || otpCode.trim().length !== 6) {
+    if (requestInFlight.current || mode !== 'forgot_otp') return;
+    if (!/^\d{6}$/.test(otpCode)) {
       showToast({
         kind: 'error',
         title: 'Mã OTP chưa đủ',
@@ -123,10 +189,13 @@ export function WelcomeAuthModal({
       });
       return;
     }
+    requestInFlight.current = true;
     setLoading(true);
     try {
       const res = await authApi.verifyOtp(forgotEmail.trim(), otpCode.trim());
-      setLoading(false);
+      if (!res.resetToken?.trim()) {
+        throw new Error('Chưa nhận được mã đặt lại mật khẩu. Vui lòng xác thực OTP lại.');
+      }
       setResetToken(res.resetToken);
       setMode('forgot_password');
       showToast({
@@ -134,23 +203,36 @@ export function WelcomeAuthModal({
         title: 'Xác thực thành công',
         message: 'Mã OTP chính xác. Vui lòng tạo mật khẩu mới.',
       });
-    } catch (err: any) {
-      setLoading(false);
+    } catch (err: unknown) {
       showToast({
         kind: 'error',
         title: 'Xác thực thất bại',
-        message: err?.message || 'Mã OTP không chính xác hoặc đã hết hạn.',
+        message: authErrorMessage(err, 'Mã OTP không chính xác hoặc đã hết hạn.'),
       });
+    } finally {
+      requestInFlight.current = false;
+      setLoading(false);
     }
   };
 
   const handleResetPassword = async () => {
-    if (newPassword.length < 6) {
+    if (requestInFlight.current || mode !== 'forgot_password') return;
+    if (!resetToken.trim()) {
+      returnToLogin();
+      showToast({ kind: 'error', title: 'Thiếu mã xác thực', message: 'Vui lòng thực hiện lại bước quên mật khẩu.' });
+      return;
+    }
+    if (newPassword.trim().length < 6) {
       showToast({
         kind: 'error',
         title: 'Mật khẩu quá ngắn',
         message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.',
       });
+      return;
+    }
+    // The reset-password endpoint trims passwords before storing them.
+    if (newPassword !== newPassword.trim()) {
+      showToast({ kind: 'error', title: 'Mật khẩu chưa hợp lệ', message: 'Mật khẩu mới không được bắt đầu hoặc kết thúc bằng khoảng trắng.' });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -161,10 +243,10 @@ export function WelcomeAuthModal({
       });
       return;
     }
+    requestInFlight.current = true;
     setLoading(true);
     try {
       await authApi.resetPassword(forgotEmail.trim(), resetToken, newPassword);
-      setLoading(false);
       showToast({
         kind: 'success',
         title: 'Đổi mật khẩu thành công',
@@ -173,23 +255,33 @@ export function WelcomeAuthModal({
       setMode('login');
       setEmail(forgotEmail);
       setPassword('');
-    } catch (err: any) {
-      setLoading(false);
+      setShowPassword(false);
+      clearRecoveryForm();
+    } catch (err: unknown) {
       showToast({
         kind: 'error',
         title: 'Thất bại',
-        message: err?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.',
+        message: authErrorMessage(err, 'Không thể đặt lại mật khẩu. Vui lòng thử lại.'),
       });
+    } finally {
+      requestInFlight.current = false;
+      setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) {
+    if (requestInFlight.current || (mode !== 'login' && mode !== 'register')) return;
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password.trim()) {
       showToast({
         kind: 'error',
         title: 'Thiếu thông tin',
         message: 'Vui lòng nhập đầy đủ Email và Mật khẩu.',
       });
+      return;
+    }
+    if (normalizedEmail.length > 100 || (mode === 'register' && !isValidEmail(normalizedEmail))) {
+      showToast({ kind: 'error', title: mode === 'register' ? 'Email chưa hợp lệ' : 'Tên đăng nhập quá dài', message: mode === 'register' ? 'Nhập địa chỉ email đúng định dạng, tối đa 100 ký tự.' : 'Tên đăng nhập tối đa 100 ký tự.' });
       return;
     }
     if (mode === 'register' && !fullName.trim()) {
@@ -200,66 +292,68 @@ export function WelcomeAuthModal({
       });
       return;
     }
+    if (mode === 'register' && (fullName.trim().length < 2 || fullName.trim().length > 100)) {
+      showToast({ kind: 'error', title: 'Họ tên chưa hợp lệ', message: 'Họ tên cần từ 2 đến 100 ký tự.' });
+      return;
+    }
+    if (mode === 'register' && (password.length < 6 || password.length > 100)) {
+      showToast({ kind: 'error', title: 'Mật khẩu chưa hợp lệ', message: 'Mật khẩu cần từ 6 đến 100 ký tự.' });
+      return;
+    }
 
+    requestInFlight.current = true;
     setLoading(true);
     try {
       if (mode === 'login') {
-        const session = await authApi.login(email.trim(), password.trim());
+        const session = await authApi.login(normalizedEmail, password);
         onLoginSuccess(session, 'login');
       } else {
-        const session = await authApi.register(fullName.trim(), email.trim(), password.trim());
+        const session = await authApi.register(fullName.trim(), normalizedEmail, password);
         onLoginSuccess(session, 'register');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       showToast({
         kind: 'error',
-        title: 'Đăng nhập thất bại',
-        message:
-          err.response?.data?.message ||
-          err.message ||
-          'Email hoặc mật khẩu không chính xác.',
+        title: mode === 'register' ? 'Đăng ký thất bại' : 'Đăng nhập thất bại',
+        message: authErrorMessage(err, mode === 'register' ? 'Không thể tạo tài khoản. Vui lòng thử lại.' : 'Email hoặc mật khẩu không chính xác.'),
         duration: 4200,
       });
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setGoogleLoading(true);
     try {
       const user = await startGoogleSignIn();
       if (user) {
         onLoginSuccess(user, 'google');
-        showToast({
-          kind: 'success',
-          title: 'Đăng nhập Google thành công',
-          message: `Chào mừng ${user.fullName || user.email}!`,
-        });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       showToast({
         kind: 'error',
         title: 'Đăng nhập Google thất bại',
-        message:
-          err.response?.data?.message ||
-          err.message ||
-          'Xác thực tài khoản Google không thành công.',
+        message: authErrorMessage(err, 'Xác thực tài khoản Google không thành công.'),
         duration: 4200,
       });
     } finally {
+      requestInFlight.current = false;
       setGoogleLoading(false);
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleRequestClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           style={styles.container}
-          contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[styles.content, { paddingHorizontal: isSmallScreen ? 12 : 20, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           
@@ -270,37 +364,48 @@ export function WelcomeAuthModal({
               style={styles.logo}
               resizeMode="contain"
             />
+            {(mode === 'login' || mode === 'register') && (
+              <Text style={styles.heading}>{mode === 'login' ? 'Đăng nhập tài khoản' : 'Đăng ký tài khoản'}</Text>
+            )}
             <Text style={styles.brandSlogan}>
               Trải nghiệm du lịch thông minh, kết nối cộng đồng & lên kế hoạch hành trình
             </Text>
           </View>
 
           {/* Login Card */}
-          <View style={styles.card}>
+          <View style={[styles.card, { padding: isSmallScreen ? 16 : 22 }]}>
             {/* Mode Selector (Chỉ hiện khi ở login hoặc register) */}
             {mode === 'login' || mode === 'register' ? (
               <View style={styles.modeTabs}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.modeTab, mode === 'login' && styles.modeTabActive]}
-                  onPress={() => setMode('login')}>
+                  disabled={isBusy}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: mode === 'login', disabled: isBusy }}
+                  onPress={returnToLogin}>
                   <Text style={[styles.modeTabText, mode === 'login' && styles.modeTabTextActive]}>Đăng nhập</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.modeTab, mode === 'register' && styles.modeTabActive]}
-                  onPress={() => setMode('register')}>
-                  <Text style={[styles.modeTabText, mode === 'register' && styles.modeTabTextActive]}>Đăng ký mới</Text>
+                  disabled={isBusy}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: mode === 'register', disabled: isBusy }}
+                  onPress={() => { setMode('register'); setShowPassword(false); setFocusedField(null); }}>
+                  <Text style={[styles.modeTabText, mode === 'register' && styles.modeTabTextActive]}>Đăng ký</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={{ marginBottom: 16 }}>
                 <TouchableOpacity
-                  onPress={() => setMode('login')}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}
+                  onPress={returnToLogin}
+                  disabled={isBusy}
+                  style={styles.backButton}
+                  accessibilityRole="button"
                   activeOpacity={0.7}>
-                  <FontAwesome name="arrow-left" size={13} color={WF_COLORS.primary} style={{ marginRight: 6 }} />
-                  <Text style={{ fontSize: 13, color: WF_COLORS.primary, fontWeight: '700' }}>
+                  <FontAwesome name="arrow-left" size={13} color={AUTH_ACCENT} style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, color: AUTH_ACCENT, fontWeight: '700' }}>
                     Quay lại đăng nhập
                   </Text>
                 </TouchableOpacity>
@@ -313,7 +418,7 @@ export function WelcomeAuthModal({
                 </Text>
                 <Text style={{ fontSize: 12, color: WF_COLORS.slate500, marginTop: 4, lineHeight: 18 }}>
                   {mode === 'forgot_email'
-                    ? 'Nhập email tài khoản để nhận mã OTP 6 số qua Resend.'
+                    ? 'Nhập email tài khoản để nhận mã xác thực gồm 6 chữ số.'
                     : mode === 'forgot_otp'
                     ? `Mã xác thực 6 số đã được gửi đến ${forgotEmail}.`
                     : 'Mã OTP hợp lệ. Vui lòng tạo mật khẩu mới (tối thiểu 6 ký tự).'}
@@ -332,7 +437,7 @@ export function WelcomeAuthModal({
                     <FontAwesome
                       name="envelope-o"
                       size={14}
-                      color={focusedField === 'forgotEmail' ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={focusedField === 'forgotEmail' ? AUTH_ACCENT : WF_COLORS.slate400}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -341,6 +446,13 @@ export function WelcomeAuthModal({
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
+                      autoComplete="email"
+                      textContentType="emailAddress"
+                      returnKeyType="send"
+                      onSubmitEditing={handleSendOtp}
+                      editable={!isBusy}
+                      maxLength={100}
+                      accessibilityLabel="Email khôi phục tài khoản, bắt buộc"
                       style={styles.input}
                       value={forgotEmail}
                       onChangeText={setForgotEmail}
@@ -351,10 +463,11 @@ export function WelcomeAuthModal({
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+                  style={[styles.submitBtn, isBusy && styles.submitBtnDisabled]}
                   activeOpacity={0.88}
                   onPress={handleSendOtp}
-                  disabled={loading}>
+                  accessibilityRole="button"
+                  disabled={isBusy}>
                   {loading ? (
                     <ActivityIndicator color="#FFFDF8" />
                   ) : (
@@ -375,7 +488,7 @@ export function WelcomeAuthModal({
                     <FontAwesome
                       name="key"
                       size={14}
-                      color={focusedField === 'otp' ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={focusedField === 'otp' ? AUTH_ACCENT : WF_COLORS.slate400}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -383,6 +496,12 @@ export function WelcomeAuthModal({
                       placeholderTextColor={WF_COLORS.slate400}
                       keyboardType="number-pad"
                       maxLength={6}
+                      autoComplete="one-time-code"
+                      textContentType="oneTimeCode"
+                      returnKeyType="done"
+                      onSubmitEditing={handleVerifyOtp}
+                      editable={!isBusy}
+                      accessibilityLabel="Mã xác thực gồm 6 chữ số, bắt buộc"
                       style={[styles.input, { letterSpacing: 8, fontSize: 18, fontWeight: '800' }]}
                       value={otpCode}
                       onChangeText={(val) => setOtpCode(val.replace(/\D/g, ''))}
@@ -392,15 +511,15 @@ export function WelcomeAuthModal({
                   </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <View style={styles.resendRow}>
                   <Text style={{ fontSize: 12, color: WF_COLORS.slate500 }}>Chưa nhận được mã?</Text>
                   {countdown > 0 ? (
                     <Text style={{ fontSize: 12, color: WF_COLORS.slate400, fontWeight: '600' }}>
                       Gửi lại sau ({countdown}s)
                     </Text>
                   ) : (
-                    <TouchableOpacity onPress={handleSendOtp} disabled={loading} activeOpacity={0.7}>
-                      <Text style={{ fontSize: 12, color: WF_COLORS.primary, fontWeight: '700' }}>
+                    <TouchableOpacity onPress={handleSendOtp} disabled={isBusy} activeOpacity={0.7} style={styles.textButton} accessibilityRole="button">
+                      <Text style={{ fontSize: 12, color: AUTH_ACCENT, fontWeight: '700' }}>
                         Gửi lại mã
                       </Text>
                     </TouchableOpacity>
@@ -408,10 +527,11 @@ export function WelcomeAuthModal({
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+                  style={[styles.submitBtn, isBusy && styles.submitBtnDisabled]}
                   activeOpacity={0.88}
                   onPress={handleVerifyOtp}
-                  disabled={loading}>
+                  accessibilityRole="button"
+                  disabled={isBusy}>
                   {loading ? (
                     <ActivityIndicator color="#FFFDF8" />
                   ) : (
@@ -432,7 +552,7 @@ export function WelcomeAuthModal({
                     <FontAwesome
                       name="lock"
                       size={16}
-                      color={focusedField === 'newPassword' ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={focusedField === 'newPassword' ? AUTH_ACCENT : WF_COLORS.slate400}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -440,6 +560,14 @@ export function WelcomeAuthModal({
                       placeholderTextColor={WF_COLORS.slate400}
                       secureTextEntry={!showNewPassword}
                       autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="new-password"
+                      textContentType="newPassword"
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                      editable={!isBusy}
+                      accessibilityLabel="Mật khẩu mới, tối thiểu 6 ký tự"
                       style={styles.input}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -448,6 +576,9 @@ export function WelcomeAuthModal({
                     />
                     <TouchableOpacity
                       onPress={() => setShowNewPassword(!showNewPassword)}
+                      disabled={isBusy}
+                      accessibilityRole="button"
+                      accessibilityLabel={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
                       style={styles.eyeBtn}>
                       <FontAwesome name={showNewPassword ? 'eye-slash' : 'eye'} size={15} color={WF_COLORS.slate400} />
                     </TouchableOpacity>
@@ -462,14 +593,22 @@ export function WelcomeAuthModal({
                     <FontAwesome
                       name="check-circle-o"
                       size={16}
-                      color={focusedField === 'confirmPassword' ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={focusedField === 'confirmPassword' ? AUTH_ACCENT : WF_COLORS.slate400}
                       style={styles.inputIcon}
                     />
                     <TextInput
+                      ref={confirmPasswordInputRef}
                       placeholder="Nhập lại mật khẩu mới"
                       placeholderTextColor={WF_COLORS.slate400}
                       secureTextEntry={!showNewPassword}
                       autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="new-password"
+                      textContentType="newPassword"
+                      returnKeyType="done"
+                      onSubmitEditing={handleResetPassword}
+                      editable={!isBusy}
+                      accessibilityLabel="Xác nhận mật khẩu mới, bắt buộc"
                       style={styles.input}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -480,14 +619,15 @@ export function WelcomeAuthModal({
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+                  style={[styles.submitBtn, isBusy && styles.submitBtnDisabled]}
                   activeOpacity={0.88}
                   onPress={handleResetPassword}
-                  disabled={loading}>
+                  accessibilityRole="button"
+                  disabled={isBusy}>
                   {loading ? (
                     <ActivityIndicator color="#FFFDF8" />
                   ) : (
-                    <Text style={styles.submitBtnText}>Lưu mật khẩu mới & Đăng nhập</Text>
+                    <Text style={styles.submitBtnText}>Lưu mật khẩu mới</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -505,7 +645,7 @@ export function WelcomeAuthModal({
                       <FontAwesome
                         name="user-o"
                         size={15}
-                        color={focusedField === 'fullName' ? WF_COLORS.primary : WF_COLORS.slate400}
+                        color={focusedField === 'fullName' ? AUTH_ACCENT : WF_COLORS.slate400}
                         style={styles.inputIcon}
                       />
                       <TextInput
@@ -514,12 +654,17 @@ export function WelcomeAuthModal({
                         style={styles.input}
                         value={fullName}
                         onChangeText={setFullName}
+                        maxLength={100}
+                        accessibilityLabel="Họ và tên, bắt buộc"
                         onFocus={() => setFocusedField('fullName')}
                         onBlur={() => setFocusedField(null)}
                         autoCapitalize="words"
                         autoComplete="name"
                         textContentType="name"
                         returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => emailInputRef.current?.focus()}
+                        editable={!isBusy}
                       />
                     </View>
                   </View>
@@ -527,27 +672,33 @@ export function WelcomeAuthModal({
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>
-                    Email tài khoản <Text style={styles.requiredMark}>*</Text>
+                    {mode === 'login' ? 'Email hoặc tên đăng nhập' : 'Email tài khoản'} <Text style={styles.requiredMark}>*</Text>
                   </Text>
                   <View style={[styles.inputWrapper, focusedField === 'email' && styles.inputWrapperFocused]}>
                     <FontAwesome
                       name="envelope-o"
                       size={14}
-                      color={focusedField === 'email' ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={focusedField === 'email' ? AUTH_ACCENT : WF_COLORS.slate400}
                       style={styles.inputIcon}
                     />
                     <TextInput
-                      placeholder="name@example.com"
+                      ref={emailInputRef}
+                      placeholder={mode === 'login' ? 'Email hoặc tên đăng nhập' : 'name@example.com'}
                       placeholderTextColor={WF_COLORS.slate400}
-                      keyboardType="email-address"
+                      keyboardType={mode === 'login' ? 'default' : 'email-address'}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      autoComplete="email"
-                      textContentType="emailAddress"
+                      autoComplete={mode === 'login' ? 'username' : 'email'}
+                      textContentType={mode === 'login' ? 'username' : 'emailAddress'}
                       returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      editable={!isBusy}
                       style={styles.input}
                       value={email}
                       onChangeText={setEmail}
+                      maxLength={100}
+                      accessibilityLabel={mode === 'login' ? 'Email hoặc tên đăng nhập' : 'Email, bắt buộc'}
                       onFocus={() => setFocusedField('email')}
                       onBlur={() => setFocusedField(null)}
                     />
@@ -562,26 +713,34 @@ export function WelcomeAuthModal({
                     <FontAwesome
                       name="lock"
                       size={16}
-                      color={focusedField === 'password' ? WF_COLORS.primary : WF_COLORS.slate400}
+                      color={focusedField === 'password' ? AUTH_ACCENT : WF_COLORS.slate400}
                       style={styles.inputIcon}
                     />
                     <TextInput
+                      ref={passwordInputRef}
                       placeholder={mode === 'register' ? 'Tối thiểu 6 ký tự' : 'Nhập mật khẩu của bạn'}
                       placeholderTextColor={WF_COLORS.slate400}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
+                      autoCorrect={false}
                       autoComplete={mode === 'register' ? 'new-password' : 'password'}
                       textContentType={mode === 'register' ? 'newPassword' : 'password'}
                       returnKeyType="go"
+                      onSubmitEditing={handleSubmit}
+                      editable={!isBusy}
                       style={styles.input}
                       value={password}
                       onChangeText={setPassword}
+                      maxLength={mode === 'register' ? 100 : undefined}
+                      accessibilityLabel="Mật khẩu, bắt buộc"
                       onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
+                      disabled={isBusy}
                       style={styles.eyeBtn}
+                      accessibilityRole="button"
                       accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
                       <FontAwesome name={showPassword ? 'eye-slash' : 'eye'} size={15} color={WF_COLORS.slate400} />
                     </TouchableOpacity>
@@ -590,15 +749,27 @@ export function WelcomeAuthModal({
 
                 {/* Quên mật khẩu link */}
                 {mode === 'login' && (
-                  <View style={{ alignItems: 'flex-end', marginTop: -4, marginBottom: 12 }}>
+                  <View style={styles.loginOptions}>
                     <TouchableOpacity
-                      onPress={() => {
-                        setMode('forgot_email');
-                        setForgotEmail(email);
-                      }}
+                      onPress={() => setRememberMe((value) => !value)}
+                      disabled={isBusy}
+                      activeOpacity={0.75}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: rememberMe }}
+                      accessibilityLabel="Nhớ mật khẩu">
+                      <View style={styles.rememberContent}>
+                        <FontAwesome name={rememberMe ? 'check-square' : 'square-o'} size={16} color={rememberMe ? AUTH_ACCENT : WF_COLORS.slate400} />
+                        <Text style={{ fontSize: 12, color: WF_COLORS.slate700 }}>Nhớ mật khẩu</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={openPasswordRecovery}
+                      accessibilityRole="button"
+                      disabled={isBusy}
+                      style={styles.textButton}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Text style={{ fontSize: 12, color: WF_COLORS.primary, fontWeight: '700' }}>
+                      <Text style={{ fontSize: 12, color: AUTH_ACCENT, fontWeight: '700' }}>
                         Quên mật khẩu?
                       </Text>
                     </TouchableOpacity>
@@ -607,15 +778,16 @@ export function WelcomeAuthModal({
 
                 {/* Primary Submit Button */}
                 <TouchableOpacity
-                  style={[styles.submitBtn, (loading || googleLoading) && styles.submitBtnDisabled]}
+                  style={[styles.submitBtn, isBusy && styles.submitBtnDisabled]}
                   activeOpacity={0.88}
                   onPress={handleSubmit}
-                  disabled={loading || googleLoading}>
+                  accessibilityRole="button"
+                  disabled={isBusy}>
                   {loading ? (
                     <ActivityIndicator color="#FFFDF8" />
                   ) : (
                     <Text style={styles.submitBtnText}>
-                      {mode === 'login' ? 'Đăng nhập vào Wayfare' : 'Khởi tạo tài khoản ngay'}
+                      {mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -629,14 +801,15 @@ export function WelcomeAuthModal({
 
                 {/* GOOGLE SIGN IN BUTTON */}
                 <TouchableOpacity
-                  style={styles.googleBtn}
+                  style={[styles.googleBtn, isBusy && styles.submitBtnDisabled]}
                   activeOpacity={0.88}
                   onPress={handleGoogleLogin}
-                  disabled={loading || googleLoading}>
+                  accessibilityRole="button"
+                  disabled={isBusy}>
                   {googleLoading ? (
                     <View style={styles.googleBtnContent}>
-                      <ActivityIndicator size="small" color={WF_COLORS.primary} style={styles.googleIcon} />
-                      <Text style={[styles.googleBtnText, { color: WF_COLORS.primary }]}>Đang kết nối Google...</Text>
+                      <ActivityIndicator size="small" color={AUTH_ACCENT} style={styles.googleIcon} />
+                      <Text style={[styles.googleBtnText, { color: AUTH_ACCENT }]}>Đang kết nối Google...</Text>
                     </View>
                   ) : (
                     <View style={styles.googleBtnContent}>
@@ -651,6 +824,8 @@ export function WelcomeAuthModal({
                   <TouchableOpacity
                     style={styles.guestBtn}
                     activeOpacity={0.7}
+                    disabled={isBusy}
+                    accessibilityRole="button"
                     onPress={onContinueAsGuest}>
                     <Text style={styles.guestBtnText}>Khám phá trước với tư cách Khách →</Text>
                   </TouchableOpacity>
@@ -672,13 +847,15 @@ export function WelcomeAuthModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F4EC',
+    backgroundColor: WF_COLORS.slate50,
   },
   content: {
     paddingHorizontal: 20,
     alignItems: 'center',
   },
   brandHeader: {
+    width: '100%',
+    maxWidth: 480,
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -687,9 +864,16 @@ const styles = StyleSheet.create({
     height: 48,
     marginBottom: 8,
   },
+  heading: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: WF_COLORS.slate900,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   brandSlogan: {
     fontSize: 12,
-    color: '#5A5146',
+    color: WF_COLORS.slate500,
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 290,
@@ -697,11 +881,12 @@ const styles = StyleSheet.create({
 
   card: {
     width: '100%',
-    backgroundColor: '#FFFDF8',
-    borderRadius: 6,
+    maxWidth: 480,
+    backgroundColor: WF_COLORS.white,
+    borderRadius: WF_RADIUS.cardLg,
     padding: 22,
     borderWidth: 1,
-    borderColor: '#E4DACB',
+    borderColor: WF_COLORS.slate200,
     elevation: 0,
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 2 },
@@ -710,19 +895,21 @@ const styles = StyleSheet.create({
   },
   modeTabs: {
     flexDirection: 'row',
-    backgroundColor: '#F3EDE2',
-    borderRadius: 5,
+    backgroundColor: WF_COLORS.slate100,
+    borderRadius: WF_RADIUS.pill,
     padding: 4,
     marginBottom: 18,
   },
   modeTab: {
     flex: 1,
+    minHeight: 44,
     paddingVertical: 9,
     alignItems: 'center',
-    borderRadius: 5,
+    justifyContent: 'center',
+    borderRadius: WF_RADIUS.pill,
   },
   modeTabActive: {
-    backgroundColor: '#FFFDF8',
+    backgroundColor: WF_COLORS.white,
     elevation: 0,
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 1 },
@@ -732,10 +919,10 @@ const styles = StyleSheet.create({
   modeTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#5A5146',
+    color: WF_COLORS.slate500,
   },
   modeTabTextActive: {
-    color: '#1E1A15',
+    color: WF_COLORS.slate900,
     fontWeight: '800',
   },
 
@@ -745,49 +932,88 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1E1A15',
+    color: WF_COLORS.slate900,
     marginBottom: 6,
   },
   requiredMark: {
-    color: '#E11D48',
+    color: WF_COLORS.rose,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F4EC',
-    borderWidth: 1.5,
-    borderColor: '#E4DACB',
-    borderRadius: 5,
+    backgroundColor: WF_COLORS.white,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    borderRadius: WF_RADIUS.pill,
     paddingHorizontal: 12,
-    height: 48,
+    minHeight: 48,
   },
   inputWrapperFocused: {
-    borderColor: '#B0522F',
-    backgroundColor: '#FFFDF8',
+    borderColor: AUTH_ACCENT,
+    backgroundColor: WF_COLORS.white,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
+    minWidth: 0,
     fontSize: 14,
-    color: '#1E1A15',
-    paddingVertical: 0,
+    color: WF_COLORS.slate900,
+    paddingVertical: 10,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : null),
   },
   eyeBtn: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -12,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  loginOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 12,
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  rememberContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    minHeight: 44,
+  },
+  textButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  resendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 14,
   },
 
   submitBtn: {
-    backgroundColor: '#B0522F',
-    borderRadius: 5,
-    height: 48,
+    backgroundColor: AUTH_ACCENT,
+    borderRadius: WF_RADIUS.pill,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
     elevation: 0,
-    shadowColor: '#B0522F',
+    shadowColor: AUTH_ACCENT,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
     shadowRadius: 4,
@@ -798,8 +1024,10 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFDF8',
+    color: WF_COLORS.white,
     letterSpacing: 0.3,
+    textAlign: 'center',
+    flexShrink: 1,
   },
 
   dividerRow: {
@@ -810,12 +1038,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E4DACB',
+    backgroundColor: WF_COLORS.slate200,
   },
   dividerText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#8A7F70',
+    color: WF_COLORS.slate500,
     marginHorizontal: 10,
     letterSpacing: 0.8,
   },
@@ -824,11 +1052,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFDF8',
-    borderWidth: 1.5,
-    borderColor: '#E4DACB',
-    borderRadius: 5,
-    height: 48,
+    backgroundColor: WF_COLORS.white,
+    borderWidth: 1,
+    borderColor: WF_COLORS.slate200,
+    borderRadius: WF_RADIUS.pill,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     elevation: 0,
     shadowColor: '#1E1A15',
     shadowOffset: { width: 0, height: 1 },
@@ -837,25 +1067,31 @@ const styles = StyleSheet.create({
   },
   googleBtnContent: {
     flexDirection: 'row',
+    flexShrink: 1,
     alignItems: 'center',
   },
   googleIcon: {
     marginRight: 10,
   },
   googleBtnText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: WF_COLORS.slate700,
   },
 
   guestBtn: {
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
     marginTop: 16,
     paddingVertical: 6,
   },
   guestBtnText: {
+    textAlign: 'center',
     fontSize: 12,
     fontWeight: '700',
-    color: '#B0522F',
+    color: AUTH_ACCENT,
   },
 });

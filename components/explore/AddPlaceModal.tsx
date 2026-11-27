@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, TextInput } from '@/components/Themed';
 import { showToast } from '@/components/Toast';
-import { WF_COLORS, WF_PAPER } from '@/constants/Colors';
+import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
 import { CreatePlacePayload, placeApi, PlaceItem, uploadApi } from '@/src/services/api';
 
@@ -58,7 +58,7 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
 
   const [name, setName] = useState('');
   const [categoryName, setCategoryName] = useState('Danh Lam & Thắng Cảnh');
-  const [city, setCity] = useState('Đà Lạt');
+  const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
@@ -77,7 +77,7 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
   const resetForm = () => {
     setName('');
     setCategoryName('Danh Lam & Thắng Cảnh');
-    setCity('Đà Lạt');
+    setCity('');
     setAddress('');
     setLatitude('');
     setLongitude('');
@@ -184,11 +184,18 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
   const handleAddImageUrl = () => {
     const raw = urlInput.trim();
     if (!raw) return;
-    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(raw);
+    } catch {
+      showToast({ kind: 'error', title: 'URL không hợp lệ', message: 'Nhập đầy đủ liên kết ảnh bắt đầu bằng https://.' });
+      return;
+    }
+    if (!['http:', 'https:'].includes(parsedUrl.protocol) || raw.length > 500) {
       showToast({
         kind: 'error',
         title: 'URL không hợp lệ',
-        message: 'Link ảnh phải bắt đầu bằng https:// hoặc http://',
+        message: 'Liên kết ảnh cần dùng http/https và không quá 500 ký tự.',
       });
       return;
     }
@@ -223,21 +230,31 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
 
       setUploadingImage(true);
       const uploaded: string[] = [];
+      let failedUploads = 0;
       for (const asset of result.assets) {
+        if (asset.fileSize && asset.fileSize > 15 * 1024 * 1024) {
+          failedUploads += 1;
+          continue;
+        }
         try {
-          const url = await uploadApi.uploadSingle(asset.uri, asset.fileName || undefined);
+          const url = await uploadApi.uploadSingle(asset.uri, asset.fileName || undefined, asset.mimeType || undefined);
           if (url) uploaded.push(url);
         } catch (err: any) {
+          failedUploads += 1;
           console.warn('Upload ảnh địa điểm thất bại:', err?.message || err);
         }
       }
       setImages((prev) => [...prev, ...uploaded].slice(0, 6));
       if (uploaded.length > 0) {
         showToast({
-          kind: 'success',
-          title: 'Tải ảnh thành công',
-          message: `Đã lưu trữ ${uploaded.length} ảnh lên Cloudinary Cloud CDN.`,
+          kind: failedUploads ? 'info' : 'success',
+          title: failedUploads ? 'Đã tải một phần ảnh' : 'Tải ảnh thành công',
+          message: failedUploads
+            ? `${uploaded.length} ảnh đã sẵn sàng; ${failedUploads} ảnh chưa tải được.`
+            : `Đã lưu trữ ${uploaded.length} ảnh lên Cloudinary Cloud CDN.`,
         });
+      } else if (failedUploads) {
+        showToast({ kind: 'error', title: 'Tải ảnh thất bại', message: 'Không ảnh nào tải được. Kiểm tra kết nối rồi thử lại.' });
       }
     } catch (err: any) {
       showToast({
@@ -267,22 +284,50 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
       });
       return;
     }
+    if (!city.trim()) {
+      showToast({ kind: 'error', title: 'Thiếu tỉnh/thành phố', message: 'Chọn gợi ý hoặc nhập tỉnh/thành để địa điểm được tìm đúng.' });
+      return;
+    }
+    if (name.trim().length > 150 || address.trim().length > 255 || city.trim().length > 100) {
+      showToast({ kind: 'error', title: 'Thông tin quá dài', message: 'Tên tối đa 150 ký tự, địa chỉ 255 ký tự và tỉnh/thành 100 ký tự.' });
+      return;
+    }
+    const hasLatitude = latitude.trim().length > 0;
+    const hasLongitude = longitude.trim().length > 0;
+    const latNum = hasLatitude ? Number(latitude) : undefined;
+    const lngNum = hasLongitude ? Number(longitude) : undefined;
+    if (hasLatitude !== hasLongitude || (hasLatitude && (!Number.isFinite(latNum) || !Number.isFinite(lngNum) || latNum! < -90 || latNum! > 90 || lngNum! < -180 || lngNum! > 180))) {
+      showToast({ kind: 'error', title: 'Tọa độ GPS chưa hợp lệ', message: 'Cần đủ cả vĩ độ và kinh độ, trong giới hạn tọa độ hợp lệ.' });
+      return;
+    }
+    if (phoneNumber.trim().length > 50 || openHours.trim().length > 100 || categoryName.length > 100) {
+      showToast({ kind: 'error', title: 'Thông tin vượt giới hạn', message: 'Kiểm tra số điện thoại, giờ mở cửa và danh mục rồi thử lại.' });
+      return;
+    }
+    const normalizedPrice = ticketPrice.trim().replace(/\D/g, '');
+    const checkedPrice = normalizedPrice ? Number(normalizedPrice) : undefined;
+    if (checkedPrice !== undefined && (!Number.isSafeInteger(checkedPrice) || checkedPrice > 9999999999)) {
+      showToast({ kind: 'error', title: 'Giá vé không hợp lệ', message: 'Nhập mức giá không âm và không vượt giới hạn lưu trữ.' });
+      return;
+    }
+    if (images.some(image => image.length > 500)) {
+      showToast({ kind: 'error', title: 'Liên kết ảnh quá dài', message: 'Mỗi liên kết ảnh tối đa 500 ký tự.' });
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const priceNum = ticketPrice.trim() ? parseFloat(ticketPrice.replace(/\D/g, '')) : undefined;
-      const latNum = latitude.trim() ? parseFloat(latitude) : undefined;
-      const lngNum = longitude.trim() ? parseFloat(longitude) : undefined;
+      const priceNum = checkedPrice;
       const payload: CreatePlacePayload = {
         name: name.trim(),
         categoryName: categoryName || undefined,
         city: city || undefined,
         address: address.trim(),
-        latitude: latNum && !isNaN(latNum) ? latNum : undefined,
-        longitude: lngNum && !isNaN(lngNum) ? lngNum : undefined,
+        latitude: latNum,
+        longitude: lngNum,
         description: description.trim() || undefined,
         openHours: openHours.trim() || undefined,
-        ticketPrice: priceNum && !isNaN(priceNum) ? priceNum : undefined,
+        ticketPrice: priceNum !== undefined && Number.isFinite(priceNum) ? priceNum : undefined,
         phoneNumber: phoneNumber.trim() || undefined,
         coverImageUrl: images[0] || undefined,
         images: images.length > 0 ? images : undefined,
@@ -343,6 +388,8 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={name}
                 onChangeText={setName}
+                maxLength={150}
+                accessibilityLabel="Tên địa điểm, bắt buộc"
               />
 
               {/* Danh mục */}
@@ -376,6 +423,15 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
                   );
                 })}
               </ScrollView>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập tỉnh/thành phố *"
+                placeholderTextColor={WF_PAPER.inkMuted}
+                value={city}
+                onChangeText={setCity}
+                maxLength={100}
+                accessibilityLabel="Tỉnh hoặc thành phố, bắt buộc"
+              />
 
               {/* Địa chỉ cụ thể */}
               <View style={styles.labelRow}>
@@ -390,6 +446,8 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={address}
                 onChangeText={setAddress}
+                maxLength={255}
+                accessibilityLabel="Địa chỉ chi tiết, bắt buộc"
               />
 
               {/* Định vị GPS thông minh */}
@@ -459,6 +517,7 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
                     placeholderTextColor={WF_PAPER.inkMuted}
                     value={openHours}
                     onChangeText={setOpenHours}
+                    maxLength={100}
                   />
                 </View>
                 <View style={{ flex: 1, marginLeft: 8 }}>
@@ -470,6 +529,7 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
                     value={ticketPrice}
                     onChangeText={setTicketPrice}
                     keyboardType="numeric"
+                    maxLength={12}
                   />
                 </View>
               </View>
@@ -483,6 +543,7 @@ export function AddPlaceModal({ visible, onClose, onPlaceCreated }: AddPlaceModa
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 keyboardType="phone-pad"
+                maxLength={50}
               />
 
               {/* Hình ảnh Cloud CDN */}

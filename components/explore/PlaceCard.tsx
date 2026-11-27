@@ -1,11 +1,11 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { PlaceImage } from '@/components/explore/PlaceImage';
-import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
+import { DS_COLOR } from '@/constants/DesignSystem';
 import { PlaceItem } from '@/src/services/api';
 
 /** Điểm đánh giá chỉ hiển thị khi địa điểm thực sự có lượt đánh giá. */
@@ -30,6 +30,7 @@ function formatPrice(place: PlaceItem): { label: string; isFree: boolean } {
 interface PlaceCardProps {
   place: PlaceItem;
   saved: boolean;
+  saving?: boolean;
   onPress: () => void;
   onToggleSave: () => void;
 }
@@ -37,7 +38,7 @@ interface PlaceCardProps {
 /**
  * Card địa điểm: ảnh 88×88 bo tròn bên trái, thông tin nổi bật, tag giá bắt mắt bên phải.
  */
-export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProps) {
+export function PlaceCard({ place, saved, saving = false, onPress, onToggleSave }: PlaceCardProps) {
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
   const showRating = hasRealRating(place);
@@ -47,6 +48,7 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={onPress}
+      accessibilityRole="button"
       accessibilityLabel={`Xem chi tiết ${place.name}`}
       style={[styles.card, isSmallScreen && { marginHorizontal: 12, marginBottom: 10, padding: 8 }]}>
       <View style={[styles.thumbWrapper, isSmallScreen && { width: 80, height: 80, borderRadius: 14 }]}>
@@ -99,16 +101,20 @@ export function PlaceCard({ place, saved, onPress, onToggleSave }: PlaceCardProp
       <TouchableOpacity
         style={[styles.favBtn, isSmallScreen && { width: 34, height: 34, borderRadius: 17 }, saved && styles.favBtnActive]}
         activeOpacity={0.7}
+        disabled={saving}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: saving, busy: saving }}
+        hitSlop={6}
         onPress={(e) => {
           e.stopPropagation();
           onToggleSave();
         }}
         accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
-        <FontAwesome
+        {saving ? <ActivityIndicator size="small" color={DS_COLOR.accent} /> : <FontAwesome
           name={saved ? 'heart' : 'heart-o'}
           size={isSmallScreen ? 14 : 16}
           color={saved ? '#EF4444' : DS_COLOR.inkMuted}
-        />
+        />}
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -235,6 +241,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 12,
     marginRight: 6,
     gap: 4,
@@ -262,6 +269,7 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -288,6 +296,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   pricePill: {
+    maxWidth: '100%',
     paddingHorizontal: 9,
     paddingVertical: 3.5,
     borderRadius: 999,
@@ -299,6 +308,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3E0',
   },
   pricePillText: {
+    flexShrink: 1,
     fontSize: 11.5,
     fontWeight: '800',
   },

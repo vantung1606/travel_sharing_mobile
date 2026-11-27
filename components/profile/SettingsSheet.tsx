@@ -18,6 +18,7 @@ export interface SettingsSheetProps {
   onChangePassword: () => void;
   onViewBadges: () => void;
   onViewDna: () => void;
+  onViewFootprint: () => void;
   onLogout: () => void;
 }
 
@@ -32,6 +33,7 @@ export function SettingsSheet({
   onChangePassword,
   onViewBadges,
   onViewDna,
+  onViewFootprint,
   onLogout,
 }: SettingsSheetProps) {
   return (
@@ -133,7 +135,27 @@ export function SettingsSheet({
           <FontAwesome name="chevron-right" size={12} color={DS_COLOR.inkMuted} />
         </TouchableOpacity>
 
-        {/* 5. Đăng xuất */}
+        {/* 5. Dấu chân du lịch */}
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => {
+            onClose();
+            onViewFootprint();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Dấu chân du lịch"
+          activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
+            <FontAwesome name="map-marker" size={15} color="#059669" />
+          </View>
+          <View style={styles.itemTextCol}>
+            <Text style={styles.itemTitle}>Dấu chân du lịch</Text>
+            <Text style={styles.itemDesc}>Đánh dấu các tỉnh thành bạn đã ghé qua</Text>
+          </View>
+          <FontAwesome name="chevron-right" size={12} color={DS_COLOR.inkMuted} />
+        </TouchableOpacity>
+
+        {/* 6. Đăng xuất */}
         <TouchableOpacity
           style={[styles.settingItem, styles.logoutItem]}
           onPress={() => {

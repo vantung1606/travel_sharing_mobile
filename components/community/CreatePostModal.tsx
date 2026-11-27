@@ -69,6 +69,8 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
   useEffect(() => {
     if (!visible) return;
     if (editingPost) {
+      // Populate the editor with the selected post each time the modal opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(editingPost.title || '');
       setContent(editingPost.content || '');
       setCategory(editingPost.category || 'Ẩm thực & Check-in');
@@ -136,15 +138,20 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
 
       setUploading(true);
       const uploaded: string[] = [];
+      let failedUploads = 0;
       for (const asset of result.assets) {
         try {
-          const url = await uploadApi.uploadSingle(asset.uri, asset.fileName || undefined);
+          const url = await uploadApi.uploadSingle(asset.uri, asset.fileName || undefined, asset.mimeType || undefined);
           if (url) uploaded.push(url);
         } catch (err: any) {
+          failedUploads += 1;
           console.warn('Upload ảnh thất bại:', err?.message || err);
         }
       }
       setImages((prev) => [...prev, ...uploaded].slice(0, MAX_IMAGES));
+      if (uploaded.length && failedUploads) {
+        showToast({ kind: 'info', title: 'Đã tải một phần ảnh', message: `${uploaded.length} ảnh đã sẵn sàng; ${failedUploads} ảnh chưa tải được.` });
+      }
       if (!uploaded.length) {
         showToast({
           kind: 'error',
@@ -219,6 +226,10 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
       });
       return;
     }
+    if (title.trim().length > 200) {
+      showToast({ kind: 'error', title: 'Tiêu đề quá dài', message: 'Tiêu đề bài viết tối đa 200 ký tự.' });
+      return;
+    }
     if (!content.trim()) {
       showToast({
         kind: 'error',
@@ -235,6 +246,10 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
       });
       return;
     }
+    if (videoUrl.trim().length > 500) {
+      showToast({ kind: 'error', title: 'Liên kết video quá dài', message: 'Liên kết video tối đa 500 ký tự.' });
+      return;
+    }
     try {
       setSubmitting(true);
       let computedLocation = 'Việt Nam';
@@ -243,6 +258,10 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
         computedLocation = found ? (found.city ? `${found.name}, ${found.city}` : found.name) : 'Việt Nam';
       } else if (customPlaceName.trim()) {
         computedLocation = customPlaceName.trim();
+      }
+      if (computedLocation.length > 150) {
+        showToast({ kind: 'error', title: 'Vị trí quá dài', message: 'Tên vị trí check-in tối đa 150 ký tự.' });
+        return;
       }
 
       const payload = {
@@ -292,7 +311,7 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.form}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
               {/* Visibility Selector */}
               <View style={styles.visibilityContainer}>
                 <View style={styles.visibilityLabelGroup}>
@@ -351,22 +370,27 @@ export function CreatePostModal({ visible, editingPost, initialPlaceId, onClose,
                 />
               </View>
 
-              <Text style={styles.label}>Tiêu đề</Text>
+              <Text style={styles.label}>Tiêu đề *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="VD: Bí kíp du lịch Đà Nẵng 4N3Đ tự túc"
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={title}
                 onChangeText={setTitle}
+                maxLength={200}
+                accessibilityLabel="Tiêu đề bài viết, bắt buộc"
               />
 
               <Text style={styles.label}>Nội dung *</Text>
+              <RichTextToolbar value={content} onChangeText={setContent} selection={selection} />
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Chia sẻ cảm nghĩ, mẹo du lịch, lưu ý quan trọng... (Gõ @ để gắn thẻ)"
                 placeholderTextColor={WF_PAPER.inkMuted}
                 value={content}
                 onChangeText={setContent}
+                onSelectionChange={({ nativeEvent }) => setSelection(nativeEvent.selection)}
+                accessibilityLabel="Nội dung bài viết, bắt buộc"
                 multiline
               />
 

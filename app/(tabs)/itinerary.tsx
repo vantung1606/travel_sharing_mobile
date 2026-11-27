@@ -678,7 +678,7 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
       const presetCover = COVER_PRESETS.find(c => c.label.includes(aiDest))?.url || COVER_PRESETS[0].url;
       const tripTitle = (parsedData.title && String(parsedData.title).trim())
         ? String(parsedData.title).trim()
-        : `${aiDest}: Lịch Trình AI Thiết Kế (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`;
+        : `Khám phá ${aiDest.replace(/,\s*Việt Nam$/i, '').trim()} (${aiDays}N${Math.max(1, aiDays - 1)}Đ)`;
 
       const created = await itineraryApi.createItinerary({
         title: tripTitle,

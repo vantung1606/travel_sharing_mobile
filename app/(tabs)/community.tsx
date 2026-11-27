@@ -84,6 +84,30 @@ export default function CommunityScreen() {
   const [loadingFull, setLoadingFull] = useState(false);
   const [savedPosts, setSavedPosts] = useState<PostItem[] | null>(null);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [systemTopLocations, setSystemTopLocations] = useState<StoryTopic[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    postApi
+      .getTopLocations(10)
+      .then((items) => {
+        if (!cancelled && Array.isArray(items) && items.length > 0) {
+          setSystemTopLocations(
+            items.map((item) => ({
+              id: item.id || item.location,
+              label: item.location,
+              query: item.location,
+              count: item.count,
+              imageUrl: item.image || null,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pagedPosts.length, fullPosts?.length]);
 
   const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
   const [followLoadingIds, setFollowLoadingIds] = useState<Set<number>>(new Set());
@@ -939,6 +963,7 @@ export default function CommunityScreen() {
           <>
             <CommunityStoriesReel
               posts={fullPosts ?? pagedPosts}
+              topLocations={systemTopLocations}
               selectedQuery={search}
               currentUserAvatar={session?.avatarUrl}
               onCreatePress={openCreate}

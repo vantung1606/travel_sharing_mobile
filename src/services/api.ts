@@ -88,6 +88,8 @@ export interface PlaceItem {
   latitude?: number | null;
   longitude?: number | null;
   isVerifiedHost?: boolean;
+  isFeatured?: boolean;
+  featuredOrder?: number;
   ownerName?: string;
   /** Thông tin người đăng (server trả sẵn) — dùng cho dòng "Được chia sẻ bởi". */
   ownerHandle?: string;
@@ -139,6 +141,8 @@ function mapPlace(raw: any): PlaceItem {
     latitude: raw?.latitude != null ? Number(raw.latitude) : null,
     longitude: raw?.longitude != null ? Number(raw.longitude) : null,
     isVerifiedHost: Boolean(raw?.isVerifiedHost),
+    isFeatured: Boolean(raw?.isFeatured),
+    featuredOrder: raw?.featuredOrder != null ? Number(raw.featuredOrder) : undefined,
     ownerName: raw?.ownerName,
     ownerHandle: raw?.ownerHandle,
     ownerAvatar: raw?.ownerAvatar,
@@ -431,6 +435,20 @@ export interface CreatePlacePayload {
  * Cả 3 hàm yêu cầu đã đăng nhập (JWT gắn tự động trong interceptor).
  */
 export const savedPlaceApi = {
+  async getSavedPlaceItems(): Promise<PlaceItem[]> {
+    const res = await apiClient.get<ApiResponse<any[]>>('/users/saved-places');
+    if (!res.data.success || !Array.isArray(res.data.data)) {
+      throw new Error(res.data.message || 'Không thể tải địa điểm đã lưu.');
+    }
+    // This endpoint returns Place entities; their gallery entries are objects.
+    return res.data.data.map(raw => mapPlace({
+      ...raw,
+      images: Array.isArray(raw.images)
+        ? raw.images.map((entry: any) => typeof entry === 'string' ? entry : entry?.imageUrl).filter(Boolean)
+        : [],
+    }));
+  },
+
   /** Trả về mảng placeId đã lưu, hoặc null nếu lỗi/chưa đăng nhập. */
   async getSavedPlaces(): Promise<number[] | null> {
     try {
@@ -445,11 +463,53 @@ export const savedPlaceApi = {
   },
 
   async addSavedPlace(placeId: number): Promise<void> {
-    await apiClient.post(`/users/saved-places/${placeId}`);
+    const res = await apiClient.post<ApiResponse<unknown>>(`/users/saved-places/${placeId}`);
+    if (!res.data.success) throw new Error(res.data.message || 'Không thể lưu địa điểm.');
   },
 
   async removeSavedPlace(placeId: number): Promise<void> {
-    await apiClient.delete(`/users/saved-places/${placeId}`);
+    const res = await apiClient.delete<ApiResponse<unknown>>(`/users/saved-places/${placeId}`);
+    if (!res.data.success) throw new Error(res.data.message || 'Không thể bỏ lưu địa điểm.');
+  },
+};
+
+// ─── PROVINCES & TRAVEL FOOTPRINT API ──────────────────────
+export interface ProvinceItem {
+  code: string;
+  name: string;
+  region?: string;
+  aliases?: string[];
+}
+
+export const provinceApi = {
+  async getProvinces(): Promise<ProvinceItem[]> {
+    const res = await apiClient.get<ApiResponse<ProvinceItem[]>>('/provinces');
+    if (!res.data.success || !Array.isArray(res.data.data) || !res.data.data.every(p =>
+      p && typeof p.code === 'string' && p.code.trim() && typeof p.name === 'string' && p.name.trim() &&
+      (p.aliases == null || (Array.isArray(p.aliases) && p.aliases.every(alias => typeof alias === 'string'))))) {
+      throw new Error(res.data.message || 'Không thể tải danh mục tỉnh thành.');
+    }
+    return [...new Map(res.data.data.map(p => [p.code, p])).values()];
+  },
+
+  async getMyVisited(): Promise<string[]> {
+    const res = await apiClient.get<ApiResponse<string[]>>('/provinces/visited');
+    if (!res.data.success || !Array.isArray(res.data.data) || !res.data.data.every(code => typeof code === 'string')) {
+      throw new Error(res.data.message || 'Không thể tải dấu chân du lịch.');
+    }
+    return [...new Set(res.data.data)];
+  },
+
+  async setVisited(code: string, visited: boolean): Promise<string[]> {
+    const res = await apiClient.put<ApiResponse<string[]>>(
+      `/provinces/${encodeURIComponent(code)}/visited`,
+      undefined,
+      { params: { visited } },
+    );
+    if (!res.data.success || !Array.isArray(res.data.data) || !res.data.data.every(code => typeof code === 'string')) {
+      throw new Error(res.data.message || 'Không thể cập nhật dấu chân du lịch.');
+    }
+    return [...new Set(res.data.data)];
   },
 };
 
@@ -577,6 +637,17 @@ export interface UserProfileItem {
 
 // ─── COMMUNITY POSTS API ───────────────────────────────────
 export const postApi = {
+  async getTopLocations(limit = 10): Promise<Array<{ id: string; location: string; count: number; image?: string | null }>> {
+    try {
+      const res = await apiClient.get<ApiResponse<Array<{ id: string; location: string; count: number; image?: string | null }>>>('/posts/top-locations', {
+        params: { limit },
+      });
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    } catch {
+      return [];
+    }
+  },
+
   async getCommunityPosts(params?: { category?: string; keyword?: string; placeId?: number }): Promise<PostItem[]> {
     const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts', { params });
     const items = res.data.data || [];
@@ -618,11 +689,17 @@ export const postApi = {
 
   async toggleBookmark(id: number): Promise<{ isBookmarked: boolean }> {
     const res = await apiClient.post<ApiResponse<{ isBookmarked: boolean }>>(`/posts/${id}/bookmark`);
+    if (!res.data.success || typeof res.data.data?.isBookmarked !== 'boolean') {
+      throw new Error(res.data.message || 'Không thể thay đổi trạng thái lưu bài viết.');
+    }
     return res.data.data;
   },
 
   async getBookmarkedPosts(): Promise<PostItem[]> {
     const res = await apiClient.get<ApiResponse<PostItem[]>>('/posts/bookmarked');
+    if (!res.data.success || !Array.isArray(res.data.data)) {
+      throw new Error(res.data.message || 'Không thể tải bài viết đã lưu.');
+    }
     const items = res.data.data || [];
     return items.map(normalizePost);
   },
@@ -715,6 +792,9 @@ export const userApi = {
 
   async updateProfile(payload: UpdateProfilePayload): Promise<UserProfileItem> {
     const res = await apiClient.put<ApiResponse<UserProfileItem>>('/users/profile', payload);
+    if (!res.data.success || !res.data.data) {
+      throw new Error(res.data.message || 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');
+    }
     return res.data.data;
   },
 
@@ -827,6 +907,7 @@ export interface ItineraryDetailItem {
   locationAddress?: string;
   category?: string;
   dayNumber: number;
+  dayTitle?: string;
   visitOrder?: number;
   startTime?: string;
   estimatedCost?: number;
@@ -1187,6 +1268,35 @@ export const chatApi = {
       params: { targetUserId },
     });
     return mapChatRoom(res.data.data);
+  },
+
+  async createGroupRoom(payload: { name: string; memberIds: number[]; initialMessage?: string }): Promise<ChatRoom> {
+    const res = await apiClient.post<ApiResponse<any>>('/chat/rooms', {
+      name: payload.name,
+      type: 'GROUP',
+      memberIds: payload.memberIds,
+      initialMessage: payload.initialMessage,
+    });
+    return mapChatRoom(res.data.data);
+  },
+
+  async getRoomMembers(roomId: number | string): Promise<ChatMember[]> {
+    const res = await apiClient.get<ApiResponse<any[]>>(`/chat/rooms/${roomId}/members`);
+    return (res.data.data || []).map(mapChatMember);
+  },
+
+  async addMembers(roomId: number | string, memberIds: number[]): Promise<ChatRoom> {
+    const res = await apiClient.post<ApiResponse<any>>(`/chat/rooms/${roomId}/members`, { memberIds });
+    return mapChatRoom(res.data.data);
+  },
+
+  async removeMember(roomId: number | string, targetUserId: number): Promise<ChatRoom> {
+    const res = await apiClient.delete<ApiResponse<any>>(`/chat/rooms/${roomId}/members/${targetUserId}`);
+    return mapChatRoom(res.data.data);
+  },
+
+  async deleteRoom(roomId: number | string): Promise<void> {
+    await apiClient.delete(`/chat/rooms/${roomId}`);
   },
 
   async getAvailableUsers(keyword?: string): Promise<ChatMember[]> {

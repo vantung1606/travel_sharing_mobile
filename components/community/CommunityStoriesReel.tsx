@@ -67,6 +67,7 @@ const FALLBACK_DESTINATION_STORIES: StoryTopic[] = [
 
 interface CommunityStoriesReelProps {
   posts?: PostItem[];
+  topLocations?: StoryTopic[];
   selectedQuery?: string;
   currentUserAvatar?: string | null;
   onCreatePress?: () => void;
@@ -75,6 +76,7 @@ interface CommunityStoriesReelProps {
 
 export function CommunityStoriesReel({
   posts = [],
+  topLocations = [],
   selectedQuery = '',
   onSelectTopic,
 }: CommunityStoriesReelProps) {
@@ -83,8 +85,11 @@ export function CommunityStoriesReel({
   const ringSize = isSmall ? 54 : 60;
   const itemWidth = isSmall ? 64 : 72;
 
-  // Tổng hợp địa điểm thực tế từ bài đăng & sắp xếp theo lượt bài đăng giảm dần (giống 100% Web)
+  // Ưu tiên dữ liệu thống kê toàn hệ thống & toàn thời gian từ Backend (/posts/top-locations)
   const realLocationStories = useMemo<StoryTopic[]>(() => {
+    if (Array.isArray(topLocations) && topLocations.length > 0) {
+      return topLocations;
+    }
     if (!Array.isArray(posts) || posts.length === 0) return [];
     const map = new Map<string, StoryTopic>();
     posts.forEach((p) => {
@@ -114,7 +119,7 @@ export function CommunityStoriesReel({
     return Array.from(map.values())
       .sort((a, b) => (b.count || 0) - (a.count || 0))
       .slice(0, 10);
-  }, [posts]);
+  }, [topLocations, posts]);
 
   const storiesToDisplay =
     realLocationStories.length > 0 ? realLocationStories : FALLBACK_DESTINATION_STORIES;
@@ -122,12 +127,6 @@ export function CommunityStoriesReel({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.headerRow, isSmall && { paddingHorizontal: 12 }]}>
-        <View style={styles.dot} />
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          Khoảnh Khắc 24h • Trải Nghiệm Thực Tế
-        </Text>
-      </View>
 
       <ScrollView
         horizontal

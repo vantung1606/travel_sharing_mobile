@@ -13,7 +13,8 @@ import { WF_COLORS } from '@/constants/Colors';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
 import { getPostImages } from '@/components/community/communityUtils';
-import { pickFallbackImage, resolvePlaceImage } from '@/src/utils/placeImages';
+import { PLACE_IMAGE_POOL, SHARED_PLACEHOLDER_IMAGE } from '@/src/utils/placeImagePool';
+import { fixImageUrl } from '@/src/utils/placeImages';
 import { fetchLiveWeather } from '@/src/utils/weather';
 
 interface PlaceDetailModalProps {
@@ -75,6 +76,31 @@ export function PlaceDetailModal({
   const { width: windowWidth } = useWindowDimensions();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
+  const fakeImageSet = React.useMemo(
+    () => new Set<string>([SHARED_PLACEHOLDER_IMAGE, ...(PLACE_IMAGE_POOL || [])]),
+    []
+  );
+
+  const realImages = React.useMemo(() => {
+    if (!place) return [];
+    const seen = new Set<string>();
+    const list: string[] = [];
+    const pushIfReal = (raw?: string | null) => {
+      const fixed = fixImageUrl(raw ?? undefined);
+      if (!fixed) return;
+      if (fakeImageSet.has(fixed) || failedImages[fixed]) return;
+      if (seen.has(fixed)) return;
+      seen.add(fixed);
+      list.push(fixed);
+    };
+    if (Array.isArray(place.images)) {
+      place.images.forEach((u) => pushIfReal(u));
+    }
+    pushIfReal(place.coverImage);
+    return list;
+  }, [place, fakeImageSet, failedImages]);
 
   const handleModalClose = () => {
     // Dọn dẹp khi đóng modal (setState trong event handler — hợp lệ về quy tắc)
@@ -343,98 +369,142 @@ export function PlaceDetailModal({
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {place ? (
             <>
-              <View style={styles.heroWrap}>
-                {Array.isArray(place.images) && place.images.length > 1 ? (
-                  <ScrollView
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={(e) => {
-                      const offsetX = e.nativeEvent.contentOffset.x;
-                      const idx = Math.round(offsetX / windowWidth);
-                      setActiveImageIndex(Math.max(0, Math.min(idx, place.images!.length - 1)));
-                    }}
-                    style={{ width: windowWidth, height: 270 }}
-                  >
-                    {place.images.map((imgUri, index) => (
-                      <TouchableOpacity
-                        key={`${imgUri}-${index}`}
-                        activeOpacity={0.9}
-                        onPress={() => setLightboxIndex(index)}
-                      >
-                        <Image
-                          source={{ uri: imgUri }}
-                          style={{ width: windowWidth, height: 270 }}
-                          resizeMode="cover"
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => setLightboxIndex(0)}
-                  >
-                    <PlaceImage place={place} style={styles.hero} />
-                  </TouchableOpacity>
-                )}
-                <View style={styles.heroScrim} pointerEvents="none" />
-
-                <TouchableOpacity
-                  style={[styles.floatingBtn, styles.floatingBtnLeft]}
-                  onPress={handleModalClose}
-                  accessibilityLabel="Đóng chi tiết">
-                  <FontAwesome name="chevron-left" size={16} color={WF_COLORS.slate900} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.floatingBtn, styles.floatingBtnReport]}
-                  onPress={() => {
-                    if (!place) return;
-                    setReportTarget({
-                      type: 'PLACE',
-                      id: place.id,
-                      title: place.name,
-                    });
-                  }}
-                  accessibilityLabel="Báo cáo địa điểm">
-                  <FontAwesome name="flag-o" size={15} color={WF_COLORS.slate900} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.floatingBtn, styles.floatingBtnRight]}
-                  onPress={onToggleSave}
-                  accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
-                  <FontAwesome
-                    name={saved ? 'heart' : 'heart-o'}
-                    size={16}
-                    color={saved ? WF_COLORS.rose : WF_COLORS.slate900}
-                  />
-                </TouchableOpacity>
-
-                {/* Counter Badge */}
-                {Array.isArray(place.images) && place.images.length > 1 && (
-                  <View style={styles.imageBadge}>
-                    <FontAwesome name="camera" size={10} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.imageBadgeText}>{`${activeImageIndex + 1}/${place.images.length}`}</Text>
-                  </View>
-                )}
-
-                {/* Pagination Dots */}
-                {Array.isArray(place.images) && place.images.length > 1 && (
-                  <View style={styles.paginationDots} pointerEvents="none">
-                    {place.images.map((_, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.dot,
-                          i === activeImageIndex && styles.activeDot,
-                        ]}
+              {realImages.length > 0 ? (
+                <View style={styles.heroWrap}>
+                  {realImages.length > 1 ? (
+                    <ScrollView
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                      onMomentumScrollEnd={(e) => {
+                        const offsetX = e.nativeEvent.contentOffset.x;
+                        const idx = Math.round(offsetX / windowWidth);
+                        setActiveImageIndex(Math.max(0, Math.min(idx, realImages.length - 1)));
+                      }}
+                      style={{ width: windowWidth, height: 270 }}
+                    >
+                      {realImages.map((imgUri, index) => (
+                        <TouchableOpacity
+                          key={`${imgUri}-${index}`}
+                          activeOpacity={0.9}
+                          onPress={() => setLightboxIndex(index)}
+                        >
+                          <Image
+                            source={{ uri: imgUri }}
+                            style={{ width: windowWidth, height: 270 }}
+                            resizeMode="cover"
+                            onError={() =>
+                              setFailedImages((prev) => (prev[imgUri] ? prev : { ...prev, [imgUri]: true }))
+                            }
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setLightboxIndex(0)}
+                    >
+                      <Image
+                        source={{ uri: realImages[0] }}
+                        style={styles.hero}
+                        resizeMode="cover"
+                        onError={() =>
+                          setFailedImages((prev) =>
+                            prev[realImages[0]] ? prev : { ...prev, [realImages[0]]: true }
+                          )
+                        }
                       />
-                    ))}
+                    </TouchableOpacity>
+                  )}
+                  <View style={styles.heroScrim} pointerEvents="none" />
+
+                  <TouchableOpacity
+                    style={[styles.floatingBtn, styles.floatingBtnLeft]}
+                    onPress={handleModalClose}
+                    accessibilityLabel="Đóng chi tiết">
+                    <FontAwesome name="chevron-left" size={16} color={WF_COLORS.slate900} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.floatingBtn, styles.floatingBtnReport]}
+                    onPress={() => {
+                      if (!place) return;
+                      setReportTarget({
+                        type: 'PLACE',
+                        id: place.id,
+                        title: place.name,
+                      });
+                    }}
+                    accessibilityLabel="Báo cáo địa điểm">
+                    <FontAwesome name="flag-o" size={15} color={WF_COLORS.slate900} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.floatingBtn, styles.floatingBtnRight]}
+                    onPress={onToggleSave}
+                    accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
+                    <FontAwesome
+                      name={saved ? 'heart' : 'heart-o'}
+                      size={16}
+                      color={saved ? WF_COLORS.rose : WF_COLORS.slate900}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Counter Badge */}
+                  {realImages.length > 1 && (
+                    <View style={styles.imageBadge}>
+                      <FontAwesome name="camera" size={10} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.imageBadgeText}>{`${activeImageIndex + 1}/${realImages.length}`}</Text>
+                    </View>
+                  )}
+
+                  {/* Pagination Dots */}
+                  {realImages.length > 1 && (
+                    <View style={styles.paginationDots} pointerEvents="none">
+                      {realImages.map((_, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.dot,
+                            i === activeImageIndex && styles.activeDot,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(15,23,42,0.06)' }}>
+                  <TouchableOpacity
+                    style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}
+                    onPress={handleModalClose}
+                    accessibilityLabel="Đóng chi tiết">
+                    <FontAwesome name="chevron-left" size={16} color={WF_COLORS.slate900} />
+                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => {
+                        if (!place) return;
+                        setReportTarget({ type: 'PLACE', id: place.id, title: place.name });
+                      }}
+                      accessibilityLabel="Báo cáo địa điểm">
+                      <FontAwesome name="flag-o" size={15} color={WF_COLORS.slate900} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}
+                      onPress={onToggleSave}
+                      accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
+                      <FontAwesome
+                        name={saved ? 'heart' : 'heart-o'}
+                        size={16}
+                        color={saved ? WF_COLORS.rose : WF_COLORS.slate900}
+                      />
+                    </TouchableOpacity>
                   </View>
-                )}
-              </View>
+                </View>
+              )}
 
               <View style={styles.body}>
                 <View style={styles.tagRow}>
@@ -869,18 +939,12 @@ export function PlaceDetailModal({
       />
 
       <ImageLightbox
-        visible={lightboxIndex !== null && Boolean(place)}
-        images={
-          place
-            ? (place.images && place.images.length > 0
-                ? place.images
-                : [resolvePlaceImage(place)])
-            : []
-        }
+        visible={lightboxIndex !== null && realImages.length > 0}
+        images={realImages}
         initialIndex={lightboxIndex ?? 0}
         onClose={() => setLightboxIndex(null)}
         authorName={place?.name || 'Địa điểm'}
-        authorAvatar={place ? resolvePlaceImage(place) : undefined}
+        authorAvatar={realImages[0] || undefined}
       />
     </Modal>
   );

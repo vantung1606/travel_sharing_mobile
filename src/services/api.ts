@@ -1019,6 +1019,29 @@ export const itineraryApi = {
     const res = await apiClient.put<ApiResponse<ItineraryItem>>(`/itineraries/${id}/visibility`, isPublic !== undefined ? { isPublic } : {});
     return res.data.data;
   },
+
+  async addMember(id: number, email: string, role = 'VIEWER'): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>(`/itineraries/${id}/members`, { email, role });
+    return res.data.data;
+  },
+
+  async removeMember(id: number, userId: number): Promise<void> {
+    await apiClient.delete(`/itineraries/${id}/members/${userId}`);
+  },
+
+  async addExpense(id: number, payload: { amount: number; category: string; description: string }): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>(`/itineraries/${id}/expenses`, payload);
+    return res.data.data;
+  },
+
+  async deleteExpense(expenseId: number): Promise<void> {
+    await apiClient.delete(`/itineraries/expenses/${expenseId}`);
+  },
+
+  async getBudgetSummary(id: number): Promise<any> {
+    const res = await apiClient.get<ApiResponse<any>>(`/itineraries/${id}/budget-summary`);
+    return res.data.data;
+  },
 };
 
 // ─── HOME API ──────────────────────────────────────────────

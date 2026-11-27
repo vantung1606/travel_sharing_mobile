@@ -20,6 +20,7 @@ import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem, webItineraryUrl } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
+import { ItineraryExpensesMembersSection } from '@/components/itinerary/ItineraryExpensesMembersSection';
 
 function isValidDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -107,7 +108,30 @@ export function ItineraryDetailModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [togglingVisibility, setTogglingVisibility] = useState<boolean>(false);
+  const [cloningTrip, setCloningTrip] = useState<boolean>(false);
   const [reorderingStops, setReorderingStops] = useState<boolean>(false);
+
+  const handleCloneTrip = async () => {
+    if (!fullItin?.id || cloningTrip) return;
+    setCloningTrip(true);
+    try {
+      const cloned = await itineraryApi.cloneItinerary(fullItin.id);
+      showToast({
+        kind: 'success',
+        title: 'Đã sao chép lịch trình',
+        message: `Đã lưu bản sao "${cloned?.title || fullItin.title}" vào lịch trình của bạn!`,
+      });
+      onItineraryUpdated?.();
+    } catch (e: any) {
+      showToast({
+        kind: 'error',
+        title: 'Không thể sao chép',
+        message: e?.message || 'Vui lòng đăng nhập và thử lại.',
+      });
+    } finally {
+      setCloningTrip(false);
+    }
+  };
 
   const handleToggleVisibility = async () => {
     if (!fullItin?.id || togglingVisibility) return;
@@ -538,6 +562,21 @@ export function ItineraryDetailModal({
                 <FontAwesome name="pencil" size={13} color="#0369A1" />
               </TouchableOpacity>
             )}
+            {!effectiveCanEdit && fullItin?.id ? (
+              <TouchableOpacity
+                style={[styles.circleBtn, { backgroundColor: '#FEF3C7' }]}
+                onPress={handleCloneTrip}
+                disabled={cloningTrip}
+                activeOpacity={0.8}
+                accessibilityLabel="Sao chép toàn bộ lịch trình này"
+              >
+                {cloningTrip ? (
+                  <ActivityIndicator size="small" color="#B45309" />
+                ) : (
+                  <FontAwesome name="clone" size={13} color="#B45309" />
+                )}
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.circleBtn} onPress={handleShareTrip}>
               <FontAwesome name="share-alt" size={14} color="#1E1A15" />
             </TouchableOpacity>
@@ -870,6 +909,13 @@ export function ItineraryDetailModal({
                 </>
               )}
             </View>
+
+            {/* Chi tiêu thực tế & Bạn đồng hành (CSDL MySQL) */}
+            <ItineraryExpensesMembersSection
+              itineraryId={fullItin?.id}
+              budgetTotal={fullItin?.budgetTotal}
+              isOwner={effectiveCanEdit}
+            />
           </ScrollView>
         )}
 

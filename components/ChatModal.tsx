@@ -507,6 +507,9 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedItinForModal, setSelectedItinForModal] = useState<ItineraryItem | null>(null);
   const [itinModalVisible, setItinModalVisible] = useState(false);
+  const [itinPickerVisible, setItinPickerVisible] = useState(false);
+  const [myItinsForPicker, setMyItinsForPicker] = useState<ItineraryItem[]>([]);
+  const [loadingItinsPicker, setLoadingItinsPicker] = useState(false);
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<number | null>(null);
 
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
@@ -2330,6 +2333,31 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
                 />
               </TouchableOpacity>
 
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.attachButton}
+                onPress={async () => {
+                  setItinPickerVisible(true);
+                  setLoadingItinsPicker(true);
+                  try {
+                    const list = await itineraryApi.getMyItineraries();
+                    setMyItinsForPicker(Array.isArray(list) ? list : []);
+                  } catch {
+                    setMyItinsForPicker([]);
+                  } finally {
+                    setLoadingItinsPicker(false);
+                  }
+                }}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel="Chia sẻ lịch trình vào cuộc trò chuyện">
+                <FontAwesome
+                  name="map-o"
+                  size={16}
+                  color={sending ? WF_COLORS.slate400 : WF_COLORS.slate600}
+                />
+              </TouchableOpacity>
+
               <View style={styles.inputWrap}>
                 <TextInput
                   style={[styles.input, WEB_NO_OUTLINE, { height: Math.min(112, Math.max(40, inputHeight)) }]}
@@ -2413,6 +2441,76 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Share Itinerary Picker Modal */}
+        <Modal
+          visible={itinPickerVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setItinPickerVisible(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, maxHeight: '70%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>
+                  Gửi lịch trình vào trò chuyện
+                </Text>
+                <TouchableOpacity onPress={() => setItinPickerVisible(false)} style={{ padding: 6 }}>
+                  <FontAwesome name="times" size={16} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+              {loadingItinsPicker ? (
+                <ActivityIndicator size="small" color={WF_COLORS.primary} style={{ marginVertical: 24 }} />
+              ) : myItinsForPicker.length === 0 ? (
+                <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginVertical: 24 }}>
+                  Bạn chưa có lịch trình nào để chia sẻ.
+                </Text>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
+                  {myItinsForPicker.map((it) => (
+                    <TouchableOpacity
+                      key={it.id}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setItinPickerVisible(false);
+                        const payload = JSON.stringify({
+                          id: it.id,
+                          title: it.title,
+                          destination: it.destination,
+                          durationDays: getItineraryDayCount(it),
+                          budgetTotal: it.budgetTotal,
+                          coverImageUrl: it.coverImageUrl || it.coverImage || '',
+                        });
+                        sendMessageInternal(payload, 'ITINERARY');
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 10,
+                        borderRadius: 12,
+                        backgroundColor: '#FAF7F0',
+                        borderWidth: 1,
+                        borderColor: '#E7E0D3',
+                      }}>
+                      <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#F6E6DD', alignItems: 'center', justifyContent: 'center' }}>
+                        <FontAwesome name="map-o" size={16} color="#B0522F" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1E1A15' }} numberOfLines={1}>
+                          {it.title}
+                        </Text>
+                        <Text style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }} numberOfLines={1}>
+                          {it.destination || 'Việt Nam'} · {getItineraryDayCount(it)} ngày
+                        </Text>
+                      </View>
+                      <FontAwesome name="send" size={13} color={WF_COLORS.primary} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Itinerary detail */}
         {selectedItinForModal && (

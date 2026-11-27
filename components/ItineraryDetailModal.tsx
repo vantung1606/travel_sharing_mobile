@@ -154,7 +154,7 @@ export function ItineraryDetailModal({
       setFullItin(itinerary);
       setSelectedDay('all');
       fetchFullDetail(itinerary.id);
-      authStorage.getSession().then(s => setCurrentUser(s?.user ?? null)).catch(() => setCurrentUser(null));
+      authStorage.getSession().then(s => setCurrentUser(s ? (s.user ?? s) : null)).catch(() => setCurrentUser(null));
     }
   }, [visible, itinerary, fetchFullDetail]);
 

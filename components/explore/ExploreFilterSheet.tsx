@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Chip } from '@/components/ui/Chip';
-import { BUDGET_OPTIONS, PLACE_CATEGORIES } from '@/components/explore/exploreFilters';
+import { BUDGET_OPTIONS, EXPLORE_REGIONS, PLACE_CATEGORIES } from '@/components/explore/exploreFilters';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 
 const ALL = 'Tất cả';
@@ -17,14 +17,18 @@ interface ExploreFilterSheetProps {
   onCityChange: (value: string) => void;
   /** Các tỉnh/thành đã gặp trong dữ liệu (không gồm "Tất cả"). */
   cities: string[];
+  region: string;
+  onRegionChange: (value: string) => void;
   budget: string;
   onBudgetChange: (value: string) => void;
+  sortBy: 'popular' | 'rating' | 'nearest';
+  onSortChange: (value: 'popular' | 'rating' | 'nearest') => void;
   onReset: () => void;
 }
 
 /**
- * Một sheet duy nhất cho toàn bộ bộ lọc Khám phá: danh mục, tỉnh thành và
- * khoảng giá. Thay cho 3 hàng chip cuộn ngang chiếm gần 100px chrome trước đây.
+ * Một sheet duy nhất cho toàn bộ bộ lọc Khám phá: danh mục, tỉnh thành,
+ * vùng miền du lịch, thứ tự sắp xếp và khoảng giá — đồng bộ 1:1 với Web.
  */
 export function ExploreFilterSheet({
   visible,
@@ -34,24 +38,28 @@ export function ExploreFilterSheet({
   city,
   onCityChange,
   cities,
+  region,
+  onRegionChange,
   budget,
   onBudgetChange,
+  sortBy,
+  onSortChange,
   onReset,
 }: ExploreFilterSheetProps) {
   return (
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      title="Bộ lọc địa điểm"
-      subtitle="Chọn danh mục, tỉnh thành và khoảng giá."
+      title="Bộ lọc khám phá"
+      subtitle="Tùy biến tiêu chí tìm kiếm theo nhu cầu của bạn"
       maxHeightPercent={86}
       footer={
         <View style={styles.footer}>
           <TouchableOpacity onPress={onReset} style={styles.resetBtn} activeOpacity={0.8}>
-            <Text style={styles.resetText}>Xoá bộ lọc</Text>
+            <Text style={styles.resetText}>Đặt lại</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClose} style={styles.doneBtn} activeOpacity={0.85}>
-            <Text style={styles.doneText}>Xong</Text>
+            <Text style={styles.doneText}>Áp dụng bộ lọc</Text>
           </TouchableOpacity>
         </View>
       }>
@@ -75,7 +83,35 @@ export function ExploreFilterSheet({
         ))}
       </View>
 
-      <Text style={[styles.sectionTitle, styles.sectionGap]}>Khoảng giá</Text>
+      <Text style={[styles.sectionTitle, styles.sectionGap]}>Vùng miền du lịch</Text>
+      <View style={styles.chipWrap}>
+        {EXPLORE_REGIONS.map((reg) => (
+          <Chip
+            key={reg}
+            label={reg}
+            active={region === reg}
+            onPress={() => onRegionChange(reg)}
+          />
+        ))}
+      </View>
+
+      <Text style={[styles.sectionTitle, styles.sectionGap]}>Thứ tự sắp xếp</Text>
+      <View style={styles.chipWrap}>
+        {[
+          { value: 'popular' as const, label: 'Phổ biến nhất (nhiều lượt đánh giá)' },
+          { value: 'rating' as const, label: 'Điểm đánh giá cao nhất' },
+          { value: 'nearest' as const, label: 'Gần vị trí GPS của bạn nhất' },
+        ].map((option) => (
+          <Chip
+            key={option.value}
+            label={option.label}
+            active={sortBy === option.value}
+            onPress={() => onSortChange(option.value)}
+          />
+        ))}
+      </View>
+
+      <Text style={[styles.sectionTitle, styles.sectionGap]}>Khoảng giá dự kiến</Text>
       <View style={styles.chipWrap}>
         {BUDGET_OPTIONS.map((option) => (
           <Chip

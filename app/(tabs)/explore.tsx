@@ -1,5 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,7 +22,7 @@ import { ExploreFilterSheet } from '@/components/explore/ExploreFilterSheet';
 import { ExploreMapModal } from '@/components/explore/ExploreMapModal';
 import { FeaturedPlaceCard, PlaceCard } from '@/components/explore/PlaceCard';
 import { PlaceDetailModal } from '@/components/explore/PlaceDetailModal';
-import { PLACE_CATEGORIES, matchBudget, parsePriceVND } from '@/components/explore/exploreFilters';
+import { PLACE_CATEGORIES, getRegionByCity, matchBudget, parsePriceVND } from '@/components/explore/exploreFilters';
 import { Chip } from '@/components/ui/Chip';
 import { FAB } from '@/components/ui/FAB';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
@@ -29,7 +30,7 @@ import { UserProfileModal } from '@/components/UserProfileModal';
 import { DS_COLOR, DS_RADIUS, DS_TYPE } from '@/constants/DesignSystem';
 import { authPrompt } from '@/src/services/authPrompt';
 import { authStorage } from '@/src/services/authStorage';
-import { itineraryApi, ItineraryItem, placeApi, PlaceItem, savedPlaceApi } from '@/src/services/api';
+import { itineraryApi, ItineraryItem, placeApi, PlaceItem } from '@/src/services/api';
 import { savedPlaces } from '@/src/services/savedPlaces';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { showToast } from '@/components/Toast';
@@ -59,6 +60,7 @@ type ExploreRow =
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const { q } = useLocalSearchParams<{ q?: string | string[] }>();
   const scrollRef = useRef<FlatList<ExploreRow>>(null);
   const { width: screenWidth } = useWindowDimensions();
   const isSmallScreen = screenWidth < 380;
@@ -75,8 +77,11 @@ export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL);
   // Lọc tỉnh thành chạy TRỰC TIẾP trên server (/places?city=) — cùng chuẩn web
   const [selectedCity, setSelectedCity] = useState<string>(ALL);
+  const [selectedRegion, setSelectedRegion] = useState<string>(ALL);
   // Khoảng giá (client-side, giống web) + chế độ xem "Muốn đi"
   const [selectedBudget, setSelectedBudget] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'popular' | 'rating' | 'nearest'>('popular');
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [viewMode, setViewMode] = useState<'explore' | 'saved'>('explore');
   const [savedDetails, setSavedDetails] = useState<Record<string, PlaceItem>>({});
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
@@ -106,6 +111,13 @@ export default function ExploreScreen() {
   const [isAddPlaceOpen, setIsAddPlaceOpen] = useState<boolean>(false);
   const [isMapOpen, setIsMapOpen] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const query = Array.isArray(q) ? q[0] : q;
+    // Apply the incoming destination search when opened from Home.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (query?.trim()) setSearchQuery(query.trim());
+  }, [q]);
 
   // Gõ tới đâu gọi API tới đó là lỗi cũ: mỗi ký tự = 1 request. Giờ chỉ gọi
   // sau khi người dùng dừng gõ ~320ms.
@@ -204,32 +216,21 @@ export default function ExploreScreen() {
     rememberCities,
   ]);
 
-  useEffect(() => {
-    fetchPlaces();
-  }, [fetchPlaces]);
+  useFocusEffect(useCallback(() => {
+    void fetchPlaces();
+  }, [fetchPlaces]));
 
-  // Danh sách "muốn đi": lưu bền trên thiết bị + HYDRATION từ SERVER khi đã
-  // đăng nhập (union theo placeId) — những gì đã lưu trên web/thiết bị khác
-  // cũng xuất hiện ở đây, hết chia rẽ danh sách giữa các nền tảng.
-  useEffect(() => {
-    savedPlaces.getAll().then(setSavedIds);
-    return savedPlaces.subscribe(setSavedIds);
+  useEffect(() => savedPlaces.subscribe(setSavedIds), []);
+
+  const refreshSavedPlaces = useCallback(() => {
+    void savedPlaces.getAll().catch(error => console.warn('Could not refresh saved places', error));
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    authStorage.getSession().then((session) => {
-      if (!alive || !session) return;
-      savedPlaceApi.getSavedPlaces().then((ids) => {
-        if (alive && Array.isArray(ids) && ids.length > 0) {
-          savedPlaces.merge(ids).then(setSavedIds);
-        }
-      });
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  useFocusEffect(useCallback(() => {
+    refreshSavedPlaces();
+  }, [refreshSavedPlaces]));
+
+  useEffect(() => authStorage.subscribe(() => refreshSavedPlaces()), [refreshSavedPlaces]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -242,12 +243,11 @@ export default function ExploreScreen() {
       authPrompt.open();
       return;
     }
-    // LOCAL trước (nút tim phản hồi tức thì) rồi ghi ĐÈ lên SERVER.
-    const nowSaved = await savedPlaces.toggle(place.id);
-    const syncCall = nowSaved ? savedPlaceApi.addSavedPlace : savedPlaceApi.removeSavedPlace;
-    syncCall(place.id).catch((err: unknown) => {
-      console.warn('Wishlist server sync failed', err);
-    });
+    try {
+      await savedPlaces.toggle(place.id);
+    } catch (error: any) {
+      showToast({ kind: 'error', title: 'Không thể lưu địa điểm', message: error?.response?.data?.message || error?.message || 'Vui lòng thử lại.' });
+    }
   };
 
   const handleOpenPlaceDetail = (place: PlaceItem) => {
@@ -366,15 +366,36 @@ export default function ExploreScreen() {
     }
   };
 
-  const hasActiveFilters = selectedCategory !== ALL || selectedCity !== ALL || selectedBudget !== 'all';
+  const hasActiveFilters = selectedCategory !== ALL || selectedCity !== ALL || selectedRegion !== ALL || selectedBudget !== 'all' || sortBy !== 'popular';
   const activeFilterCount =
-    (selectedCategory !== ALL ? 1 : 0) + (selectedCity !== ALL ? 1 : 0) + (selectedBudget !== 'all' ? 1 : 0);
+    (selectedCategory !== ALL ? 1 : 0) + (selectedCity !== ALL ? 1 : 0) + (selectedRegion !== ALL ? 1 : 0) + (selectedBudget !== 'all' ? 1 : 0) + (sortBy !== 'popular' ? 1 : 0);
   const isFiltering = searchQuery.trim().length > 0 || hasActiveFilters;
 
   const handleResetSheetFilters = () => {
     setSelectedCategory(ALL);
     setSelectedCity(ALL);
+    setSelectedRegion(ALL);
     setSelectedBudget('all');
+    setSortBy('popular');
+  };
+
+  const handleSortChange = async (nextSort: 'popular' | 'rating' | 'nearest') => {
+    if (nextSort === 'nearest' && !userCoords) {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (!permission.granted) {
+          showToast({ kind: 'info', title: 'Cần quyền vị trí', message: 'Cho phép Wayfare truy cập vị trí để sắp xếp địa điểm gần bạn.' });
+          return;
+        }
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserCoords({ latitude: current.coords.latitude, longitude: current.coords.longitude });
+      } catch (err: any) {
+        showToast({ kind: 'error', title: 'Không lấy được vị trí', message: err?.message || 'Vui lòng thử lại sau.' });
+        return;
+      }
+    }
+    setSortBy(nextSort);
+    scrollToTop();
   };
 
   const handleResetAllFilters = () => {
@@ -393,11 +414,33 @@ export default function ExploreScreen() {
     )[0];
   }, [places, isFiltering]);
 
-  // Địa điểm hiển thị khi đang ở chế độ Khám phá (lọc giá client-side như web)
-  const displayedPlaces = useMemo(
-    () => (selectedBudget === 'all' ? places : places.filter((p) => matchBudget(parsePriceVND(p), selectedBudget))),
-    [places, selectedBudget]
-  );
+  // Địa điểm hiển thị khi đang ở chế độ Khám phá (lọc vùng miền & giá client-side như web)
+  const displayedPlaces = useMemo(() => {
+    const filtered = places.filter((p) => {
+      const matchPrice = selectedBudget === 'all' || matchBudget(parsePriceVND(p), selectedBudget);
+      const matchRegion =
+        selectedRegion === ALL ||
+        getRegionByCity(p.city) === selectedRegion ||
+        p.city?.toLowerCase().includes(selectedRegion.toLowerCase());
+      return matchPrice && matchRegion;
+    });
+    const distanceKm = (place: PlaceItem) => {
+      if (!userCoords || place.latitude == null || place.longitude == null) return Number.POSITIVE_INFINITY;
+      const toRad = (degrees: number) => (degrees * Math.PI) / 180;
+      const dLat = toRad(place.latitude - userCoords.latitude);
+      const dLng = toRad(place.longitude - userCoords.longitude);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(userCoords.latitude)) * Math.cos(toRad(place.latitude)) * Math.sin(dLng / 2) ** 2;
+      return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+    return filtered.sort((a, b) => {
+      if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+      if (a.isFeatured && b.isFeatured && a.featuredOrder !== b.featuredOrder) return (a.featuredOrder ?? 999) - (b.featuredOrder ?? 999);
+      if (sortBy === 'rating') return (b.rating ?? 0) - (a.rating ?? 0);
+      if (sortBy === 'nearest' && userCoords) return distanceKm(a) - distanceKm(b);
+      if (sortBy === 'popular') return (b.reviewsCount ?? 0) - (a.reviewsCount ?? 0);
+      return 0;
+    });
+  }, [places, selectedBudget, selectedRegion, sortBy, userCoords]);
 
   const exploreRows = useMemo<ExploreRow[]>(() => {
     const rows: ExploreRow[] = displayedPlaces
@@ -666,8 +709,15 @@ export default function ExploreScreen() {
           scrollToTop();
         }}
         cities={knownCities}
+        region={selectedRegion}
+        onRegionChange={(value) => {
+          setSelectedRegion(value);
+          scrollToTop();
+        }}
         budget={selectedBudget}
         onBudgetChange={setSelectedBudget}
+        sortBy={sortBy}
+        onSortChange={handleSortChange}
         onReset={handleResetSheetFilters}
       />
 

@@ -84,6 +84,7 @@ export function CommunityStoriesReel({
   const isSmall = width < 380;
   const ringSize = isSmall ? 54 : 60;
   const itemWidth = isSmall ? 64 : 72;
+  const [failedImages, setFailedImages] = React.useState<Record<string, boolean>>({});
 
   // Ưu tiên dữ liệu thống kê toàn hệ thống & toàn thời gian từ Backend (/posts/top-locations)
   const realLocationStories = useMemo<StoryTopic[]>(() => {
@@ -186,8 +187,17 @@ export function CommunityStoriesReel({
                     isSelected ? styles.ringActive : styles.ringIdle,
                   ]}>
                   <View style={styles.storyInnerBorder}>
-                    {story.imageUrl ? (
-                      <Image source={{ uri: story.imageUrl }} style={styles.storyAvatar} />
+                    {story.imageUrl &&
+                    !failedImages[story.id] &&
+                    !/\/video\/upload\//i.test(story.imageUrl) &&
+                    !/\.(mp4|webm|mov|mkv)(\?.*)?$/i.test(story.imageUrl) ? (
+                      <Image
+                        source={{ uri: story.imageUrl }}
+                        style={styles.storyAvatar}
+                        onError={() =>
+                          setFailedImages((prev) => (prev[story.id] ? prev : { ...prev, [story.id]: true }))
+                        }
+                      />
                     ) : (
                       <View style={styles.fallbackAvatar}>
                         <FontAwesome name="map-marker" size={20} color="#B45309" />

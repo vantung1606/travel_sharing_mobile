@@ -315,6 +315,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: RADIUS,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#E2E8F0',
   },
   singleWrap: {
     width: '100%',

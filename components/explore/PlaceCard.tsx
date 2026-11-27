@@ -45,58 +45,60 @@ export function PlaceCard({ place, saved, saving = false, onPress, onToggleSave 
   const priceInfo = formatPrice(place);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.88}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Xem chi tiết ${place.name}`}
-      style={[styles.card, isSmallScreen && { marginHorizontal: 12, marginBottom: 10, padding: 8 }]}>
-      <View style={[styles.thumbWrapper, isSmallScreen && { width: 80, height: 80, borderRadius: 14 }]}>
-        <PlaceImage place={place} style={styles.thumb} />
-        {place.category ? (
-          <View style={styles.thumbCategoryBadge}>
-            <Text style={styles.thumbCategoryText} numberOfLines={1}>
-              {place.category}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={[styles.body, isSmallScreen && { marginLeft: 10, marginRight: 4, gap: 2 }]}>
-        <View style={styles.nameRow}>
-          <Text style={[styles.name, isSmallScreen && { fontSize: 14 }]} numberOfLines={1}>
-            {place.name}
-          </Text>
-          {place.isVerifiedHost ? (
-            <FontAwesome name="check-circle" size={13} color="#2563EB" style={{ marginLeft: 2 }} />
+    <View style={[styles.card, isSmallScreen && { marginHorizontal: 12, marginBottom: 10, padding: 8 }]}>
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Xem chi tiết ${place.name}`}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        <View style={[styles.thumbWrapper, isSmallScreen && { width: 80, height: 80, borderRadius: 14 }]}>
+          <PlaceImage place={place} style={styles.thumb} />
+          {place.category ? (
+            <View style={styles.thumbCategoryBadge}>
+              <Text style={styles.thumbCategoryText} numberOfLines={1}>
+                {place.category}
+              </Text>
+            </View>
           ) : null}
         </View>
 
-        <View style={styles.locationRow}>
-          <FontAwesome name="map-marker" size={11} color={DS_COLOR.accent} style={{ marginRight: 3 }} />
-          <Text style={[styles.meta, isSmallScreen && { fontSize: 11.5 }]} numberOfLines={1}>
-            {place.city || 'Việt Nam'}
-          </Text>
-        </View>
+        <View style={[styles.body, isSmallScreen && { marginLeft: 10, marginRight: 4, gap: 2 }]}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.name, isSmallScreen && { fontSize: 14 }]} numberOfLines={1}>
+              {place.name}
+            </Text>
+            {place.isVerifiedHost ? (
+              <FontAwesome name="check-circle" size={13} color="#2563EB" style={{ marginLeft: 2 }} />
+            ) : null}
+          </View>
 
-        <View style={styles.bottomRow}>
-          {showRating ? (
-            <View style={styles.rating}>
-              <FontAwesome name="star" size={11} color="#F59E0B" />
-              <Text style={[styles.ratingText, isSmallScreen && { fontSize: 12 }]}>{place.rating!.toFixed(1)}</Text>
-              <Text style={styles.ratingCount}>({place.reviewsCount})</Text>
-            </View>
-          ) : (
-            <Text style={styles.noRating}>Mới khám phá</Text>
-          )}
-
-          <View style={[styles.pricePill, priceInfo.isFree ? styles.pricePillFree : styles.pricePillPaid, isSmallScreen && { paddingHorizontal: 7, paddingVertical: 2.5 }]}>
-            <Text style={[styles.pricePillText, priceInfo.isFree ? styles.pricePillTextFree : styles.pricePillTextPaid, isSmallScreen && { fontSize: 10.5 }]} numberOfLines={1}>
-              {priceInfo.label}
+          <View style={styles.locationRow}>
+            <FontAwesome name="map-marker" size={11} color={DS_COLOR.accent} style={{ marginRight: 3 }} />
+            <Text style={[styles.meta, isSmallScreen && { fontSize: 11.5 }]} numberOfLines={1}>
+              {place.city || 'Việt Nam'}
             </Text>
           </View>
+
+          <View style={styles.bottomRow}>
+            {showRating ? (
+              <View style={styles.rating}>
+                <FontAwesome name="star" size={11} color="#F59E0B" />
+                <Text style={[styles.ratingText, isSmallScreen && { fontSize: 12 }]}>{place.rating!.toFixed(1)}</Text>
+                <Text style={styles.ratingCount}>({place.reviewsCount})</Text>
+              </View>
+            ) : (
+              <Text style={styles.noRating}>Mới khám phá</Text>
+            )}
+
+            <View style={[styles.pricePill, priceInfo.isFree ? styles.pricePillFree : styles.pricePillPaid, isSmallScreen && { paddingHorizontal: 7, paddingVertical: 2.5 }]}>
+              <Text style={[styles.pricePillText, priceInfo.isFree ? styles.pricePillTextFree : styles.pricePillTextPaid, isSmallScreen && { fontSize: 10.5 }]} numberOfLines={1}>
+                {priceInfo.label}
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.favBtn, isSmallScreen && { width: 34, height: 34, borderRadius: 17 }, saved && styles.favBtnActive]}
@@ -105,10 +107,7 @@ export function PlaceCard({ place, saved, saving = false, onPress, onToggleSave 
         accessibilityRole="button"
         accessibilityState={{ disabled: saving, busy: saving }}
         hitSlop={6}
-        onPress={(e) => {
-          e.stopPropagation();
-          onToggleSave();
-        }}
+        onPress={onToggleSave}
         accessibilityLabel={saved ? 'Bỏ lưu địa điểm' : 'Lưu địa điểm'}>
         {saving ? <ActivityIndicator size="small" color={DS_COLOR.accent} /> : <FontAwesome
           name={saved ? 'heart' : 'heart-o'}
@@ -116,7 +115,7 @@ export function PlaceCard({ place, saved, saving = false, onPress, onToggleSave 
           color={saved ? '#EF4444' : DS_COLOR.inkMuted}
         />}
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 }
 

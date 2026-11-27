@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -34,8 +34,10 @@ export function ItineraryExpensesMembersSection({
   const [loading, setLoading] = useState(false);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
-  const [detailCreator, setDetailCreator] = useState<{ name: string; email: string }>({ name: '', email: '' });
+  const [detailCreator, setDetailCreator] = useState<{ id: number | null; name: string; email: string }>({ id: null, name: '', email: '' });
   const [currentUser, setCurrentUser] = useState<{ id?: number; email?: string } | null>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+  const [leavingTrip, setLeavingTrip] = useState(false);
 
   const [expAmount, setExpAmount] = useState('');
   const [expCategory, setExpCategory] = useState('Ăn uống');
@@ -53,6 +55,7 @@ export function ItineraryExpensesMembersSection({
       setExpenses(Array.isArray(detail?.expenses) ? detail.expenses : []);
       setMembers(Array.isArray(detail?.members) ? detail.members : []);
       setDetailCreator({
+        id: detail?.creatorId || null,
         name: detail?.creatorName || detail?.authorName || '',
         email: detail?.creatorEmail || '',
       });
@@ -106,6 +109,77 @@ export function ItineraryExpensesMembersSection({
       )
   );
   const canLogExpense = isOwner || isMember;
+
+  const settlements = useMemo(() => {
+    if (totalPeople <= 1 || actualTotal <= 0) return [];
+    const people = [
+      {
+        userId: ownerFromMembers?.userId || detailCreator.id || null,
+        name: ownerDisplayName,
+        paid: 0,
+      },
+      ...companions.map((c) => ({
+        userId: c.userId || null,
+        name: c.fullName || c.email || 'Thành viên',
+        paid: 0,
+      })),
+    ];
+
+    for (const exp of expenses) {
+      const amt = Number(exp.amount) || 0;
+      if (amt <= 0) continue;
+      let target = people.find(
+        (p) =>
+          (p.userId != null && exp.payerId != null && String(p.userId) === String(exp.payerId)) ||
+          (exp.payerName && p.name.toLowerCase() === String(exp.payerName).toLowerCase())
+      );
+      if (!target) target = people[0];
+      target.paid += amt;
+    }
+
+    const share = actualTotal / people.length;
+    const debtors: { name: string; amount: number }[] = [];
+    const creditors: { name: string; amount: number }[] = [];
+    for (const p of people) {
+      const diff = Math.round(p.paid - share);
+      if (diff < -500) debtors.push({ name: p.name, amount: -diff });
+      else if (diff > 500) creditors.push({ name: p.name, amount: diff });
+    }
+
+    const transfers: { from: string; to: string; amount: number }[] = [];
+    let i = 0;
+    let j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const pay = Math.min(debtors[i].amount, creditors[j].amount);
+      if (pay >= 500) {
+        transfers.push({ from: debtors[i].name, to: creditors[j].name, amount: pay });
+      }
+      debtors[i].amount -= pay;
+      creditors[j].amount -= pay;
+      if (debtors[i].amount < 500) i++;
+      if (creditors[j].amount < 500) j++;
+    }
+    return transfers;
+  }, [totalPeople, actualTotal, expenses, ownerFromMembers?.userId, detailCreator.id, ownerDisplayName, companions]);
+
+  const filteredExpenses = useMemo(() => {
+    if (selectedCategoryFilter === 'ALL') return expenses;
+    return expenses.filter((e) => (e.category || 'Khác') === selectedCategoryFilter);
+  }, [expenses, selectedCategoryFilter]);
+
+  const handleLeaveTrip = async () => {
+    if (!currentUser?.id || !itineraryId) return;
+    setLeavingTrip(true);
+    try {
+      await itineraryApi.removeMember(itineraryId, currentUser.id);
+      showToast({ kind: 'info', title: 'Đã rời khỏi chuyến đi' });
+      await loadData();
+    } catch (e: any) {
+      showToast({ kind: 'error', title: 'Không thể rời chuyến', message: e?.message || '' });
+    } finally {
+      setLeavingTrip(false);
+    }
+  };
 
   const handleAddExpense = async () => {
     const num = Number(expAmount.replace(/\D/g, ''));
@@ -236,6 +310,23 @@ export function ItineraryExpensesMembersSection({
                     <FontAwesome name="trash-o" size={14} color="#EF4444" />
                   </TouchableOpacity>
                 )}
+                {!isOwner && currentUser?.id != null && String(m.userId) === String(currentUser.id) && (
+                  <TouchableOpacity
+                    disabled={leavingTrip}
+                    onPress={handleLeaveTrip}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                      backgroundColor: '#FEF2F2',
+                      borderWidth: 1,
+                      borderColor: '#FECACA',
+                    }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#DC2626' }}>
+                      {leavingTrip ? '...' : 'Rời chuyến'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))
           )}
@@ -287,6 +378,40 @@ export function ItineraryExpensesMembersSection({
             </View>
           </View>
         )}
+
+        {totalPeople > 1 && actualTotal > 0 && (
+          <View style={{ paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(15,23,42,0.06)', gap: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>
+              Gợi ý thanh toán chia tiền
+            </Text>
+            {settlements.length === 0 ? (
+              <Text style={{ fontSize: 12, color: '#047857', fontWeight: '600' }}>
+                Mọi người đã đóng góp đều nhau.
+              </Text>
+            ) : (
+              settlements.map((s, idx) => (
+                <View
+                  key={idx}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#F8FAFC',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                  }}>
+                  <Text style={{ fontSize: 12, color: '#334155', flex: 1 }} numberOfLines={1}>
+                    {s.from} → {s.to}
+                  </Text>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#0369A1', marginLeft: 8 }}>
+                    {s.amount.toLocaleString('vi-VN')}đ
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        )}
       </View>
 
       {/* 2. Form ghi khoản chi mới */}
@@ -334,14 +459,29 @@ export function ItineraryExpensesMembersSection({
       {/* 3. Danh sách khoản chi */}
       <View style={styles.card}>
         <View style={styles.headerRow}>
-          <Text style={styles.sectionLabel}>Danh sách khoản chi ({expenses.length})</Text>
+          <Text style={styles.sectionLabel}>Danh sách khoản chi ({filteredExpenses.length})</Text>
           {loading && <ActivityIndicator size="small" color="#94A3B8" />}
         </View>
 
-        {expenses.length === 0 ? (
+        {expenses.length > 0 && (
+          <View style={styles.catRow}>
+            {['ALL', ...EXPENSE_CATEGORIES.filter((c) => expenses.some((e) => (e.category || 'Khác') === c))].map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategoryFilter(cat)}
+                style={[styles.catChip, selectedCategoryFilter === cat && styles.catChipActive]}>
+                <Text style={[styles.catChipText, selectedCategoryFilter === cat && styles.catChipTextActive]}>
+                  {cat === 'ALL' ? 'Tất cả' : cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {filteredExpenses.length === 0 ? (
           <Text style={styles.emptyText}>Chưa có khoản chi tiêu thực tế nào.</Text>
         ) : (
-          expenses.map((exp) => (
+          filteredExpenses.map((exp) => (
             <View key={exp.id} style={styles.listRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle} numberOfLines={1}>

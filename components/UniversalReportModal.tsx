@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -87,6 +87,10 @@ export function UniversalReportModal({
   const resetForm = () => {
     setForm({ category: '', reason: '', description: '', evidenceImage: '' });
   };
+
+  useEffect(() => {
+    resetForm();
+  }, [visible, targetType, targetId]);
 
   const handlePickEvidence = async () => {
     try {

@@ -34,6 +34,7 @@ export function ItineraryExpensesMembersSection({
   const [loading, setLoading] = useState(false);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [detailCreator, setDetailCreator] = useState<{ name: string; email: string }>({ name: '', email: '' });
   const [currentUser, setCurrentUser] = useState<{ id?: number; email?: string } | null>(null);
 
   const [expAmount, setExpAmount] = useState('');
@@ -51,6 +52,10 @@ export function ItineraryExpensesMembersSection({
       const detail: any = await itineraryApi.getItineraryById(itineraryId);
       setExpenses(Array.isArray(detail?.expenses) ? detail.expenses : []);
       setMembers(Array.isArray(detail?.members) ? detail.members : []);
+      setDetailCreator({
+        name: detail?.creatorName || detail?.authorName || '',
+        email: detail?.creatorEmail || '',
+      });
     } catch {
       // ignore
     } finally {
@@ -65,8 +70,28 @@ export function ItineraryExpensesMembersSection({
 
   if (!itineraryId) return null;
 
+  const rawOwnerEmail = (detailCreator.email || creatorEmail || '').trim().toLowerCase();
+  const ownerFromMembers = members.find(
+    (m) =>
+      String(m.role || '').toUpperCase() === 'OWNER' ||
+      (rawOwnerEmail && String(m.email || '').trim().toLowerCase() === rawOwnerEmail)
+  );
+  const ownerDisplayName = ownerFromMembers?.fullName || detailCreator.name || creatorName || 'Chủ chuyến đi';
+  const ownerDisplayEmail = ownerFromMembers?.email || detailCreator.email || creatorEmail || '';
+  const ownerEmailKey = ownerDisplayEmail.trim().toLowerCase();
+
+  const companions: any[] = [];
+  const seenKeys = new Set<string>(ownerEmailKey ? [ownerEmailKey] : []);
+  for (const m of members) {
+    if (String(m.role || '').toUpperCase() === 'OWNER') continue;
+    const key = String(m.email || m.userId || m.id || '').trim().toLowerCase();
+    if (!key || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    companions.push(m);
+  }
+
   const actualTotal = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalPeople = 1 + members.length;
+  const totalPeople = 1 + companions.length;
   const perPerson = Math.round(actualTotal / Math.max(1, totalPeople));
   const budgetNum = Number(budgetTotal) || 0;
   const remaining = budgetNum - actualTotal;
@@ -74,7 +99,7 @@ export function ItineraryExpensesMembersSection({
   const isOver = budgetNum > 0 && actualTotal > budgetNum;
   const isMember = Boolean(
     currentUser &&
-      members.some(
+      companions.some(
         (m) =>
           (m.email && currentUser.email && m.email.toLowerCase() === currentUser.email.toLowerCase()) ||
           (m.userId != null && currentUser.id != null && String(m.userId) === String(currentUser.id))
@@ -180,11 +205,11 @@ export function ItineraryExpensesMembersSection({
           <View style={styles.listRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.itemTitle} numberOfLines={1}>
-                {creatorName || 'Chủ chuyến đi'}
+                {ownerDisplayName}
               </Text>
-              {creatorEmail ? (
+              {ownerDisplayEmail ? (
                 <Text style={styles.itemSub} numberOfLines={1}>
-                  {creatorEmail}
+                  {ownerDisplayEmail}
                 </Text>
               ) : null}
             </View>
@@ -193,10 +218,10 @@ export function ItineraryExpensesMembersSection({
             </View>
           </View>
 
-          {members.length === 0 ? (
+          {companions.length === 0 ? (
             <Text style={styles.emptyText}>Chưa có bạn đồng hành nào được mời.</Text>
           ) : (
-            members.map((m) => (
+            companions.map((m) => (
               <View key={m.id || m.userId} style={styles.listRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle} numberOfLines={1}>

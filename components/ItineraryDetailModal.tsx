@@ -1223,12 +1223,14 @@ export function ItineraryDetailModal({
                 <Text style={styles.fieldLabel}>Phong cách du lịch</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                   {[
-                    'Nghỉ dưỡng & Khám phá',
-                    'Phượt bụi & Mạo hiểm',
-                    'Ẩm thực & Check-in',
-                    'Văn hóa & Lịch sử',
-                    'Gia đình & Thư giãn',
-                    'Sinh thái & Thiên nhiên',
+                    'Check-in sống ảo',
+                    'Ẩm thực bản địa',
+                    'Nghỉ dưỡng & Biển',
+                    'Văn hóa & Di sản',
+                    'Trekking & Phượt',
+                    'Phố đêm & Vui chơi',
+                    'Chữa lành & Thư giãn',
+                    'Mua sắm & Chợ',
                   ].map((style) => {
                     const isSelected = editTravelStyle === style;
                     return (

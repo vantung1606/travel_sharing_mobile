@@ -1202,7 +1202,16 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
 
             <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>Phong cách du lịch</Text>
             <View style={styles.grid2x2}>
-              {['Nghỉ dưỡng & Khám phá', 'Ẩm thực', 'Văn hóa & Lịch sử', 'Phượt & Thiên nhiên'].map(style => (
+              {[
+                'Check-in sống ảo',
+                'Ẩm thực bản địa',
+                'Nghỉ dưỡng & Biển',
+                'Văn hóa & Di sản',
+                'Trekking & Phượt',
+                'Phố đêm & Vui chơi',
+                'Chữa lành & Thư giãn',
+                'Mua sắm & Chợ',
+              ].map(style => (
                 <TouchableOpacity
                   key={style}
                   style={[styles.choiceCard, manualTravelStyle === style && styles.choiceCardActive]}

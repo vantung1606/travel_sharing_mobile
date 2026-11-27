@@ -938,6 +938,8 @@ export default function CommunityScreen() {
         ListHeaderComponent={
           <>
             <CommunityStoriesReel
+              posts={fullPosts ?? pagedPosts}
+              selectedQuery={search}
               currentUserAvatar={session?.avatarUrl}
               onCreatePress={openCreate}
               onSelectTopic={(story: StoryTopic) => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Image,
   ScrollView,
@@ -9,133 +9,211 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { LinearGradient } from 'expo-linear-gradient';
+import { PostItem } from '@/src/services/api';
 import { DS_COLOR } from '@/constants/DesignSystem';
 
 export interface StoryTopic {
   id: string;
   label: string;
   query: string;
-  imageUrl: string;
+  imageUrl?: string | null;
+  count?: number | null;
 }
 
-const FEATURED_STORIES: StoryTopic[] = [
+const FALLBACK_DESTINATION_STORIES: StoryTopic[] = [
   {
     id: 'dalat',
-    label: 'Săn mây',
+    label: 'Đà Lạt',
     query: 'Đà Lạt',
     imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80',
   },
   {
+    id: 'danang',
+    label: 'Đà Nẵng',
+    query: 'Đà Nẵng',
+    imageUrl: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80',
+  },
+  {
     id: 'phuquoc',
-    label: 'Biển đảo',
+    label: 'Phú Quốc',
     query: 'Phú Quốc',
     imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'hoian',
-    label: 'Phố cổ',
-    query: 'Hội An',
-    imageUrl: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: 'food',
-    label: 'Ẩm thực',
-    query: 'ẩm thực',
-    imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=300&q=80',
-  },
-  {
     id: 'hagiang',
-    label: 'Phượt núi',
+    label: 'Hà Giang',
     query: 'Hà Giang',
     imageUrl: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'healing',
-    label: 'Chữa lành',
-    query: 'chữa lành',
+    id: 'sapa',
+    label: 'Sa Pa',
+    query: 'Sa Pa',
+    imageUrl: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'ninhbinh',
+    label: 'Ninh Bình',
+    query: 'Ninh Bình',
     imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'sapa',
-    label: 'Ruộng bậc thang',
-    query: 'Sa Pa',
-    imageUrl: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=300&q=80',
+    id: 'hoian',
+    label: 'Hội An',
+    query: 'Hội An',
+    imageUrl: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=300&q=80',
   },
 ];
 
 interface CommunityStoriesReelProps {
+  posts?: PostItem[];
+  selectedQuery?: string;
   currentUserAvatar?: string | null;
-  onCreatePress: () => void;
+  onCreatePress?: () => void;
   onSelectTopic: (story: StoryTopic) => void;
 }
 
 export function CommunityStoriesReel({
-  currentUserAvatar,
-  onCreatePress,
+  posts = [],
+  selectedQuery = '',
   onSelectTopic,
 }: CommunityStoriesReelProps) {
   const { width } = useWindowDimensions();
   const isSmall = width < 380;
-  const ringSize = isSmall ? 56 : 64;
-  const itemWidth = isSmall ? 62 : 70;
+  const ringSize = isSmall ? 54 : 60;
+  const itemWidth = isSmall ? 64 : 72;
+
+  // Tổng hợp địa điểm thực tế từ bài đăng & sắp xếp theo lượt bài đăng giảm dần (giống 100% Web)
+  const realLocationStories = useMemo<StoryTopic[]>(() => {
+    if (!Array.isArray(posts) || posts.length === 0) return [];
+    const map = new Map<string, StoryTopic>();
+    posts.forEach((p) => {
+      const loc = (p.locationTag || p.locationName || '').trim();
+      if (!loc || loc.toLowerCase() === 'việt nam') return;
+      const img =
+        (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null) ||
+        p.coverImage ||
+        p.imageUrl ||
+        null;
+      const existing = map.get(loc);
+      if (!existing) {
+        map.set(loc, {
+          id: loc,
+          label: loc,
+          query: loc,
+          count: 1,
+          imageUrl: img,
+        });
+      } else {
+        existing.count = (existing.count || 0) + 1;
+        if (!existing.imageUrl && img) {
+          existing.imageUrl = img;
+        }
+      }
+    });
+    return Array.from(map.values())
+      .sort((a, b) => (b.count || 0) - (a.count || 0))
+      .slice(0, 10);
+  }, [posts]);
+
+  const storiesToDisplay =
+    realLocationStories.length > 0 ? realLocationStories : FALLBACK_DESTINATION_STORIES;
+  const isAllSelected = !selectedQuery.trim();
 
   return (
     <View style={styles.container}>
+      <View style={[styles.headerRow, isSmall && { paddingHorizontal: 12 }]}>
+        <View style={styles.dot} />
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          Khoảnh Khắc 24h • Trải Nghiệm Thực Tế
+        </Text>
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, isSmall && { paddingHorizontal: 10, gap: 10 }]}>
-        {/* 1. Nút Tạo Khoảnh Khắc Của Tôi */}
+        contentContainerStyle={[styles.scrollContent, isSmall && { paddingHorizontal: 12, gap: 10 }]}>
+        {/* Nút Tất cả (Reset bộ lọc địa điểm, giống Web) */}
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={onCreatePress}
+          onPress={() => onSelectTopic({ id: 'all', label: 'Tất cả', query: '' })}
           style={[styles.storyItem, { width: itemWidth }]}
           accessibilityRole="button"
-          accessibilityLabel="Đăng bài viết mới">
-          <View style={[styles.myStoryWrap, { width: ringSize, height: ringSize, borderRadius: ringSize / 2 }]}>
-            {currentUserAvatar ? (
-              <Image source={{ uri: currentUserAvatar }} style={styles.storyAvatar} />
-            ) : (
-              <View style={styles.fallbackAvatar}>
-                <FontAwesome name="user" size={isSmall ? 20 : 24} color="#94A3B8" />
-              </View>
-            )}
-            <View style={styles.plusBadge}>
-              <FontAwesome name="plus" size={9} color="#FFFFFF" />
+          accessibilityLabel="Xem tất cả bài viết">
+          <View
+            style={[
+              styles.ringOuter,
+              { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
+              isAllSelected ? styles.ringActive : styles.ringIdle,
+            ]}>
+            <View style={styles.allInnerCircle}>
+              <FontAwesome name="compass" size={isSmall ? 20 : 22} color="#B45309" />
             </View>
           </View>
-          <Text style={[styles.myStoryLabel, isSmall && { fontSize: 10.5 }]} numberOfLines={1}>
-            Tạo bài
+          <Text
+            style={[
+              styles.storyLabel,
+              isSmall && { fontSize: 10.5 },
+              isAllSelected && styles.storyLabelActive,
+            ]}
+            numberOfLines={1}>
+            Tất cả
           </Text>
         </TouchableOpacity>
 
-        {/* 2. Danh Sách Stories Xu Hướng */}
-        {FEATURED_STORIES.map((story) => (
-          <TouchableOpacity
-            key={story.id}
-            activeOpacity={0.85}
-            onPress={() => onSelectTopic(story)}
-            style={[styles.storyItem, { width: itemWidth }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Xem chủ đề ${story.label}`}>
-            <LinearGradient
-              colors={['#FF5722', '#F59E0B', '#EC4899']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
-                styles.storyRingGradient,
-                { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
-              ]}>
-              <View style={styles.storyInnerBorder}>
-                <Image source={{ uri: story.imageUrl }} style={styles.storyAvatar} />
+        {/* Danh sách địa điểm dựa theo lượt bài đăng thực tế */}
+        {storiesToDisplay.map((story) => {
+          const isSelected =
+            Boolean(selectedQuery.trim()) &&
+            selectedQuery.toLowerCase().includes(story.query.toLowerCase());
+
+          return (
+            <TouchableOpacity
+              key={story.id}
+              activeOpacity={0.85}
+              onPress={() =>
+                onSelectTopic(
+                  isSelected ? { id: 'all', label: 'Tất cả', query: '' } : story
+                )
+              }
+              style={[styles.storyItem, { width: itemWidth }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Xem bài viết tại ${story.label}`}>
+              <View style={{ position: 'relative' }}>
+                <View
+                  style={[
+                    styles.ringOuter,
+                    { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
+                    isSelected ? styles.ringActive : styles.ringIdle,
+                  ]}>
+                  <View style={styles.storyInnerBorder}>
+                    {story.imageUrl ? (
+                      <Image source={{ uri: story.imageUrl }} style={styles.storyAvatar} />
+                    ) : (
+                      <View style={styles.fallbackAvatar}>
+                        <FontAwesome name="map-marker" size={20} color="#B45309" />
+                      </View>
+                    )}
+                  </View>
+                </View>
+                {story.count ? (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{story.count}</Text>
+                  </View>
+                ) : null}
               </View>
-            </LinearGradient>
-            <Text style={[styles.storyLabel, isSmall && { fontSize: 10.5 }]} numberOfLines={1}>
-              {story.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.storyLabel,
+                  isSmall && { fontSize: 10.5 },
+                  isSelected && styles.storyLabelActive,
+                ]}
+                numberOfLines={1}>
+                {story.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -143,10 +221,30 @@ export function CommunityStoriesReel({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
+    backgroundColor: '#FFFDF8',
+    paddingTop: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.06)',
+    borderBottomColor: 'rgba(30, 26, 21, 0.08)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: DS_COLOR.accent,
+  },
+  headerTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#1E1A15',
+    letterSpacing: -0.2,
   },
   scrollContent: {
     paddingHorizontal: 14,
@@ -156,32 +254,32 @@ const styles = StyleSheet.create({
   storyItem: {
     alignItems: 'center',
   },
-  myStoryWrap: {
+  ringOuter: {
     padding: 2,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF7ED',
   },
-  storyRingGradient: {
-    padding: 2.5,
+  ringActive: {
+    borderColor: DS_COLOR.accent,
+  },
+  ringIdle: {
+    borderColor: 'rgba(30, 26, 21, 0.12)',
+  },
+  allInnerCircle: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#F3EDE2',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF5722',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    elevation: 2,
   },
   storyInnerBorder: {
     width: '100%',
     height: '100%',
     borderRadius: 999,
-    padding: 2,
-    backgroundColor: '#FFFFFF',
+    padding: 1.5,
+    backgroundColor: '#FFFDF8',
     overflow: 'hidden',
   },
   storyAvatar: {
@@ -194,40 +292,35 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8F4EC',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  plusBadge: {
+  countBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FF5722',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#FF5722',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#1E1A15',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FFFDF8',
   },
-  myStoryLabel: {
-    marginTop: 5,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
+  countBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#F8F4EC',
   },
   storyLabel: {
     marginTop: 5,
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: '#3B332A',
     textAlign: 'center',
+  },
+  storyLabelActive: {
+    color: DS_COLOR.accent,
+    fontWeight: '800',
   },
 });

@@ -37,8 +37,8 @@ import {
   webItineraryUrl,
 } from '@/src/services/api';
 import { aiService } from '@/src/services/aiService';
-import { authStorage, UserSession } from '@/src/services/authStorage';
-import { computeItineraryStatus, formatItineraryDuration, getItineraryDayCount } from '@/src/utils/itinerary';
+import { authStorage } from '@/src/services/authStorage';
+import { computeItineraryStatus } from '@/src/utils/itinerary';
 import { tabBarVisibility } from '@/src/services/tabBarVisibility';
 
 // ─── PRESET COVERS ──────────────────────────────────────────
@@ -51,19 +51,15 @@ const COVER_PRESETS = [
   { label: 'Sa Pa Ruộng Bậc Thang', url: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=1200&q=80' },
 ];
 
-const HOT_DESTINATIONS = [
-  'Đà Lạt', 'Đà Nẵng', 'Phú Quốc', 'Hà Giang', 'Ninh Bình', 'Sa Pa', 'Quy Nhơn', 'Hà Nội', 'Huế', 'Hội An'
-];
-
 // Khớp 100% với Web AITripGeneratorModal.jsx INTEREST_OPTIONS
 const AI_INTEREST_OPTIONS = [
-  { id: 'checkin', label: '📸 Sống ảo' },
-  { id: 'food', label: '🍜 Ẩm thực' },
-  { id: 'beach', label: '🏖️ Biển & Nghỉ dưỡng' },
-  { id: 'culture', label: '🏛️ Văn hóa di sản' },
-  { id: 'trekking', label: '🧭 Phượt & Trekking' },
-  { id: 'nightlife', label: '🎵 Phố đêm vui chơi' },
-  { id: 'healing', label: '🌿 Chữa lành' },
+  { id: 'checkin', label: '📸 Check-in sống ảo' },
+  { id: 'food', label: '🍜 Ẩm thực bản địa' },
+  { id: 'beach', label: '🏖️ Nghỉ dưỡng & Biển' },
+  { id: 'culture', label: '🏛️ Văn hóa & Di sản' },
+  { id: 'trekking', label: '🧭 Trekking & Phượt' },
+  { id: 'nightlife', label: '🎵 Phố đêm & Vui chơi' },
+  { id: 'healing', label: '🌿 Chữa lành & Thư giãn' },
   { id: 'shopping', label: '🛍️ Mua sắm & Chợ' },
 ];
 
@@ -91,6 +87,29 @@ function formatCurrency(num: number | string): string {
   return Number(clean).toLocaleString('en-US');
 }
 
+function localDateAfter(days: number): string {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function tripDayCount(start: string, end: string): number | null {
+  const parse = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.toISOString().slice(0, 10) === value ? date.getTime() : null;
+  };
+  const first = parse(start);
+  const last = parse(end);
+  if (first === null || last === null || last < first) return null;
+  return Math.round((last - first) / 86400000) + 1;
+}
+
+type ManualStop = { id: number; time: string; name: string; address: string; cost: string; note: string };
+type ManualDay = { title: string; stops: ManualStop[] };
+
 export default function ItineraryScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const isSmallScreen = screenWidth < 380;
@@ -116,20 +135,24 @@ export default function ItineraryScreen() {
   const [manualModalVisible, setManualModalVisible] = useState<boolean>(false);
   const [manualTitle, setManualTitle] = useState<string>('');
   const [manualDest, setManualDest] = useState<string>('');
-  const [manualStartDate, setManualStartDate] = useState<string>('2026-10-25');
-  const [manualEndDate, setManualEndDate] = useState<string>('2026-10-28');
-  const [manualDays, setManualDays] = useState<number>(4);
-  const [manualBudgetFormatted, setManualBudgetFormatted] = useState<string>('4,500,000');
+  const [manualStartDate, setManualStartDate] = useState<string>(() => localDateAfter(2));
+  const [manualEndDate, setManualEndDate] = useState<string>(() => localDateAfter(4));
+  const manualDays = tripDayCount(manualStartDate, manualEndDate) || 0;
+  const [manualBudgetFormatted, setManualBudgetFormatted] = useState<string>('5,000,000');
   const [manualCover, setManualCover] = useState<string>(COVER_PRESETS[0].url);
-  const [manualGroup, setManualGroup] = useState<string>('Bạn bè');
+  const [manualGroup, setManualGroup] = useState<string>('solo');
+  const [manualTravelStyle, setManualTravelStyle] = useState<string>('Nghỉ dưỡng & Khám phá');
+  const [manualIsPublic, setManualIsPublic] = useState<boolean>(true);
+  const [manualDayEdits, setManualSchedule] = useState<ManualDay[]>([]);
+  const manualSchedule = Array.from({ length: Math.min(manualDays, 30) }, (_, index) => manualDayEdits[index] || { title: '', stops: [] });
   const [submittingManual, setSubmittingManual] = useState<boolean>(false);
 
   // ─── MODAL WANDERAI TRIP GENERATOR STATE ─────────────────
   const [aiModalVisible, setAiModalVisible] = useState<boolean>(false);
   const [aiDest, setAiDest] = useState<string>('Đà Lạt');
-  const [aiStartDate, setAiStartDate] = useState<string>('2026-10-25');
-  const [aiEndDate, setAiEndDate] = useState<string>('2026-10-28');
-  const [aiDays, setAiDays] = useState<number>(4);
+  const [aiStartDate, setAiStartDate] = useState<string>(() => localDateAfter(2));
+  const [aiEndDate, setAiEndDate] = useState<string>(() => localDateAfter(4));
+  const aiDays = tripDayCount(aiStartDate, aiEndDate) || 0;
   const [aiCompanion, setAiCompanion] = useState<string>('couple');
   const [aiBudgetTier, setAiBudgetTier] = useState<number>(2);
   const [aiSelectedInterests, setAiSelectedInterests] = useState<string[]>(['checkin', 'food', 'culture']);
@@ -138,43 +161,34 @@ export default function ItineraryScreen() {
   const [aiProgress, setAiProgress] = useState<number>(0);
   const [aiCurrentStep, setAiCurrentStep] = useState<string>('');
 
-  // Tự động tính số ngày khi đổi ngày đi hoặc ngày về trong Tạo thủ công
-  useEffect(() => {
-    try {
-      if (manualStartDate && manualEndDate) {
-        const d1 = new Date(manualStartDate);
-        const d2 = new Date(manualEndDate);
-        const diffMs = d2.getTime() - d1.getTime();
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
-        if (diffDays > 0 && diffDays <= 30) {
-          setManualDays(diffDays);
-        } else {
-          setManualDays(1);
-        }
-      }
-    } catch {
-      // Ignore
-    }
-  }, [manualStartDate, manualEndDate]);
+  const updateManualDay = (index: number, update: (day: ManualDay) => ManualDay) => {
+    setManualSchedule(previous => Array.from({ length: Math.max(previous.length, index + 1) }, (_, dayIndex) => {
+      const day = previous[dayIndex] || { title: '', stops: [] };
+      return dayIndex === index ? update(day) : day;
+    }));
+  };
 
-  // Tự động tính số ngày khi đổi ngày đi hoặc ngày về trong Lập tour AI
-  useEffect(() => {
-    try {
-      if (aiStartDate && aiEndDate) {
-        const d1 = new Date(aiStartDate);
-        const d2 = new Date(aiEndDate);
-        const diffMs = d2.getTime() - d1.getTime();
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
-        if (diffDays > 0 && diffDays <= 30) {
-          setAiDays(diffDays);
-        } else {
-          setAiDays(1);
-        }
-      }
-    } catch {
-      // Ignore
+  const updateManualStop = (dayIndex: number, stopId: number, field: keyof Omit<ManualStop, 'id'>, value: string) => {
+    updateManualDay(dayIndex, day => ({
+      ...day,
+      stops: day.stops.map(stop => stop.id === stopId ? { ...stop, [field]: value } : stop),
+    }));
+  };
+
+  const openManualForm = () => {
+    if (manualStartDate < localDateAfter(0)) {
+      setManualStartDate(localDateAfter(2));
+      setManualEndDate(localDateAfter(4));
     }
-  }, [aiStartDate, aiEndDate]);
+    setManualModalVisible(true);
+  };
+
+  const openAiForm = (destination?: string, days?: number) => {
+    setAiStartDate(localDateAfter(2));
+    setAiEndDate(localDateAfter(days ? days + 1 : 4));
+    if (destination) setAiDest(destination);
+    setAiModalVisible(true);
+  };
 
   // ─── DATA FETCHING (LẤY TỪ CSDL MYSQL QUA API) ─────────────
   const fetchItineraries = useCallback(async () => {
@@ -197,7 +211,8 @@ export default function ItineraryScreen() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    // Fetching on mount synchronizes this screen with the server source of truth.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchItineraries();
   }, [fetchItineraries]);
 
@@ -398,6 +413,45 @@ export default function ItineraryScreen() {
       return;
     }
 
+    const days = tripDayCount(manualStartDate.trim(), manualEndDate.trim());
+    if (!days || days > 30 || manualStartDate.trim() < localDateAfter(0)) {
+      showToast({ kind: 'error', title: 'Ngày không hợp lệ', message: 'Nhập ngày theo YYYY-MM-DD, bắt đầu từ hôm nay; chuyến đi tối đa 30 ngày.' });
+      return;
+    }
+    const budget = Number(manualBudgetFormatted.replace(/\D/g, ''));
+    if (!Number.isSafeInteger(budget) || budget < 0) {
+      showToast({ kind: 'error', title: 'Ngân sách không hợp lệ', message: 'Vui lòng nhập số tiền dự kiến hợp lệ.' });
+      return;
+    }
+    if (manualSchedule.some(day => day.stops.some(stop => !stop.name.trim() || (stop.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(stop.time))))) {
+      showToast({ kind: 'error', title: 'Điểm dừng chưa hợp lệ', message: 'Mỗi điểm dừng cần có tên và giờ theo định dạng HH:mm.' });
+      return;
+    }
+    const details: ItineraryDetailItem[] = manualSchedule.slice(0, days).flatMap((day, dayIndex) => {
+      const dayTitle = day.title.trim() || `Ngày ${dayIndex + 1}: Khám phá ${manualDest.trim()}`;
+      const stops = day.stops.filter(stop => stop.name.trim());
+      return stops.length ? stops.map((stop, stopIndex) => ({
+        dayNumber: dayIndex + 1,
+        dayTitle,
+        visitOrder: stopIndex + 1,
+        startTime: `${stop.time || '08:30'}:00`,
+        locationName: stop.name.trim(),
+        locationAddress: stop.address.trim() || manualDest.trim(),
+        estimatedCost: Number(stop.cost.replace(/\D/g, '')) || 0,
+        category: 'Tự lên kế hoạch',
+        note: stop.note.trim(),
+      })) : [{
+        dayNumber: dayIndex + 1,
+        dayTitle,
+        visitOrder: 1,
+        startTime: '08:00:00',
+        locationName: dayTitle,
+        locationAddress: manualDest.trim(),
+        estimatedCost: 0,
+        category: 'Kế hoạch ngày',
+      }];
+    });
+
     const session = await authStorage.getSession();
     if (!session) {
       showToast({
@@ -411,19 +465,19 @@ export default function ItineraryScreen() {
 
     try {
       setSubmittingManual(true);
-      const rawBudget = parseFloat(manualBudgetFormatted.replace(/,/g, '')) || 4000000;
-
       const created = await itineraryApi.createItinerary({
         title: manualTitle.trim(),
         destination: manualDest.trim(),
         startDate: manualStartDate.trim() || undefined,
         endDate: manualEndDate.trim() || undefined,
-        budgetTotal: rawBudget,
+        budgetTotal: budget,
         coverImageUrl: manualCover,
         status: 'UPCOMING',
         isAiGenerated: false,
-        groupType: manualGroup,
-        details: [],
+        groupType: ({ solo: 'Cá nhân', couple: 'Cặp đôi', friends: 'Nhóm bạn', family: 'Gia đình' } as Record<string, string>)[manualGroup],
+        travelStyle: manualTravelStyle,
+        isPublic: manualIsPublic,
+        details,
       });
 
       showToast({
@@ -434,6 +488,7 @@ export default function ItineraryScreen() {
       setManualModalVisible(false);
       setManualTitle('');
       setManualDest('');
+      setManualSchedule([]);
 
       fetchItineraries();
       handleOpenDetail(created);
@@ -465,17 +520,10 @@ export default function ItineraryScreen() {
       return;
     }
 
-    if (aiStartDate && aiEndDate) {
-      const d1 = new Date(aiStartDate);
-      const d2 = new Date(aiEndDate);
-      if (d2.getTime() < d1.getTime()) {
-        showToast({
-          kind: 'error',
-          title: 'Ngày không hợp lệ',
-          message: 'Ngày kết thúc phải diễn ra sau hoặc trùng với ngày bắt đầu chuyến đi.',
-        });
-        return;
-      }
+    const aiDuration = tripDayCount(aiStartDate.trim(), aiEndDate.trim());
+    if (!aiDuration || aiDuration > 30 || aiStartDate.trim() < localDateAfter(0)) {
+      showToast({ kind: 'error', title: 'Ngày không hợp lệ', message: 'Nhập ngày theo YYYY-MM-DD, bắt đầu từ hôm nay; chuyến đi tối đa 30 ngày.' });
+      return;
     }
 
     const session = await authStorage.getSession();
@@ -718,7 +766,7 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => setAiModalVisible(true)}
+                  onPress={() => openAiForm()}
                   activeOpacity={0.85}>
                   <LinearGradient
                     colors={['#FF5722', '#F97316']}
@@ -747,9 +795,7 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                     style={styles.aiPromptChip}
                     activeOpacity={0.8}
                     onPress={() => {
-                      setAiDest(p.dest);
-                      setAiDays(p.days);
-                      setAiModalVisible(true);
+                      openAiForm(p.dest, p.days);
                     }}>
                     <Text style={styles.aiPromptChipText}>{p.label}</Text>
                   </TouchableOpacity>
@@ -857,8 +903,8 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
       <CreateTripActionSheet
         visible={createSheetVisible}
         onClose={() => setCreateSheetVisible(false)}
-        onSelectAI={() => setAiModalVisible(true)}
-        onSelectManual={() => setManualModalVisible(true)}
+        onSelectAI={() => openAiForm()}
+        onSelectManual={openManualForm}
       />
 
       {/* Sheet hành động cho từng chuyến đi khi bấm ⋯ */}
@@ -935,18 +981,6 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                 value={aiDest}
                 onChangeText={setAiDest}
               />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hotChipsScroll}>
-                {HOT_DESTINATIONS.map(d => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[styles.hotChip, aiDest === d && styles.hotChipActive]}
-                    onPress={() => setAiDest(d)}>
-                    <Text style={[styles.hotChipText, aiDest === d && styles.hotChipTextActive]}>
-                      {d}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
 
               {/* 2. Ngày bắt đầu & Ngày kết thúc */}
               <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>2. Thời gian chuyến đi *</Text>
@@ -959,6 +993,8 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                     placeholderTextColor={DS_COLOR.inkMuted}
                     value={aiStartDate}
                     onChangeText={setAiStartDate}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={10}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -969,6 +1005,8 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                     placeholderTextColor={DS_COLOR.inkMuted}
                     value={aiEndDate}
                     onChangeText={setAiEndDate}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={10}
                   />
                 </View>
               </View>
@@ -1107,6 +1145,8 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                   placeholderTextColor={DS_COLOR.inkMuted}
                   value={manualStartDate}
                   onChangeText={setManualStartDate}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={10}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -1117,6 +1157,8 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
                   placeholderTextColor={DS_COLOR.inkMuted}
                   value={manualEndDate}
                   onChangeText={setManualEndDate}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={10}
                 />
               </View>
             </View>
@@ -1125,7 +1167,7 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
             <View style={styles.daysCalcBox}>
               <FontAwesome name="calendar-check-o" size={14} color={DS_COLOR.accent} style={{ marginRight: 6 }} />
               <Text style={styles.daysCalcText}>
-                Thời lượng: <Text style={{ fontWeight: 'bold', color: DS_COLOR.accent }}>{manualDays} Ngày ({manualDays}N{Math.max(1, manualDays - 1)}Đ)</Text>
+                Thời lượng: <Text style={{ fontWeight: 'bold', color: DS_COLOR.accent }}>{manualDays ? `${manualDays} ngày${manualDays > 1 ? ` (${manualDays}N${manualDays - 1}Đ)` : ''}` : 'Chọn ngày hợp lệ'}</Text>
               </Text>
             </View>
 
@@ -1135,9 +1177,9 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
               {COMPANION_OPTIONS.map(c => (
                 <TouchableOpacity
                   key={c.id}
-                  style={[styles.choiceCard, manualGroup === c.label && styles.choiceCardActive]}
-                  onPress={() => setManualGroup(c.label)}>
-                  <Text style={[styles.choiceCardText, manualGroup === c.label && styles.choiceCardTextActive]}>
+                  style={[styles.choiceCard, manualGroup === c.id && styles.choiceCardActive]}
+                  onPress={() => setManualGroup(c.id)}>
+                  <Text style={[styles.choiceCardText, manualGroup === c.id && styles.choiceCardTextActive]}>
                     {c.label}
                   </Text>
                 </TouchableOpacity>
@@ -1157,6 +1199,71 @@ BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON HỢP LỆ (KHÔNG DÙ
               }}
               keyboardType="numeric"
             />
+
+            <Text style={[styles.aiInputLabel, { marginTop: 16 }]}>Phong cách du lịch</Text>
+            <View style={styles.grid2x2}>
+              {['Nghỉ dưỡng & Khám phá', 'Ẩm thực', 'Văn hóa & Lịch sử', 'Phượt & Thiên nhiên'].map(style => (
+                <TouchableOpacity
+                  key={style}
+                  style={[styles.choiceCard, manualTravelStyle === style && styles.choiceCardActive]}
+                  onPress={() => setManualTravelStyle(style)}>
+                  <Text style={[styles.choiceCardText, manualTravelStyle === style && styles.choiceCardTextActive]}>{style}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.aiInputLabel, { marginTop: 18 }]}>Kế hoạch từng ngày</Text>
+            {manualSchedule.map((day, dayIndex) => (
+              <View key={dayIndex} style={styles.manualDaySection}>
+                <Text style={styles.manualDayHeading}>Ngày {dayIndex + 1}</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Tên ngày (tùy chọn)"
+                  placeholderTextColor={DS_COLOR.inkMuted}
+                  value={day.title}
+                  onChangeText={value => updateManualDay(dayIndex, current => ({ ...current, title: value }))}
+                />
+                {day.stops.map((stop, stopIndex) => (
+                  <View key={stop.id} style={styles.manualStopSection}>
+                    <View style={styles.manualStopHeader}>
+                      <Text style={styles.inputSubLabel}>Điểm dừng {stopIndex + 1}</Text>
+                      <TouchableOpacity
+                        accessibilityLabel={`Xóa điểm dừng ${stopIndex + 1} ngày ${dayIndex + 1}`}
+                        hitSlop={10}
+                        onPress={() => updateManualDay(dayIndex, current => ({ ...current, stops: current.stops.filter(item => item.id !== stop.id) }))}>
+                        <FontAwesome name="trash-o" size={17} color={DS_COLOR.inkMuted} />
+                      </TouchableOpacity>
+                    </View>
+                    <TextInput style={styles.modalInput} placeholder="Tên địa điểm *" placeholderTextColor={DS_COLOR.inkMuted}
+                      value={stop.name} onChangeText={value => updateManualStop(dayIndex, stop.id, 'name', value)} />
+                    <View style={styles.manualStopRow}>
+                      <TextInput style={[styles.modalInput, styles.manualTimeInput]} placeholder="HH:mm" placeholderTextColor={DS_COLOR.inkMuted}
+                        value={stop.time} onChangeText={value => updateManualStop(dayIndex, stop.id, 'time', value)} keyboardType="numbers-and-punctuation" maxLength={5} />
+                      <TextInput style={[styles.modalInput, styles.manualCostInput]} placeholder="Chi phí (đ)" placeholderTextColor={DS_COLOR.inkMuted}
+                        value={stop.cost} onChangeText={value => updateManualStop(dayIndex, stop.id, 'cost', value.replace(/\D/g, ''))} keyboardType="numeric" />
+                    </View>
+                    <TextInput style={styles.modalInput} placeholder="Địa chỉ (tùy chọn)" placeholderTextColor={DS_COLOR.inkMuted}
+                      value={stop.address} onChangeText={value => updateManualStop(dayIndex, stop.id, 'address', value)} />
+                    <TextInput style={styles.modalInput} placeholder="Ghi chú (tùy chọn)" placeholderTextColor={DS_COLOR.inkMuted}
+                      value={stop.note} onChangeText={value => updateManualStop(dayIndex, stop.id, 'note', value)} />
+                  </View>
+                ))}
+                <TouchableOpacity style={styles.addStopButton} onPress={() => updateManualDay(dayIndex, current => ({
+                  ...current, stops: [...current.stops, { id: Date.now() + Math.random(), time: '08:30', name: '', address: '', cost: '', note: '' }],
+                }))}>
+                  <FontAwesome name="plus" size={13} color={DS_COLOR.accent} />
+                  <Text style={styles.addStopText}>Thêm điểm dừng</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity style={styles.visibilityRow} onPress={() => setManualIsPublic(value => !value)} accessibilityRole="checkbox" accessibilityState={{ checked: manualIsPublic }}>
+              <FontAwesome name={manualIsPublic ? 'check-square-o' : 'square-o'} size={21} color={DS_COLOR.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.visibilityTitle}>Công khai lịch trình</Text>
+                <Text style={styles.inputSubLabel}>Cho phép người khác xem và chia sẻ chuyến đi</Text>
+              </View>
+            </TouchableOpacity>
 
             {/* Chọn ảnh bìa */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
@@ -1432,6 +1539,51 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  manualDaySection: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderColor: DS_COLOR.line,
+    gap: 8,
+  },
+  manualDayHeading: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: DS_COLOR.ink,
+  },
+  manualStopSection: {
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderColor: DS_COLOR.line,
+    gap: 8,
+  },
+  manualStopHeader: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  manualStopRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  manualTimeInput: { width: 90 },
+  manualCostInput: { flex: 1, minWidth: 0 },
+  addStopButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addStopText: { color: DS_COLOR.accent, fontSize: 13, fontWeight: '700' },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 56,
+    marginTop: 14,
+  },
+  visibilityTitle: { color: DS_COLOR.ink, fontSize: 13, fontWeight: '700' },
   aiInputLabel: {
     fontSize: 13,
     fontWeight: '700',

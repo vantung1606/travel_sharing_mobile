@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -18,6 +18,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem, webItineraryUrl } from '@/src/services/api';
+import { authStorage } from '@/src/services/authStorage';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 
 function isValidDate(value: string): boolean {
@@ -43,6 +44,7 @@ export function ItineraryDetailModal({
   canEdit = true,
 }: ItineraryDetailModalProps) {
   const [fullItin, setFullItin] = useState<ItineraryItem | null>(itinerary);
+  const [currentUser, setCurrentUser] = useState<{ id?: number; email?: string } | null>(null);
   const [pickTargetStop, setPickTargetStop] = useState<ItineraryDetailItem | null>(null);
   const [myTripsList, setMyTripsList] = useState<ItineraryItem[]>([]);
   const [loadingMyTrips, setLoadingMyTrips] = useState(false);
@@ -152,8 +154,22 @@ export function ItineraryDetailModal({
       setFullItin(itinerary);
       setSelectedDay('all');
       fetchFullDetail(itinerary.id);
+      authStorage.getSession().then(s => setCurrentUser(s?.user ?? null)).catch(() => setCurrentUser(null));
     }
   }, [visible, itinerary, fetchFullDetail]);
+
+  const isOwner = useMemo(() => {
+    if (!currentUser || !fullItin) return false;
+    if (fullItin.creatorId != null && currentUser.id != null) {
+      return String(fullItin.creatorId) === String(currentUser.id);
+    }
+    if (fullItin.creatorEmail && currentUser.email) {
+      return fullItin.creatorEmail.toLowerCase() === currentUser.email.toLowerCase();
+    }
+    return true;
+  }, [currentUser, fullItin]);
+
+  const effectiveCanEdit = Boolean(canEdit && isOwner);
 
   const handleShareTrip = async () => {
     if (!fullItin) return;
@@ -496,7 +512,7 @@ export function ItineraryDetailModal({
             {fullItin?.title || 'Chi tiết chuyến đi'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {canEdit && (
+            {effectiveCanEdit && (
               <TouchableOpacity
                 style={[
                   styles.circleBtn,
@@ -513,7 +529,7 @@ export function ItineraryDetailModal({
                 />
               </TouchableOpacity>
             )}
-            {canEdit && (
+            {effectiveCanEdit && (
               <TouchableOpacity
                 style={[styles.circleBtn, { backgroundColor: '#E0F2FE' }]}
                 onPress={openEditTripModal}
@@ -567,8 +583,8 @@ export function ItineraryDetailModal({
                 )}
 
                 <TouchableOpacity
-                  activeOpacity={canEdit ? 0.8 : 1}
-                  onPress={canEdit ? handleToggleVisibility : undefined}
+                  activeOpacity={effectiveCanEdit ? 0.8 : 1}
+                  onPress={effectiveCanEdit ? handleToggleVisibility : undefined}
                   style={[
                     styles.aiBadge,
                     {
@@ -621,37 +637,13 @@ export function ItineraryDetailModal({
               </Text>
             </View>
 
-            {/* Floating Stats Row */}
-            <View style={styles.statsCard}>
-              <View style={styles.statCol}>
-                <View style={[styles.statIconBox, { backgroundColor: '#F6E6DD' }]}>
-                  <FontAwesome name="calendar" size={13} color="#B0522F" />
-                </View>
-                <Text style={styles.statLabel}>Thời gian</Text>
-                <Text style={styles.statValue}>
-                  {maxDay}N{Math.max(1, maxDay - 1)}Đ
-                </Text>
-              </View>
-
-              <View style={styles.statDivider} />
-
-              <View style={styles.statCol}>
-                <View style={[styles.statIconBox, { backgroundColor: '#E8EFE3' }]}>
-                  <FontAwesome name="map-signs" size={13} color="#4F6B52" />
-                </View>
-                <Text style={styles.statLabel}>Trạm dừng</Text>
-                <Text style={styles.statValue}>{detailsList.length} điểm</Text>
-              </View>
-
-              <View style={styles.statDivider} />
-
-              <View style={styles.statCol}>
-                <View style={[styles.statIconBox, { backgroundColor: '#FEF3C7' }]}>
-                  <FontAwesome name="money" size={13} color="#D97706" />
-                </View>
-                <Text style={styles.statLabel}>Dự toán</Text>
-                <Text style={styles.statValue}>{budgetDisplay}</Text>
-              </View>
+            {/* Compact 1-line summary bar (matching Web) */}
+            <View style={{ marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(15, 23, 42, 0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>{budgetDisplay}</Text>
+              <Text style={{ fontSize: 13, color: '#94A3B8' }}>·</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>{detailsList.length} điểm dừng</Text>
+              <Text style={{ fontSize: 13, color: '#94A3B8' }}>·</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>{maxDay}N{Math.max(1, maxDay - 1)}Đ</Text>
             </View>
 
             {/* Day Selector Pills */}
@@ -697,7 +689,7 @@ export function ItineraryDetailModal({
                   <Text style={styles.emptyBoxSub}>
                     Lịch trình ngày này hiện chưa có hoạt động nào.
                   </Text>
-                  {canEdit && (
+                  {effectiveCanEdit && (
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={styles.addFirstStopBtn}
@@ -729,27 +721,25 @@ export function ItineraryDetailModal({
                             <View style={styles.categoryBadge}>
                               <Text style={styles.categoryBadgeText}>{detail.category || 'Tham quan'}</Text>
                             </View>
-                            {!canEdit && (
-                              <TouchableOpacity
-                                onPress={() => handleOpenPickTargetTrip(detail)}
-                                style={{
-                                  flexDirection: 'row',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  paddingHorizontal: 8,
-                                  paddingVertical: 4,
-                                  borderRadius: 8,
-                                  backgroundColor: '#E0F2FE',
-                                  borderWidth: 1,
-                                  borderColor: '#BAE6FD',
-                                }}>
-                                <FontAwesome name="plus" size={10} color="#0369A1" />
-                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
-                                  Thêm vào lịch
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                            {canEdit && (
+                            <TouchableOpacity
+                              onPress={() => handleOpenPickTargetTrip(detail)}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 8,
+                                backgroundColor: '#E0F2FE',
+                                borderWidth: 1,
+                                borderColor: '#BAE6FD',
+                              }}>
+                              <FontAwesome name="plus" size={10} color="#0369A1" />
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                                Thêm vào lịch
+                              </Text>
+                            </TouchableOpacity>
+                            {effectiveCanEdit && (
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                 <TouchableOpacity
                                   disabled={index === 0}
@@ -789,27 +779,25 @@ export function ItineraryDetailModal({
                           {/* Title */}
                           <Text style={styles.stopTitle}>{detail.locationName}</Text>
 
-                          {/* Specific Address Box & Google Maps Link (Match Web 100%) */}
-                          <View style={styles.addressBox}>
-                            <View style={styles.addressLeft}>
+                          {/* Address & Google Maps Link (clean flat row matching Web) */}
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
                               <FontAwesome
                                 name="map-marker"
-                                size={13}
-                                color="#B0522F"
-                                style={{ marginTop: 2, marginRight: 6 }}
+                                size={12}
+                                color="#0284C7"
+                                style={{ marginRight: 5 }}
                               />
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.addressText} numberOfLines={2}>
-                                  {detail.locationAddress ||
-                                    (fullItin?.destination
-                                      ? `${fullItin.destination}, Việt Nam`
-                                      : 'Việt Nam')}
-                                </Text>
-                              </View>
+                              <Text style={[styles.addressText, { flex: 1 }]} numberOfLines={2}>
+                                {detail.locationAddress ||
+                                  (fullItin?.destination
+                                    ? `${fullItin.destination}, Việt Nam`
+                                    : 'Việt Nam')}
+                              </Text>
                             </View>
                             <TouchableOpacity
                               activeOpacity={0.8}
-                              style={styles.mapBtn}
+                              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 2, paddingHorizontal: 4 }}
                               onPress={() => {
                                 const q = encodeURIComponent(
                                   `${detail.locationName}, ${detail.locationAddress || fullItin?.destination || ''}`
@@ -824,16 +812,16 @@ export function ItineraryDetailModal({
                                   });
                                 });
                               }}>
-                              <Text style={styles.mapBtnText}>Bản đồ</Text>
-                              <FontAwesome name="external-link" size={9} color="#B0522F" style={{ marginLeft: 3 }} />
+                              <Text style={[styles.mapBtnText, { color: '#0284C7' }]}>Chỉ đường</Text>
+                              <FontAwesome name="external-link" size={9} color="#0284C7" style={{ marginLeft: 3 }} />
                             </TouchableOpacity>
                           </View>
 
-                          {/* Note / Tip */}
+                          {/* Note / Tip (clean muted text matching Web) */}
                           {detail.note ? (
-                            <View style={styles.noteBox}>
-                              <Text style={styles.noteText}>💡 {detail.note}</Text>
-                            </View>
+                            <Text style={{ fontSize: 12, color: '#64748B', lineHeight: 17, marginTop: 4 }}>
+                              {detail.note}
+                            </Text>
                           ) : null}
 
                           {/* Bottom Row: Cost & Transit */}
@@ -868,7 +856,7 @@ export function ItineraryDetailModal({
                     );
                   })}
 
-                  {canEdit && (
+                  {effectiveCanEdit && (
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={styles.addMoreStopBtn}

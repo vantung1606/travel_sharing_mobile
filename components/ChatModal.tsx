@@ -2373,7 +2373,6 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
               setSelectedItinForModal(null);
             }}
             itinerary={selectedItinForModal}
-            canEdit={false}
           />
         )}
 

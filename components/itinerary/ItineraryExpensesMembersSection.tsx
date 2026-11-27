@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { itineraryApi } from '@/src/services/api';
+import { authStorage } from '@/src/services/authStorage';
 import { showToast } from '@/components/Toast';
 
 const EXPENSE_CATEGORIES = ['Ăn uống', 'Di chuyển', 'Khách sạn', 'Vé tham quan', 'Mua sắm', 'Khác'];
@@ -23,6 +24,7 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
   const [loading, setLoading] = useState(false);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ id?: number; email?: string } | null>(null);
 
   const [expAmount, setExpAmount] = useState('');
   const [expCategory, setExpCategory] = useState('Ăn uống');
@@ -48,6 +50,7 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
 
   useEffect(() => {
     loadData();
+    authStorage.getSession().then((s) => setCurrentUser(s ? (s.user ?? s) : null)).catch(() => {});
   }, [loadData]);
 
   if (!itineraryId) return null;
@@ -58,6 +61,15 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
   const budgetNum = Number(budgetTotal) || 0;
   const pct = budgetNum > 0 ? Math.min(100, Math.round((actualTotal / budgetNum) * 100)) : 0;
   const isOver = budgetNum > 0 && actualTotal > budgetNum;
+  const isMember = Boolean(
+    currentUser &&
+      members.some(
+        (m) =>
+          (m.email && currentUser.email && m.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+          (m.userId != null && currentUser.id != null && String(m.userId) === String(currentUser.id))
+      )
+  );
+  const canLogExpense = isOwner || isMember;
 
   const handleAddExpense = async () => {
     const num = Number(expAmount.replace(/\D/g, ''));
@@ -169,7 +181,7 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
             </Text>
           </View>
           <Text style={styles.itemAmount}>{Number(exp.amount || 0).toLocaleString('vi-VN')}đ</Text>
-          {isOwner && (
+          {(isOwner || (currentUser?.id != null && String(exp.payerId) === String(currentUser.id))) && (
             <TouchableOpacity onPress={() => handleDeleteExpense(exp.id)} style={{ padding: 6 }}>
               <FontAwesome name="trash-o" size={13} color="#EF4444" />
             </TouchableOpacity>
@@ -177,7 +189,7 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
         </View>
       ))}
 
-      {isOwner && (
+      {canLogExpense && (
         <View style={styles.formWrap}>
           <View style={styles.catRow}>
             {EXPENSE_CATEGORIES.map((c) => (
@@ -421,3 +433,4 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
 });
+

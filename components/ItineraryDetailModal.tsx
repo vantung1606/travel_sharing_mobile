@@ -15,11 +15,17 @@ import { Text, TextInput } from '@/components/Themed';
 import { SERIF_FONT } from '@/constants/Typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { WF_COLORS } from '@/constants/Colors';
 import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
 import { itineraryApi, ItineraryItem, ItineraryDetailItem, webItineraryUrl } from '@/src/services/api';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
+
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.toISOString().slice(0, 10) === value;
+}
 
 export interface ItineraryDetailModalProps {
   visible: boolean;
@@ -37,9 +43,69 @@ export function ItineraryDetailModal({
   canEdit = true,
 }: ItineraryDetailModalProps) {
   const [fullItin, setFullItin] = useState<ItineraryItem | null>(itinerary);
+  const [pickTargetStop, setPickTargetStop] = useState<ItineraryDetailItem | null>(null);
+  const [myTripsList, setMyTripsList] = useState<ItineraryItem[]>([]);
+  const [loadingMyTrips, setLoadingMyTrips] = useState(false);
+  const [selectedTargetTripId, setSelectedTargetTripId] = useState<number | null>(null);
+  const [pickTargetDay, setPickTargetDay] = useState<number>(1);
+  const [pickTargetTime, setPickTargetTime] = useState<string>('08:30');
+  const [addingToMyTrip, setAddingToMyTrip] = useState(false);
+
+  const handleOpenPickTargetTrip = async (detail: ItineraryDetailItem) => {
+    setPickTargetStop(detail);
+    setPickTargetDay(detail.dayNumber || 1);
+    setPickTargetTime((detail.startTime || '08:30').slice(0, 5));
+    setLoadingMyTrips(true);
+    try {
+      const list = await itineraryApi.getMyItineraries();
+      const valid = Array.isArray(list) ? list : [];
+      setMyTripsList(valid);
+      setSelectedTargetTripId(valid[0]?.id ?? null);
+    } catch {
+      setMyTripsList([]);
+      setSelectedTargetTripId(null);
+    } finally {
+      setLoadingMyTrips(false);
+    }
+  };
+
+  const handleConfirmAddStopToMyTrip = async () => {
+    if (!pickTargetStop || !selectedTargetTripId || addingToMyTrip) return;
+    setAddingToMyTrip(true);
+    try {
+      const cleanTime = /^\d{2}:\d{2}$/.test(pickTargetTime.trim()) ? `${pickTargetTime.trim()}:00` : '08:30:00';
+      await itineraryApi.addDetail(selectedTargetTripId, {
+        placeId: pickTargetStop.placeId ?? undefined,
+        locationName: pickTargetStop.locationName || 'Điểm dừng chân',
+        locationAddress: pickTargetStop.locationAddress || '',
+        category: pickTargetStop.category || 'Tham quan',
+        dayNumber: pickTargetDay,
+        startTime: cleanTime,
+        estimatedCost: pickTargetStop.estimatedCost || 0,
+        note: pickTargetStop.note || '',
+      });
+      const targetTrip = myTripsList.find(t => t.id === selectedTargetTripId);
+      setPickTargetStop(null);
+      showToast({
+        kind: 'success',
+        title: 'Đã thêm địa điểm',
+        message: `Đã thêm "${pickTargetStop.locationName}" vào Ngày ${pickTargetDay} của "${targetTrip?.title || 'lịch trình'}".`,
+      });
+      onItineraryUpdated?.();
+    } catch (err: any) {
+      showToast({
+        kind: 'error',
+        title: 'Không thể thêm',
+        message: err?.message || 'Vui lòng đăng nhập và thử lại.',
+      });
+    } finally {
+      setAddingToMyTrip(false);
+    }
+  };
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [togglingVisibility, setTogglingVisibility] = useState<boolean>(false);
+  const [reorderingStops, setReorderingStops] = useState<boolean>(false);
 
   const handleToggleVisibility = async () => {
     if (!fullItin?.id || togglingVisibility) return;
@@ -81,6 +147,8 @@ export function ItineraryDetailModal({
 
   useEffect(() => {
     if (visible && itinerary?.id) {
+      // Reset detail state when the selected itinerary changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFullItin(itinerary);
       setSelectedDay('all');
       fetchFullDetail(itinerary.id);
@@ -150,7 +218,7 @@ export function ItineraryDetailModal({
 
     try {
       await itineraryApi.deleteDetail(detailId);
-      fetchFullDetail(fullItin.id);
+      await fetchFullDetail(fullItin.id);
       onItineraryUpdated?.();
       showToast({
         kind: 'success',
@@ -167,13 +235,14 @@ export function ItineraryDetailModal({
   };
 
   const handleMoveStop = async (currentIndex: number, direction: number) => {
-    if (!fullItin?.id || !filteredDetails) return;
+    if (!fullItin?.id || !filteredDetails || reorderingStops) return;
     const targetIndex = currentIndex + direction;
     if (targetIndex < 0 || targetIndex >= filteredDetails.length) return;
 
     const sourceItem = filteredDetails[currentIndex];
     const targetItem = filteredDetails[targetIndex];
     if (!sourceItem || !targetItem) return;
+    if (sourceItem.dayNumber !== targetItem.dayNumber) return;
 
     // Hoán đổi vị trí trong danh sách
     const updatedFiltered = [...filteredDetails];
@@ -181,9 +250,9 @@ export function ItineraryDetailModal({
     updatedFiltered[targetIndex] = sourceItem;
 
     // Chuẩn bị payload reorder
-    const reorderPayload = updatedFiltered.map((d, idx) => ({
+    const reorderPayload = updatedFiltered.map((d) => ({
       detailId: d.id as number,
-      visitOrder: idx + 1,
+      visitOrder: updatedFiltered.filter(item => item.dayNumber === d.dayNumber).findIndex(item => item.id === d.id) + 1,
       dayNumber: d.dayNumber,
     })).filter(x => Boolean(x.detailId));
 
@@ -203,6 +272,7 @@ export function ItineraryDetailModal({
       message: `Đã đổi thứ tự trạm dừng "${sourceItem.locationName}".`,
     });
 
+    setReorderingStops(true);
     try {
       if (reorderPayload.length > 0) {
         await itineraryApi.reorderDetails(fullItin.id, reorderPayload);
@@ -210,6 +280,10 @@ export function ItineraryDetailModal({
       }
     } catch (e: any) {
       console.warn('Backend reorder stop error:', e);
+      await fetchFullDetail(fullItin.id);
+      showToast({ kind: 'error', title: 'Chưa thể sắp xếp', message: e?.message || 'Thứ tự chưa được lưu. Vui lòng thử lại.' });
+    } finally {
+      setReorderingStops(false);
     }
   };
 
@@ -219,6 +293,7 @@ export function ItineraryDetailModal({
   const [newStopDay, setNewStopDay] = useState<number>(1);
   const [newStopTime, setNewStopTime] = useState<string>('08:30');
   const [newStopLocation, setNewStopLocation] = useState<string>('');
+  const [newStopAddress, setNewStopAddress] = useState<string>('');
   const [newStopCategory, setNewStopCategory] = useState<string>('Tham quan');
   const [newStopCost, setNewStopCost] = useState<string>('50,000');
   const [newStopNote, setNewStopNote] = useState<string>('');
@@ -229,6 +304,7 @@ export function ItineraryDetailModal({
     setNewStopDay(day || (selectedDay === 'all' ? 1 : selectedDay));
     setNewStopTime('08:30');
     setNewStopLocation('');
+    setNewStopAddress('');
     setNewStopCategory('Tham quan');
     setNewStopCost('50,000');
     setNewStopNote('');
@@ -240,6 +316,7 @@ export function ItineraryDetailModal({
     setNewStopDay(detail.dayNumber || (selectedDay === 'all' ? 1 : selectedDay));
     setNewStopTime((detail.startTime || '08:30').slice(0, 5));
     setNewStopLocation(detail.locationName || '');
+    setNewStopAddress(detail.locationAddress || '');
     setNewStopCategory(detail.category || 'Tham quan');
     setNewStopCost(detail.estimatedCost != null ? String(detail.estimatedCost) : '');
     setNewStopNote(detail.note || detail.aiTip || '');
@@ -256,21 +333,24 @@ export function ItineraryDetailModal({
       return;
     }
 
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(newStopTime.trim())) {
+      showToast({ kind: 'error', title: 'Giờ chưa hợp lệ', message: 'Nhập giờ theo định dạng 24 giờ, ví dụ 08:30.' });
+      return;
+    }
+
     if (!fullItin?.id) return;
 
     try {
       setSubmittingStop(true);
       const costNum = parseFloat(newStopCost.replace(/,/g, '')) || 0;
-      const startTimeFormatted = newStopTime.includes(':')
-        ? (newStopTime.length === 5 ? `${newStopTime}:00` : newStopTime)
-        : '08:30:00';
+      const startTimeFormatted = `${newStopTime.trim()}:00`;
 
       if (editingDetailId) {
         await itineraryApi.updateDetail(editingDetailId, {
           dayNumber: newStopDay,
           startTime: startTimeFormatted,
           locationName: newStopLocation.trim(),
-          locationAddress: fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam',
+          locationAddress: newStopAddress.trim() || (fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam'),
           category: newStopCategory,
           estimatedCost: costNum,
           note: newStopNote.trim(),
@@ -286,7 +366,7 @@ export function ItineraryDetailModal({
           dayNumber: newStopDay,
           startTime: startTimeFormatted,
           locationName: newStopLocation.trim(),
-          locationAddress: fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam',
+          locationAddress: newStopAddress.trim() || (fullItin.destination ? `${fullItin.destination}, Việt Nam` : 'Việt Nam'),
           category: newStopCategory,
           estimatedCost: costNum,
           note: newStopNote.trim(),
@@ -303,7 +383,7 @@ export function ItineraryDetailModal({
       setEditingDetailId(null);
       setNewStopLocation('');
       setNewStopNote('');
-      fetchFullDetail(fullItin.id);
+      await fetchFullDetail(fullItin.id);
       onItineraryUpdated?.();
     } catch (e: any) {
       showToast({
@@ -355,13 +435,22 @@ export function ItineraryDetailModal({
     if (!fullItin?.id) return;
     try {
       setSubmittingEdit(true);
-      const budgetNum = parseFloat(editBudget.replace(/,/g, '')) || 0;
+      const normalizedBudget = editBudget.replace(/,/g, '').trim();
+      const budgetNum = normalizedBudget ? Number(normalizedBudget) : 0;
+      if (!Number.isSafeInteger(budgetNum) || budgetNum < 0 || budgetNum > 9999999999) {
+        showToast({ kind: 'error', title: 'Ngân sách không hợp lệ', message: 'Nhập số tiền không âm và nằm trong giới hạn cho phép.' });
+        return;
+      }
+      if ((editStartDate && !isValidDate(editStartDate)) || (editEndDate && !isValidDate(editEndDate)) || (editStartDate && editEndDate && editEndDate < editStartDate)) {
+        showToast({ kind: 'error', title: 'Ngày chưa hợp lệ', message: 'Kiểm tra định dạng YYYY-MM-DD và chọn ngày kết thúc bằng hoặc sau ngày bắt đầu.' });
+        return;
+      }
       const updated = await itineraryApi.updateItinerary(fullItin.id, {
         title: editTitle.trim(),
         destination: editDestination.trim(),
         startDate: editStartDate.trim() || undefined,
         endDate: editEndDate.trim() || undefined,
-        budgetTotal: budgetNum > 0 ? budgetNum : undefined,
+        budgetTotal: budgetNum,
         groupType: editGroupType,
         travelStyle: editTravelStyle,
         isPublic: editIsPublic,
@@ -640,6 +729,26 @@ export function ItineraryDetailModal({
                             <View style={styles.categoryBadge}>
                               <Text style={styles.categoryBadgeText}>{detail.category || 'Tham quan'}</Text>
                             </View>
+                            {!canEdit && (
+                              <TouchableOpacity
+                                onPress={() => handleOpenPickTargetTrip(detail)}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 4,
+                                  borderRadius: 8,
+                                  backgroundColor: '#E0F2FE',
+                                  borderWidth: 1,
+                                  borderColor: '#BAE6FD',
+                                }}>
+                                <FontAwesome name="plus" size={10} color="#0369A1" />
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                                  Thêm vào lịch
+                                </Text>
+                              </TouchableOpacity>
+                            )}
                             {canEdit && (
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                 <TouchableOpacity
@@ -819,6 +928,8 @@ export function ItineraryDetailModal({
                   onChangeText={setNewStopTime}
                   placeholder="08:30"
                   placeholderTextColor="#8A7F70"
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={5}
                 />
 
                 {/* Tên hoạt động / Địa điểm */}
@@ -828,6 +939,15 @@ export function ItineraryDetailModal({
                   value={newStopLocation}
                   onChangeText={setNewStopLocation}
                   placeholder="VD: Cà phê sáng, Tham quan Bảo tàng..."
+                  placeholderTextColor="#8A7F70"
+                />
+
+                <Text style={styles.fieldLabel}>Địa chỉ điểm dừng</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={newStopAddress}
+                  onChangeText={setNewStopAddress}
+                  placeholder={fullItin?.destination || 'Địa chỉ cụ thể (tùy chọn)'}
                   placeholderTextColor="#8A7F70"
                 />
 
@@ -895,6 +1015,127 @@ export function ItineraryDetailModal({
 
         {/* Modal Chỉnh Sửa Toàn Bộ Chuyến Đi */}
         <Modal
+          visible={Boolean(pickTargetStop)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPickTargetStop(null)}>
+          <View style={styles.addModalOverlay}>
+            <View style={[styles.addModalCard, { maxHeight: '85%' }]}>
+              <View style={styles.addModalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <FontAwesome name="plus-circle" size={18} color="#0284C7" />
+                  <Text style={styles.addModalTitle} numberOfLines={1}>
+                    Thêm vào lịch của tôi
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setPickTargetStop(null)}>
+                  <FontAwesome name="times" size={18} color="#5A5146" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E1A15', marginBottom: 10 }}>
+                📍 {pickTargetStop?.locationName}
+              </Text>
+
+              {loadingMyTrips ? (
+                <ActivityIndicator size="small" color="#B0522F" style={{ marginVertical: 20 }} />
+              ) : myTripsList.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: '#6B6154', marginVertical: 14 }}>
+                  Bạn chưa có lịch trình nào trong kho. Hãy tạo một lịch trình ở tab Lịch trình trước nhé!
+                </Text>
+              ) : (
+                <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.fieldLabel}>Chọn lịch trình đích *</Text>
+                  {myTripsList.map((trip) => {
+                    const active = selectedTargetTripId === trip.id;
+                    return (
+                      <TouchableOpacity
+                        key={trip.id}
+                        onPress={() => setSelectedTargetTripId(trip.id)}
+                        style={{
+                          padding: 10,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: active ? '#B0522F' : '#E5DEC9',
+                          backgroundColor: active ? '#FDF3EE' : '#FAF7F0',
+                          marginBottom: 8,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E1A15' }} numberOfLines={1}>
+                            {trip.title}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: '#6B6154' }}>{trip.destination}</Text>
+                        </View>
+                        {active && <FontAwesome name="check-circle" size={16} color="#B0522F" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+
+              {myTripsList.length > 0 && (
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>Ngày thứ</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={String(pickTargetDay)}
+                      onChangeText={(v) => setPickTargetDay(Math.max(1, parseInt(v.replace(/\D/g, ''), 10) || 1))}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>Giờ (HH:MM)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={pickTargetTime}
+                      onChangeText={setPickTargetTime}
+                      placeholder="08:30"
+                      maxLength={5}
+                    />
+                  </View>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <TouchableOpacity
+                  onPress={() => setPickTargetStop(null)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 11,
+                    borderRadius: 10,
+                    backgroundColor: '#F3EFE6',
+                    alignItems: 'center',
+                  }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#5A5146' }}>Hủy</Text>
+                </TouchableOpacity>
+                {myTripsList.length > 0 && (
+                  <TouchableOpacity
+                    disabled={!selectedTargetTripId || addingToMyTrip}
+                    onPress={handleConfirmAddStopToMyTrip}
+                    style={{
+                      flex: 2,
+                      paddingVertical: 11,
+                      borderRadius: 10,
+                      backgroundColor: '#B0522F',
+                      alignItems: 'center',
+                      opacity: addingToMyTrip ? 0.6 : 1,
+                    }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                      {addingToMyTrip ? 'Đang thêm...' : 'Thêm vào lịch'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal Chỉnh Sửa Toàn Bộ Chuyến Đi */}
+        <Modal
           visible={editTripVisible}
           transparent
           animationType="fade"
@@ -940,8 +1181,10 @@ export function ItineraryDetailModal({
                       style={styles.fieldInput}
                       value={editStartDate}
                       onChangeText={setEditStartDate}
-                      placeholder="2026-11-01"
+                      placeholder="YYYY-MM-DD"
                       placeholderTextColor="#8A7F70"
+                      keyboardType="numbers-and-punctuation"
+                      maxLength={10}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -950,8 +1193,10 @@ export function ItineraryDetailModal({
                       style={styles.fieldInput}
                       value={editEndDate}
                       onChangeText={setEditEndDate}
-                      placeholder="2026-11-04"
+                      placeholder="YYYY-MM-DD"
                       placeholderTextColor="#8A7F70"
+                      keyboardType="numbers-and-punctuation"
+                      maxLength={10}
                     />
                   </View>
                 </View>
@@ -965,6 +1210,7 @@ export function ItineraryDetailModal({
                   keyboardType="numeric"
                   placeholder="VD: 5000000"
                   placeholderTextColor="#8A7F70"
+                  maxLength={12}
                 />
 
                 {/* Nhóm đối tượng */}

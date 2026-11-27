@@ -29,11 +29,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { Text, TextInput } from '@/components/Themed';
 import { WF_COLORS } from '@/constants/Colors';
+import { useRouter } from 'expo-router';
 import {
   chatApi,
   ChatMessage,
   ChatMessageType,
   ChatRoom,
+  itineraryApi,
   ItineraryItem,
   mapChatRoom,
   uploadApi,
@@ -43,6 +45,7 @@ import { aiService } from '@/src/services/aiService';
 import { parseVietnamDate } from '@/src/utils/dateUtils';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
+import { AiRichMessageBubble } from './chat/AiRichMessageBubble';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 import { UserProfileModal } from './UserProfileModal';
 import { NewChatSheet } from './chat/NewChatSheet';
@@ -210,15 +213,7 @@ function messagePreview(message: ChatMessage): string {
 function normalizeIncomingMessage(raw: any, myId: number | null, myEmail?: string | null): ChatMessage {
   const createdAt = raw?.createdAt || '';
   const parsed = parseDateSafe(createdAt);
-  let normalizedContent = raw?.content ?? '';
-  if (raw?.messageType === 'AI_RICH' && typeof normalizedContent === 'string') {
-    try {
-      const aiObj = JSON.parse(normalizedContent);
-      if (aiObj?.reply) {
-        normalizedContent = String(aiObj.reply);
-      }
-    } catch {}
-  }
+  const normalizedContent = raw?.content ?? '';
   const isMatchId = myId != null && raw?.senderId != null && Number(raw.senderId) === myId;
   const isMatchEmail = Boolean(myEmail) && Boolean(raw?.senderEmail) &&
     String(raw.senderEmail).toLowerCase().trim() === String(myEmail).toLowerCase().trim();
@@ -232,7 +227,7 @@ function normalizeIncomingMessage(raw: any, myId: number | null, myEmail?: strin
     senderHandle: raw?.senderHandle,
     senderAvatar: raw?.senderAvatar,
     content: normalizedContent,
-    messageType: (raw?.messageType === 'AI_RICH' ? 'TEXT' : raw?.messageType || 'TEXT') as ChatMessageType,
+    messageType: (raw?.messageType || 'TEXT') as ChatMessageType,
     createdAt: createdAt || undefined,
     time: raw?.time || (parsed ? formatClock(parsed) : formatClock(new Date())),
     isMe:
@@ -497,6 +492,7 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(40);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
+  const router = useRouter();
   const [sending, setSending] = useState(false);
   const [isAiTyping, setIsAiTyping] = useState(false);
 
@@ -1246,7 +1242,26 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
 
         if (room.type === 'AI') {
           if (messageType === 'TEXT') {
-            requestAiReply(room, content);
+            // Backend ChatService.triggerAiAssistantReply tự động xử lý ngữ cảnh CSDL & phát WebSocket AI_RICH
+            setIsAiTyping(true);
+            const sentId = normalizedSaved?.id;
+            setTimeout(async () => {
+              if (activeRoomIdRef.current !== String(room.id)) return;
+              try {
+                const latest = await chatApi.getRoomMessages(room.id);
+                const list = Array.isArray(latest) ? latest : [];
+                const normalized = list.map((m) =>
+                  normalizeIncomingMessage(m, currentUserIdRef.current, currentUserEmailRef.current)
+                );
+                const hasNewAiReply = normalized.some(
+                  (m) => !m.isMe && (m.messageType === 'AI_RICH' || (sentId && Number(m.id) > Number(sentId)))
+                );
+                if (hasNewAiReply) {
+                  setMessages(normalized);
+                  setIsAiTyping(false);
+                }
+              } catch {}
+            }, 4500);
           } else if (messageType === 'IMAGE') {
             appendLocalAssistantMessage(
               room,
@@ -1572,6 +1587,41 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
             color={isMe ? 'rgba(255,255,255,0.7)' : WF_COLORS.slate400}
           />
         </TouchableOpacity>
+      );
+    }
+
+    if (
+      message.messageType === 'AI_RICH' ||
+      (!isMe && activeRoom?.type === 'AI' && message.messageType === 'TEXT')
+    ) {
+      return (
+        <AiRichMessageBubble
+          message={message}
+          onQuickReply={(text) => sendMessageInternal(text, 'TEXT')}
+          onOpenItinerary={async (itineraryId) => {
+            try {
+              const full = await itineraryApi.getItineraryById(itineraryId);
+              if (full) {
+                setSelectedItinForModal(full);
+                setItinModalVisible(true);
+              }
+            } catch {
+              showToast({ kind: 'error', title: 'Không mở được lịch trình' });
+            }
+          }}
+          onOpenPlace={(placeId) => {
+            onClose();
+            router.push({ pathname: '/(tabs)/explore', params: { placeId: String(placeId) } });
+          }}
+          onOpenPost={(postId) => {
+            onClose();
+            router.push({ pathname: '/(tabs)/community', params: { postId: String(postId) } });
+          }}
+          onNavigate={(path) => {
+            onClose();
+            router.push(path as any);
+          }}
+        />
       );
     }
 

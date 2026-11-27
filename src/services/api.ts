@@ -1103,7 +1103,8 @@ export type ChatMessageType =
   | 'FILE'
   | 'ITINERARY'
   | 'LOCATION'
-  | 'SYSTEM';
+  | 'SYSTEM'
+  | 'AI_RICH';
 
 export interface ChatMessage {
   id?: number | string;

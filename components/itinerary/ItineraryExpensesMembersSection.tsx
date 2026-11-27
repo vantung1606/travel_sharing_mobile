@@ -18,9 +18,19 @@ interface Props {
   itineraryId?: number;
   budgetTotal?: number;
   isOwner: boolean;
+  creatorName?: string;
+  creatorEmail?: string;
+  mode: 'expenses' | 'members';
 }
 
-export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, isOwner }: Props) {
+export function ItineraryExpensesMembersSection({
+  itineraryId,
+  budgetTotal = 0,
+  isOwner,
+  creatorName,
+  creatorEmail,
+  mode,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
@@ -59,6 +69,7 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
   const totalPeople = 1 + members.length;
   const perPerson = Math.round(actualTotal / Math.max(1, totalPeople));
   const budgetNum = Number(budgetTotal) || 0;
+  const remaining = budgetNum - actualTotal;
   const pct = budgetNum > 0 ? Math.min(100, Math.round((actualTotal / budgetNum) * 100)) : 0;
   const isOver = budgetNum > 0 && actualTotal > budgetNum;
   const isMember = Boolean(
@@ -134,63 +145,129 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
     }
   };
 
-  return (
-    <View style={styles.card}>
-      {/* 1. Chi tiêu thực tế & Chia tiền nhóm */}
-      <View style={styles.headerRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <FontAwesome name="money" size={14} color="#0284C7" />
-          <Text style={styles.title}>Chi tiêu thực tế & Chia tiền ({totalPeople} người)</Text>
-        </View>
-        {loading && <ActivityIndicator size="small" color="#94A3B8" />}
-      </View>
-
-      <View style={styles.summaryBox}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.muted}>Đã chi thực tế:</Text>
-          <Text style={[styles.boldVal, isOver && { color: '#DC2626' }]}>
-            {actualTotal.toLocaleString('vi-VN')}đ
-          </Text>
-        </View>
-        {budgetNum > 0 && (
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${pct}%` as any, backgroundColor: isOver ? '#EF4444' : '#10B981' },
-              ]}
-            />
+  if (mode === 'members') {
+    return (
+      <View style={styles.wrap}>
+        {isOwner && (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Mời bạn đồng hành qua email</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Nhập email tài khoản Wayfare..."
+                placeholderTextColor="#94A3B8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={memberEmail}
+                onChangeText={setMemberEmail}
+              />
+              <TouchableOpacity
+                style={[styles.primaryBtn, submittingMember && { opacity: 0.6 }]}
+                disabled={submittingMember}
+                onPress={handleAddMember}>
+                <Text style={styles.primaryBtnText}>{submittingMember ? '...' : 'Mời'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
-        <View style={styles.summaryRow}>
-          <Text style={styles.muted}>Bình quân / người:</Text>
-          <Text style={[styles.boldVal, { color: '#0369A1' }]}>
-            {perPerson.toLocaleString('vi-VN')}đ
-          </Text>
-        </View>
-      </View>
 
-      {expenses.map((exp) => (
-        <View key={exp.id} style={styles.itemRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemTitle} numberOfLines={1}>
-              {exp.description || exp.category}
-            </Text>
-            <Text style={styles.itemSub}>
-              {exp.category} · {exp.payerName || 'Thành viên'}
-            </Text>
+        <View style={styles.card}>
+          <View style={styles.headerRow}>
+            <Text style={styles.sectionLabel}>Thành viên chuyến đi ({totalPeople})</Text>
+            {loading && <ActivityIndicator size="small" color="#94A3B8" />}
           </View>
-          <Text style={styles.itemAmount}>{Number(exp.amount || 0).toLocaleString('vi-VN')}đ</Text>
-          {(isOwner || (currentUser?.id != null && String(exp.payerId) === String(currentUser.id))) && (
-            <TouchableOpacity onPress={() => handleDeleteExpense(exp.id)} style={{ padding: 6 }}>
-              <FontAwesome name="trash-o" size={13} color="#EF4444" />
-            </TouchableOpacity>
+
+          <View style={styles.listRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itemTitle} numberOfLines={1}>
+                {creatorName || 'Chủ chuyến đi'}
+              </Text>
+              {creatorEmail ? (
+                <Text style={styles.itemSub} numberOfLines={1}>
+                  {creatorEmail}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.ownerPill}>
+              <Text style={styles.ownerPillText}>Chủ chuyến đi</Text>
+            </View>
+          </View>
+
+          {members.length === 0 ? (
+            <Text style={styles.emptyText}>Chưa có bạn đồng hành nào được mời.</Text>
+          ) : (
+            members.map((m) => (
+              <View key={m.id || m.userId} style={styles.listRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>
+                    {m.fullName || m.email}
+                  </Text>
+                  <Text style={styles.itemSub} numberOfLines={1}>
+                    {m.email}
+                  </Text>
+                </View>
+                {isOwner && (
+                  <TouchableOpacity onPress={() => handleRemoveMember(m.userId)} style={{ padding: 6 }}>
+                    <FontAwesome name="trash-o" size={14} color="#EF4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))
           )}
         </View>
-      ))}
+      </View>
+    );
+  }
 
+  return (
+    <View style={styles.wrap}>
+      {/* 1. Tổng hợp chi tiêu gọn gàng */}
+      <View style={styles.card}>
+        <View style={styles.metricsRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.metricLabel}>Dự kiến</Text>
+            <Text style={styles.metricVal}>{budgetNum.toLocaleString('vi-VN')}đ</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.metricLabel}>Đã chi</Text>
+            <Text style={[styles.metricVal, { color: isOver ? '#DC2626' : '#047857' }]}>
+              {actualTotal.toLocaleString('vi-VN')}đ
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.metricLabel}>Chia {totalPeople} người</Text>
+            <Text style={[styles.metricVal, { color: '#0369A1' }]}>
+              {perPerson.toLocaleString('vi-VN')}đ
+            </Text>
+          </View>
+        </View>
+
+        {budgetNum > 0 && (
+          <View style={{ gap: 4 }}>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${pct}%` as any, backgroundColor: isOver ? '#EF4444' : '#10B981' },
+                ]}
+              />
+            </View>
+            <View style={styles.headerRow}>
+              <Text style={styles.itemSub}>Đã dùng {pct}%</Text>
+              <Text style={[styles.itemSub, isOver && { color: '#DC2626', fontWeight: '700' }]}>
+                {isOver
+                  ? `Vượt ${Math.abs(remaining).toLocaleString('vi-VN')}đ`
+                  : `Còn ${remaining.toLocaleString('vi-VN')}đ`}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* 2. Form ghi khoản chi mới */}
       {canLogExpense && (
-        <View style={styles.formWrap}>
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Ghi khoản chi mới</Text>
           <View style={styles.catRow}>
             {EXPENSE_CATEGORIES.map((c) => (
               <TouchableOpacity
@@ -203,7 +280,7 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
               </TouchableOpacity>
             ))}
           </View>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput
               style={[styles.input, { flex: 1 }]}
               placeholder="Số tiền (VNĐ)"
@@ -220,112 +297,87 @@ export function ItineraryExpensesMembersSection({ itineraryId, budgetTotal = 0, 
               onChangeText={setExpDesc}
             />
             <TouchableOpacity
-              style={[styles.addBtn, submittingExp && { opacity: 0.6 }]}
+              style={[styles.primaryBtn, submittingExp && { opacity: 0.6 }]}
               disabled={submittingExp}
               onPress={handleAddExpense}>
-              <Text style={styles.addBtnText}>Ghi</Text>
+              <Text style={styles.primaryBtnText}>{submittingExp ? '...' : 'Ghi'}</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* 2. Bạn đồng hành */}
-      <View style={styles.divider} />
-      <View style={styles.headerRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <FontAwesome name="users" size={13} color="#059669" />
-          <Text style={styles.title}>Bạn đồng hành ({members.length})</Text>
+      {/* 3. Danh sách khoản chi */}
+      <View style={styles.card}>
+        <View style={styles.headerRow}>
+          <Text style={styles.sectionLabel}>Danh sách khoản chi ({expenses.length})</Text>
+          {loading && <ActivityIndicator size="small" color="#94A3B8" />}
         </View>
-      </View>
 
-      {members.length > 0 ? (
-        members.map((m) => (
-          <View key={m.id || m.userId} style={styles.itemRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle} numberOfLines={1}>
-                {m.fullName || m.email}
-              </Text>
-              <Text style={styles.itemSub} numberOfLines={1}>
-                {m.email}
-              </Text>
+        {expenses.length === 0 ? (
+          <Text style={styles.emptyText}>Chưa có khoản chi tiêu thực tế nào.</Text>
+        ) : (
+          expenses.map((exp) => (
+            <View key={exp.id} style={styles.listRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemTitle} numberOfLines={1}>
+                  {exp.description || exp.category}
+                </Text>
+                <Text style={styles.itemSub}>
+                  {exp.category} · {exp.payerName || 'Thành viên'}
+                </Text>
+              </View>
+              <Text style={styles.itemAmount}>{Number(exp.amount || 0).toLocaleString('vi-VN')}đ</Text>
+              {(isOwner || (currentUser?.id != null && String(exp.payerId) === String(currentUser.id))) && (
+                <TouchableOpacity onPress={() => handleDeleteExpense(exp.id)} style={{ padding: 6 }}>
+                  <FontAwesome name="trash-o" size={14} color="#EF4444" />
+                </TouchableOpacity>
+              )}
             </View>
-            {isOwner && (
-              <TouchableOpacity onPress={() => handleRemoveMember(m.userId)} style={{ padding: 6 }}>
-                <FontAwesome name="trash-o" size={13} color="#EF4444" />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))
-      ) : (
-        <Text style={styles.emptyText}>Chưa có bạn đồng hành nào được mời.</Text>
-      )}
-
-      {isOwner && (
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Email bạn đồng hành..."
-            placeholderTextColor="#94A3B8"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={memberEmail}
-            onChangeText={setMemberEmail}
-          />
-          <TouchableOpacity
-            style={[styles.inviteBtn, submittingMember && { opacity: 0.6 }]}
-            disabled={submittingMember}
-            onPress={handleAddMember}>
-            <Text style={styles.addBtnText}>Mời</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+          ))
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    gap: 12,
+  },
   card: {
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 16,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(15, 23, 42, 0.08)',
-    gap: 8,
+    gap: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  title: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  summaryBox: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 6,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  muted: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  boldVal: {
+  sectionLabel: {
     fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  metricVal: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
   },
   progressTrack: {
     height: 6,
@@ -337,34 +389,39 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
   },
-  itemRow: {
+  listRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.05)',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(15, 23, 42, 0.06)',
   },
   itemTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#0F172A',
   },
   itemSub: {
     fontSize: 11,
     color: '#64748B',
+    marginTop: 1,
   },
   itemAmount: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
   },
-  formWrap: {
-    gap: 8,
-    marginTop: 4,
+  ownerPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+  },
+  ownerPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
   },
   catRow: {
     flexDirection: 'row',
@@ -372,8 +429,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   catChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
@@ -384,7 +441,7 @@ const styles = StyleSheet.create({
     borderColor: '#0284C7',
   },
   catChipText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#475569',
   },
@@ -393,44 +450,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   input: {
-    height: 36,
+    height: 38,
     paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#0F172A',
     backgroundColor: '#FFFFFF',
   },
-  addBtn: {
-    height: 36,
-    paddingHorizontal: 12,
+  primaryBtn: {
+    height: 38,
+    paddingHorizontal: 14,
     borderRadius: 8,
     backgroundColor: '#0284C7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  inviteBtn: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: {
-    fontSize: 12,
+  primaryBtnText: {
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.08)',
-    marginVertical: 4,
-  },
   emptyText: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: '#94A3B8',
+    textAlign: 'center',
+    paddingVertical: 10,
   },
 });
-

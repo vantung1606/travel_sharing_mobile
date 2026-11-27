@@ -106,6 +106,7 @@ export function ItineraryDetailModal({
     }
   };
   const [loading, setLoading] = useState<boolean>(false);
+  const [sectionTab, setSectionTab] = useState<'schedule' | 'expenses' | 'members'>('schedule');
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [togglingVisibility, setTogglingVisibility] = useState<boolean>(false);
   const [cloningTrip, setCloningTrip] = useState<boolean>(false);
@@ -685,6 +686,45 @@ export function ItineraryDetailModal({
               <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>{maxDay}N{Math.max(1, maxDay - 1)}Đ</Text>
             </View>
 
+            {/* 3 Tab chính: Lịch trình | Chi tiêu | Bạn đồng hành */}
+            <View style={{ flexDirection: 'row', marginHorizontal: 16, marginTop: 12, backgroundColor: '#F1F5F9', borderRadius: 10, padding: 3 }}>
+              {[
+                { id: 'schedule' as const, label: 'Lịch trình' },
+                { id: 'expenses' as const, label: 'Chi tiêu' },
+                { id: 'members' as const, label: 'Bạn đồng hành' },
+              ].map((t) => {
+                const active = sectionTab === t.id;
+                return (
+                  <TouchableOpacity
+                    key={t.id}
+                    activeOpacity={0.8}
+                    onPress={() => setSectionTab(t.id)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      alignItems: 'center',
+                      backgroundColor: active ? '#FFFFFF' : 'transparent',
+                    }}>
+                    <Text style={{ fontSize: 12.5, fontWeight: active ? '800' : '600', color: active ? '#0F172A' : '#64748B' }}>
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {sectionTab !== 'schedule' ? (
+              <ItineraryExpensesMembersSection
+                itineraryId={fullItin?.id}
+                budgetTotal={fullItin?.budgetTotal}
+                isOwner={effectiveCanEdit}
+                creatorName={fullItin?.creatorName}
+                creatorEmail={fullItin?.creatorEmail}
+                mode={sectionTab}
+              />
+            ) : (
+            <>
             {/* Day Selector Pills */}
             <View style={styles.daySection}>
               <Text style={styles.sectionTitle}>Lộ Trình Từng Ngày</Text>
@@ -909,13 +949,8 @@ export function ItineraryDetailModal({
                 </>
               )}
             </View>
-
-            {/* Chi tiêu thực tế & Bạn đồng hành (CSDL MySQL) */}
-            <ItineraryExpensesMembersSection
-              itineraryId={fullItin?.id}
-              budgetTotal={fullItin?.budgetTotal}
-              isOwner={effectiveCanEdit}
-            />
+            </>
+            )}
           </ScrollView>
         )}
 

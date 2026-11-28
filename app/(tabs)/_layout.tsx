@@ -233,6 +233,8 @@ export default function TabLayout() {
     const unsubscribeAuth = authStorage.subscribe((session) => {
       setCurrentUser(session);
       if (session) {
+        // The OAuth callback can save the session after the browser closes.
+        setIsAuthOpen(false);
         refreshUnreadCount();
         refreshUnreadChatCount();
       } else {

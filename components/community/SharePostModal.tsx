@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import * as Clipboard from 'expo-clipboard';
+import { shareInApp } from '@/src/services/inAppShare';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Share,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -53,7 +52,7 @@ export function SharePostModal({
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('PUBLIC');
   const [submitting, setSubmitting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
@@ -61,7 +60,7 @@ export function SharePostModal({
       setCaption('');
       setVisibility('PUBLIC');
       setSubmitting(false);
-      setCopied(false);
+
       Animated.timing(anim, {
         toValue: 1,
         duration: 240,
@@ -87,15 +86,16 @@ export function SharePostModal({
     (post.sharedPost ? post.sharedPost.imageUrl || post.sharedPost.coverImage : post.imageUrl || post.coverImage) ||
     (post.images && post.images.length > 0 ? post.images[0] : null);
 
-  const shareUrl = `https://wayfare.vn/community?postId=${post.id}`;
 
   const handleShareToFeed = async () => {
+    if (submittingRef.current) return;
     if (!session) {
       authPrompt.open();
       return;
     }
 
     try {
+      submittingRef.current = true;
       setSubmitting(true);
       Keyboard.dismiss();
 
@@ -134,40 +134,8 @@ export function SharePostModal({
         message: err?.message || 'Có lỗi xảy ra, vui lòng thử lại sau.',
       });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await Clipboard.setStringAsync(shareUrl);
-      setCopied(true);
-      showToast({
-        kind: 'success',
-        title: 'Đã sao chép liên kết',
-        message: 'Liên kết bài viết đã được lưu vào bộ nhớ tạm! 📋',
-        icon: 'copy',
-      });
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      showToast({
-        kind: 'error',
-        title: 'Không thể sao chép',
-        message: 'Vui lòng thử lại sau.',
-      });
-    }
-  };
-
-  const handleNativeShare = async () => {
-    try {
-      onClose();
-      await Share.share({
-        title: post.title || 'Wayfare Travel',
-        message: `${post.title ? `${post.title}\n` : ''}${(post.content || '').slice(0, 160)}\n\n— Khám phá trên Wayfare: ${shareUrl}`,
-        url: shareUrl,
-      });
-    } catch {
-      // User cancelled
     }
   };
 
@@ -298,41 +266,13 @@ export function SharePostModal({
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>HOẶC CHIA SẺ QUA</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Quick Actions Row */}
-          <View style={styles.quickActionsRow}>
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              activeOpacity={0.75}
-              onPress={handleCopyLink}
-              accessibilityLabel="Sao chép liên kết">
-              <View style={[styles.quickIconCircle, copied && { backgroundColor: DS_COLOR.successSoft }]}>
-                <FontAwesome
-                  name={copied ? 'check' : 'copy'}
-                  size={16}
-                  color={copied ? DS_COLOR.success : DS_COLOR.inkSecondary}
-                />
-              </View>
-              <Text style={styles.quickActionLabel}>{copied ? 'Đã chép' : 'Sao chép link'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              activeOpacity={0.75}
-              onPress={handleNativeShare}
-              accessibilityLabel="Chia sẻ ra các ứng dụng khác">
-              <View style={styles.quickIconCircle}>
-                <FontAwesome name="share-alt" size={16} color={DS_COLOR.accent} />
-              </View>
-              <Text style={styles.quickActionLabel}>Ứng dụng khác</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.repostBtn} disabled={submitting} onPress={() => {
+            onClose();
+            setTimeout(() => shareInApp({ kind: 'post', id: post.id, title: post.title || 'Bài viết được chia sẻ' }), 220);
+          }} accessibilityLabel="Gửi bài viết trong tin nhắn">
+            <FontAwesome name="comment-o" size={16} color="#FFFFFF" />
+            <Text style={styles.repostBtnText}> Gửi trong tin nhắn</Text>
+          </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

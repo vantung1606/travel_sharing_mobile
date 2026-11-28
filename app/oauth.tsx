@@ -5,8 +5,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { WF_PAPER } from '@/constants/Colors';
 import { SERIF_FONT } from '@/constants/Typography';
-import { authApi } from '@/src/services/api';
-import { authStorage } from '@/src/services/authStorage';
+import { completeGoogleSignIn, getGoogleToken } from '@/src/services/googleSession';
 import { showToast } from '@/components/Toast';
 
 /**
@@ -23,45 +22,35 @@ export default function OAuthCallbackScreen() {
       try {
         const initialUrl = await Linking.getInitialURL();
         const currentUrl = initialUrl || '';
-        let token = (params?.access_token as string) || (params?.id_token as string) || '';
+        let token = String(params?.id_token || params?.access_token || '');
 
         // Phân tích token từ hash fragment (#)
         if (!token && currentUrl.includes('#')) {
-          const fragmentPart = currentUrl.split('#')[1] || '';
-          const fragParams = new URLSearchParams(fragmentPart);
-          token = fragParams.get('access_token') || fragParams.get('id_token') || '';
+          token = getGoogleToken(currentUrl);
         }
 
         // Phân tích token từ query string (?)
         if (!token && currentUrl.includes('?')) {
-          const queryPart = (currentUrl.split('?')[1] || '').split('#')[0];
-          const queryParams = new URLSearchParams(queryPart);
-          token = queryParams.get('access_token') || queryParams.get('id_token') || '';
+          token = getGoogleToken(currentUrl);
         }
 
         // Nếu có token và chưa lưu phiên đăng nhập
         if (token) {
-          const session = await authStorage.getSession();
-          if (!session) {
-            const user = await authApi.loginWithGoogle(token);
-            if (user && isMounted) {
-              await authStorage.saveSession(user);
-              showToast({
-                kind: 'success',
-                title: 'Đăng nhập Google thành công',
-                message: `Chào mừng ${user.fullName || user.email}!`,
-              });
-            }
+          const user = await completeGoogleSignIn(token);
+          if (user && isMounted) {
+            showToast({
+              kind: 'success',
+              title: 'Đăng nhập Google thành công',
+              message: `Chào mừng ${user.fullName || user.email}!`,
+            });
           }
         }
-      } catch (err) {
-        // startGoogleSignIn trong modal đã xử lý
+      } catch {
+        if (isMounted) showToast({ kind: 'error', title: 'Chưa hoàn tất đăng nhập Google', message: 'Vui lòng thử đăng nhập lại.' });
       } finally {
         if (isMounted) {
           // Tự động chuyển thẳng về trang cá nhân / tài khoản
-          setTimeout(() => {
-            router.replace('/(tabs)/profile');
-          }, 120);
+          router.replace('/(tabs)/profile');
         }
       }
     }

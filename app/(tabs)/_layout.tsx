@@ -275,8 +275,8 @@ export default function TabLayout() {
     });
 
     const subChatOpen = DeviceEventEmitter.addListener('wayfare_open_chat', (data: { userId?: number; roomId?: string | number }) => {
-      if (data?.userId) setChatInitialUserId(data.userId);
-      if (data?.roomId) setChatInitialRoomId(data.roomId);
+      setChatInitialUserId(data?.userId);
+      setChatInitialRoomId(data?.roomId);
       setIsChatOpen(true);
     });
 

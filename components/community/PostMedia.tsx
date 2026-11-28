@@ -15,8 +15,8 @@ export interface PostMediaProps {
   onPressVideo?: () => void;
 }
 
-const GAP = 5;
-const RADIUS = 12;
+const GAP = 2;
+const RADIUS = 0;
 
 /**
  * Bộ khung media bài viết thông minh (Smart Media Grid):
@@ -244,10 +244,10 @@ export function PostMedia({
                   activeOpacity={0.92}
                   style={styles.gridCell}
                   onPress={() => onPressImage?.(3)}
-                  accessibilityLabel={`Xem ảnh 4 và ${list.length - 4} ảnh khác`}>
+                  accessibilityLabel={`Xem ảnh 4 và ${list.length - 3} ảnh khác`}>
                   <Image source={{ uri: list[3] }} style={styles.fullFillImage} resizeMode="cover" />
                   <View style={styles.moreOverlay}>
-                    <Text style={styles.moreNumber}>+{list.length - 4}</Text>
+                    <Text style={styles.moreNumber}>+{list.length - 3}</Text>
                     <Text style={styles.moreLabel}>ảnh</Text>
                   </View>
                 </TouchableOpacity>
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: RADIUS,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: '#CBD5E1',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
   singleWrap: {
     width: '100%',
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: GAP,
-    height: 195,
+    aspectRatio: 1.35,
   },
   rowItem: {
     flex: 1,
@@ -348,9 +348,9 @@ const styles = StyleSheet.create({
   },
 
   mosaicThree: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: GAP,
-    height: 235,
+    aspectRatio: 0.9,
   },
   threeMain: {
     flex: 1.45,
@@ -359,6 +359,7 @@ const styles = StyleSheet.create({
   },
   threeSide: {
     flex: 1,
+    flexDirection: 'row',
     gap: GAP,
   },
   threeSideItem: {
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
   gridRow: {
     flexDirection: 'row',
     gap: GAP,
-    height: 135,
+    aspectRatio: 2,
   },
   gridCell: {
     flex: 1,

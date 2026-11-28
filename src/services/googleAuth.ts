@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { authApi, UserAuthData } from '@/src/services/api';
+import { completeGoogleSignIn, getGoogleToken } from './googleSession';
 
 const GOOGLE_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -69,7 +70,7 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
         let settled = false;
 
         const handleMessage = async (event: MessageEvent) => {
-          if (event.data?.type === 'WAYFARE_GOOGLE_AUTH_SUCCESS' && event.data?.token) {
+          if (event.source === popup && event.origin === new URL(redirectUri).origin && event.data?.type === 'WAYFARE_GOOGLE_AUTH_SUCCESS' && event.data?.token) {
             if (settled) return;
             settled = true;
             window.removeEventListener('message', handleMessage);
@@ -107,7 +108,7 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
   } catch {}
 
   try {
-    const appReturnUrl = Linking.createURL('oauth');
+    const appReturnUrl = Linking.createURL('oauth', { scheme: 'wayfare' });
     const stateParam = encodeURIComponent(appReturnUrl);
 
     // Bổ sung prompt=select_account để Google luôn hiển thị danh sách tài khoản ngay tức thì,
@@ -120,34 +121,20 @@ export async function startGoogleSignIn(): Promise<UserAuthData | null> {
 
     // Đặt cơ chế Promise.race với timeout an toàn 75s để không bao giờ bị kẹt vòng xoay loading vô hạn
     const authSessionPromise = WebBrowser.openAuthSessionAsync(authUrl, appReturnUrl);
+    let authTimer: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<WebBrowser.WebBrowserAuthSessionResult>((resolve) => {
-      setTimeout(() => {
+      authTimer = setTimeout(() => {
         resolve({ type: 'dismiss' } as any);
       }, 75000);
     });
 
-    const result = await Promise.race([authSessionPromise, timeoutPromise]);
+    const result = await Promise.race([authSessionPromise, timeoutPromise]).finally(() => clearTimeout(authTimer));
 
     if (result.type === 'success' && result.url) {
-      const rawUrl = result.url;
-      let token = '';
-
-      // 1. Phân tích token từ hash fragment (#)
-      if (rawUrl.includes('#')) {
-        const fragmentPart = rawUrl.split('#')[1] || '';
-        const fragParams = new URLSearchParams(fragmentPart);
-        token = fragParams.get('id_token') || fragParams.get('access_token') || '';
-      }
-
-      // 2. Dự phòng phân tích từ query string (?) nếu fragment không chứa token
-      if (!token && rawUrl.includes('?')) {
-        const queryPart = (rawUrl.split('?')[1] || '').split('#')[0];
-        const queryParams = new URLSearchParams(queryPart);
-        token = queryParams.get('id_token') || queryParams.get('access_token') || '';
-      }
+      const token = getGoogleToken(result.url);
 
       if (token) {
-        const user = await authApi.loginWithGoogle(token);
+        const user = await completeGoogleSignIn(token);
         return user;
       }
       throw new Error('Không nhận diện được chứng chỉ xác thực Google từ phản hồi.');

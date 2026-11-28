@@ -1,6 +1,7 @@
+import { shareInApp } from '@/src/services/inAppShare';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { showToast } from '@/components/Toast';
@@ -11,7 +12,7 @@ import { ImageLightbox } from '@/components/community/ImageLightbox';
 import { UniversalReportModal } from '@/components/UniversalReportModal';
 import { WF_COLORS } from '@/constants/Colors';
 import { authStorage, UserSession } from '@/src/services/authStorage';
-import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem, webPlaceUrl } from '@/src/services/api';
+import { PlaceItem, PostItem, postApi, reviewApi, ReviewItem } from '@/src/services/api';
 import { getPostImages } from '@/components/community/communityUtils';
 import { PLACE_IMAGE_POOL, SHARED_PLACEHOLDER_IMAGE } from '@/src/utils/placeImagePool';
 import { fixImageUrl } from '@/src/utils/placeImages';
@@ -322,23 +323,8 @@ export function PlaceDetailModal({
     return base;
   })();
 
-  const handleSharePlace = async () => {
-    if (!place) return;
-    const link = webPlaceUrl(place.id);
-    const coords = place.latitude != null && place.longitude != null ? `${place.latitude}, ${place.longitude}` : null;
-    const message = [
-      `${place.name} — ${place.city || 'Việt Nam'}`,
-      place.category ? `#${place.category.replace(/\s+/g, '')}` : null,
-      coords ? `GPS: ${coords}` : null,
-      link ? `Xem chi tiết: ${link}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n');
-    try {
-      await Share.share({ title: place.name, message });
-    } catch {
-      // Người dùng thu hồi hộp thoại chia sẻ — bỏ qua, không toast thụ động.
-    }
+  const handleSharePlace = () => {
+    if (place) shareInApp({ kind: 'place', id: place.id, title: place.name });
   };
 
   const handleOpenDirection = async () => {

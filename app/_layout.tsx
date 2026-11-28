@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import { BrandSplash } from '@/components/BrandSplash';
 import { ConfirmHost } from '@/components/ConfirmDialog';
 import { ToastHost } from '@/components/Toast';
+import { ShareInAppModal } from '@/components/ShareInAppModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import { WF_PAPER } from '@/constants/Colors';
 import { applyGlobalSerifTypography } from '@/constants/Typography';
@@ -36,11 +37,6 @@ export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
-
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  anchor: '(tabs)',
-};
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -74,6 +70,7 @@ export default function RootLayout() {
       <View style={styles.root}>
         <StatusBar style={showLaunchSplash ? 'light' : 'dark'} />
         <RootLayoutNav />
+        <ShareInAppModal />
         <ConfirmHost />
         <ToastHost />
         {showLaunchSplash ? <BrandSplash onFinish={handleSplashFinish} /> : null}
@@ -93,6 +90,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={WAYFARE_THEME}>
       <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="oauth" options={{ headerShown: false }} />
       </Stack>

@@ -47,19 +47,21 @@ export const authStorage = {
   async saveSession(user: UserSession, token?: string): Promise<void> {
     try {
       const finalToken = token || user.token;
+      const session = { ...user, ...(finalToken ? { token: finalToken } : {}) };
       if (finalToken) {
         await AsyncStorage.setItem(TOKEN_KEY, finalToken);
       }
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(session));
       sessionListeners.forEach((cb) => {
         try {
-          cb(user);
+          cb(session);
         } catch (e) {
           console.warn('Error in session listener', e);
         }
       });
     } catch (e) {
       console.error('Error saving user session', e);
+      throw e;
     }
   },
 

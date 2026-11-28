@@ -42,8 +42,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      console.warn('Session expired or unauthorized (401). Clearing session and notifying listeners.');
+    const requestToken = String(error.config?.headers?.Authorization || '').replace(/^Bearer\s+/i, '');
+    const currentToken = await authStorage.getToken();
+    if (error.response?.status === 401 && requestToken && requestToken === currentToken && !String(error.config?.url || '').startsWith('/auth/')) {
+      console.warn('Current session expired (401). Requesting sign-in again.');
       await authStorage.clearSession();
       authStorage.notifyUnauthorized();
     }

@@ -1,3 +1,4 @@
+import { shareInApp } from '@/src/services/inAppShare';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -10,7 +11,6 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  Share,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -49,7 +49,6 @@ import {
   uploadApi,
   userApi,
   UserProfileItem,
-  webItineraryUrl,
 } from '@/src/services/api';
 import { authStorage, UserSession } from '@/src/services/authStorage';
 import { authPrompt } from '@/src/services/authPrompt';
@@ -1479,46 +1478,10 @@ export default function ProfileScreen() {
   );
 }
 
-async function ShareTrip(itin: ItineraryItem) {
-  try {
-    const link = webItineraryUrl(itin.id);
-    const message = `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination || 'Việt Nam'} trên Wayfare Travel! 🌟${link ? `\n\nXem tại: ${link}` : ''}`;
-
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: itin.title,
-            text: message,
-            url: link || undefined,
-          });
-          return;
-        } catch (error: any) {
-          if (error?.name === 'AbortError') return;
-        }
-      }
-      await navigator.clipboard.writeText(link || message);
-      showToast({
-        kind: 'success',
-        title: 'Đã sao chép liên kết',
-        message: 'Đã sao chép liên kết chia sẻ lịch trình vào bộ nhớ tạm.',
-      });
-      return;
-    }
-
-    await Share.share({
-      message,
-      title: itin.title,
-      url: link || undefined,
-    });
-  } catch {
-    showToast({
-      kind: 'info',
-      title: 'Chia sẻ lịch trình',
-      message: 'Không thể mở hộp thoại chia sẻ.',
-    });
-  }
+function ShareTrip(itin: ItineraryItem) {
+  shareInApp({ kind: 'itinerary', id: itin.id, title: itin.title });
 }
+
 
 const styles = StyleSheet.create({
   safeArea: {

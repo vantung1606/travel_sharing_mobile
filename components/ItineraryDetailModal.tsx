@@ -1,3 +1,4 @@
+import { shareInApp } from '@/src/services/inAppShare';
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
@@ -7,8 +8,6 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Share,
-  Platform,
   Linking,
 } from 'react-native';
 import { Text, TextInput } from '@/components/Themed';
@@ -17,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ConfirmHost, confirmDialog } from '@/components/ConfirmDialog';
 import { ToastHost, showToast } from '@/components/Toast';
-import { itineraryApi, ItineraryItem, ItineraryDetailItem, webItineraryUrl } from '@/src/services/api';
+import { itineraryApi, ItineraryItem, ItineraryDetailItem } from '@/src/services/api';
 import { authStorage } from '@/src/services/authStorage';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
 import { ItineraryExpensesMembersSection } from '@/components/itinerary/ItineraryExpensesMembersSection';
@@ -196,45 +195,8 @@ export function ItineraryDetailModal({
 
   const effectiveCanEdit = Boolean(canEdit && isOwner);
 
-  const handleShareTrip = async () => {
-    if (!fullItin) return;
-    const link = webItineraryUrl(fullItin.id);
-    const message = `Khám phá kế hoạch chuyến đi "${fullItin.title}" tại ${fullItin.destination || 'Việt Nam'} trên Wayfare Travel! 🌟${link ? `\n\nXem tại: ${link}` : ''}`;
-    try {
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: fullItin.title,
-              text: message,
-              url: link || undefined,
-            });
-            return;
-          } catch (e: any) {
-            if (e?.name === 'AbortError') return;
-          }
-        }
-        await navigator.clipboard.writeText(link || message);
-        showToast({
-          kind: 'success',
-          title: 'Đã sao chép liên kết',
-          message: 'Đã sao chép liên kết chia sẻ lịch trình vào bộ nhớ tạm! 🎉',
-        });
-        return;
-      }
-
-      await Share.share({
-        message,
-        title: fullItin.title,
-        url: link || undefined,
-      });
-    } catch {
-      showToast({
-        kind: 'info',
-        title: 'Chia sẻ lịch trình',
-        message: 'Không thể mở hộp thoại chia sẻ.',
-      });
-    }
+  const handleShareTrip = () => {
+    if (fullItin) shareInApp({ kind: 'itinerary', id: fullItin.id, title: fullItin.title });
   };
 
   const detailsList: ItineraryDetailItem[] = fullItin?.details || [];

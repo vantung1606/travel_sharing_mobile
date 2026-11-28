@@ -1,3 +1,5 @@
+import { shareInApp } from '@/src/services/inAppShare';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,10 +9,8 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -34,7 +34,6 @@ import {
   itineraryApi,
   ItineraryDetailItem,
   ItineraryItem,
-  webItineraryUrl,
 } from '@/src/services/api';
 import { aiService } from '@/src/services/aiService';
 import { authStorage } from '@/src/services/authStorage';
@@ -111,6 +110,8 @@ type ManualStop = { id: number; time: string; name: string; address: string; cos
 type ManualDay = { title: string; stops: ManualStop[] };
 
 export default function ItineraryScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string; itineraryId?: string }>();
   const { width: screenWidth } = useWindowDimensions();
   const isSmallScreen = screenWidth < 380;
 
@@ -130,6 +131,17 @@ export default function ItineraryScreen() {
   // ─── MODAL DETAIL STATE ──────────────────────────────────
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
   const [selectedItinerary, setSelectedItinerary] = useState<ItineraryItem | null>(null);
+
+  useEffect(() => {
+    const id = Number(params.id || params.itineraryId);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    let current = true;
+    itineraryApi.getItineraryById(id).then(itinerary => {
+      if (current) { setSelectedItinerary(itinerary); setDetailModalVisible(true); }
+    }).catch(() => { if (current) showToast({ kind: 'error', title: 'Không mở được lịch trình' }); })
+      .finally(() => { if (current) router.setParams({ id: undefined, itineraryId: undefined }); });
+    return () => { current = false; };
+  }, [params.id, params.itineraryId, router]);
 
   // ─── MODAL MANUAL TRIP STATE ─────────────────────────────
   const [manualModalVisible, setManualModalVisible] = useState<boolean>(false);
@@ -288,44 +300,8 @@ export default function ItineraryScreen() {
     }
   };
 
-  const handleShareTrip = async (itin: ItineraryItem) => {
-    try {
-      const link = webItineraryUrl(itin.id);
-      const message = `Khám phá kế hoạch chuyến đi "${itin.title}" tại ${itin.destination || 'Việt Nam'} trên Wayfare Travel! 🌟${link ? `\n\nXem tại: ${link}` : ''}`;
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: itin.title,
-              text: message,
-              url: link || undefined,
-            });
-            return;
-          } catch (e: any) {
-            if (e?.name === 'AbortError') return;
-          }
-        }
-        await navigator.clipboard.writeText(link || message);
-        showToast({
-          kind: 'success',
-          title: 'Đã sao chép liên kết',
-          message: 'Đã sao chép liên kết chia sẻ lịch trình vào bộ nhớ tạm! 🎉',
-        });
-        return;
-      }
-
-      await Share.share({
-        message,
-        title: itin.title,
-        url: link || undefined,
-      });
-    } catch {
-      showToast({
-        kind: 'info',
-        title: 'Chia sẻ lịch trình',
-        message: 'Không thể mở hộp thoại chia sẻ.',
-      });
-    }
+  const handleShareTrip = (itin: ItineraryItem) => {
+    shareInApp({ kind: 'itinerary', id: itin.id, title: itin.title });
   };
 
   const handleDeleteTrip = async (itin: ItineraryItem) => {

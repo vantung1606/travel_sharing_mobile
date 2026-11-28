@@ -15,7 +15,7 @@ import { getUserTier } from '@/src/utils/tierSystem';
 const FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
 
-const READ_MORE_THRESHOLD = 200;
+const READ_MORE_THRESHOLD = 160;
 
 interface PostCardProps {
   post: PostItem;
@@ -94,7 +94,7 @@ export function PostCard({
   const locationText = post.locationTag || post.locationName;
 
   return (
-    <View style={[styles.card, isSmallScreen && { marginHorizontal: 12, marginBottom: 12 }]}>
+    <View style={styles.card}>
       {/* ── 1. Tác giả & Công cụ Header ── */}
       <View style={[styles.header, isSmallScreen && { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10 }]}>
         <TouchableOpacity
@@ -175,7 +175,7 @@ export function PostCard({
                 <Text style={styles.metaDot}>·</Text>
                 <FontAwesome name="users" size={10} color="#9CA3AF" />
               </>
-            ) : null}
+            ) : <FontAwesome name="globe" size={11} color="#64748B" />}
           </View>
         </View>
 
@@ -308,9 +308,10 @@ export function PostCard({
         <TouchableOpacity
           style={[styles.actionBtn, isSmallScreen && { marginRight: 10, gap: 4 }]}
           onPress={onToggleLike}
+          onLongPress={onPressLikers}
           activeOpacity={0.7}
           accessibilityLabel={liked ? 'Bỏ thích bài viết' : 'Thích bài viết'}>
-          <FontAwesome name={liked ? 'heart' : 'heart-o'} size={isSmallScreen ? 16 : 18} color={liked ? '#EF4444' : '#6B7280'} />
+          <FontAwesome name={liked ? 'thumbs-up' : 'thumbs-o-up'} size={isSmallScreen ? 20 : 22} color={liked ? '#EF4444' : '#6B7280'} />
           <Text style={[styles.actionText, isSmallScreen && { fontSize: 11.5 }, liked && styles.actionTextLiked]}>{formatCount(likeCount)}</Text>
         </TouchableOpacity>
 
@@ -331,7 +332,7 @@ export function PostCard({
           onPress={onShare}
           activeOpacity={0.7}
           accessibilityLabel="Chia sẻ bài viết">
-          <FontAwesome name="share-alt" size={isSmallScreen ? 15 : 17} color="#6B7280" />
+          <FontAwesome name="share" size={isSmallScreen ? 19 : 21} color="#6B7280" />
           {!isSmallScreen && <Text style={styles.actionText}>Chia sẻ</Text>}
         </TouchableOpacity>
 
@@ -365,14 +366,14 @@ export function PostCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 18,
-    borderWidth: 1,
+    marginHorizontal: 0,
+    marginBottom: 8,
+    borderRadius: 0,
+    borderWidth: 0,
     borderColor: '#CBD5E1',
-    elevation: 3,
+    elevation: 0,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0,
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 10,
     overflow: 'hidden',
@@ -381,14 +382,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingTop: 12,
     paddingBottom: 10,
   },
   avatarWrap: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 2,
+    borderWidth: 1.5,
     padding: 1,
     marginRight: 10,
     backgroundColor: '#F1F5F9',
@@ -411,8 +412,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   authorName: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
     color: '#0F172A',
   },
   tierIconText: {
@@ -435,13 +436,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 5,
     marginTop: 2,
   },
   metaText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '500',
-    color: '#94A3B8',
+    color: '#64748B',
   },
   metaDot: {
     fontSize: 11,
@@ -473,8 +474,8 @@ const styles = StyleSheet.create({
     color: '#0284C7',
   },
   menuBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -498,18 +499,18 @@ const styles = StyleSheet.create({
   },
   bodyBlock: {
     paddingHorizontal: 14,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   postTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#0F172A',
     lineHeight: 23,
-    marginBottom: 6,
+    marginBottom: 3,
     letterSpacing: -0.2,
   },
   content: {
-    fontSize: 14.5,
+    fontSize: 15,
     lineHeight: 22,
     color: '#334155',
   },
@@ -519,18 +520,18 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   readMore: {
-    marginTop: 6,
+    marginTop: 2,
     fontSize: 13,
     fontWeight: '700',
-    color: '#FF5722',
+    color: '#64748B',
   },
   mediaContainer: {
-    marginHorizontal: 14,
-    marginBottom: 10,
-    borderRadius: 18,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    borderRadius: 0,
     overflow: 'hidden',
     backgroundColor: '#F8FAFC',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: 'rgba(15, 23, 42, 0.06)',
   },
   videoWrap: {
@@ -661,6 +662,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   actionBtn: {
+    minHeight: 40,
+    minWidth: 32,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

@@ -60,7 +60,7 @@ type ExploreRow =
 
 export default function ExploreScreen() {
   const router = useRouter();
-  const { q } = useLocalSearchParams<{ q?: string | string[] }>();
+  const { q, placeId } = useLocalSearchParams<{ q?: string | string[]; placeId?: string | string[] }>();
   const scrollRef = useRef<FlatList<ExploreRow>>(null);
   const { width: screenWidth } = useWindowDimensions();
   const isSmallScreen = screenWidth < 380;
@@ -93,6 +93,22 @@ export default function ExploreScreen() {
 
   const [selectedPlace, setSelectedPlace] = useState<PlaceItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
+
+  useEffect(() => {
+    const id = Number(Array.isArray(placeId) ? placeId[0] : placeId);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    let current = true;
+    placeApi.getPlaceById(id).then(place => {
+      if (!current) return;
+      setSelectedPlace(place);
+      setDetailModalVisible(true);
+    }).catch(() => {
+      if (current) showToast({ kind: 'error', title: 'Không mở được địa điểm', message: 'Địa điểm có thể đã thay đổi hoặc kết nối đang gián đoạn.' });
+    }).finally(() => {
+      if (current) router.setParams({ placeId: undefined });
+    });
+    return () => { current = false; };
+  }, [placeId, router]);
 
   const [addToPlanModalVisible, setAddToPlanModalVisible] = useState<boolean>(false);
   const [myItineraries, setMyItineraries] = useState<ItineraryItem[]>([]);

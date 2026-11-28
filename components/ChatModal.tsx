@@ -45,6 +45,8 @@ import { aiService } from '@/src/services/aiService';
 import { parseVietnamDate } from '@/src/utils/dateUtils';
 import { chatSocket, chatUiState } from '@/src/services/chatSocket';
 import { getItineraryDayCount } from '@/src/utils/itinerary';
+import { resolveAppRoute } from '@/src/utils/appRoutes';
+import { readSharedLink } from '@/src/services/inAppShare';
 import { AiRichMessageBubble } from './chat/AiRichMessageBubble';
 import { ItineraryDetailModal } from './ItineraryDetailModal';
 import { UserProfileModal } from './UserProfileModal';
@@ -494,6 +496,8 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const router = useRouter();
   const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deletedRoomIdsRef = useRef(new Set<string>());
   const [isAiTyping, setIsAiTyping] = useState(false);
 
   const [activeFilter, setActiveFilter] = useState<
@@ -540,9 +544,7 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
 
   // ── Session ───────────────────────────────────────────────
   useEffect(() => {
-    authStorage
-      .getSession()
-      .then((session) => {
+    const applySession = (session: any) => {
         const rawId = (session as any)?.id ?? (session as any)?.userId;
         const uId = rawId != null ? Number(rawId) : null;
         const uEmail = (session as any)?.email ?? null;
@@ -551,8 +553,9 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
         currentUserEmailRef.current = uEmail;
         currentUserNameRef.current = uName;
         setCurrentUser({ id: uId, email: uEmail, name: uName });
-      })
-      .catch(() => {});
+    };
+    void authStorage.getSession().then(applySession);
+    return authStorage.subscribe(applySession);
   }, []);
 
   useEffect(() => {
@@ -792,6 +795,7 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
 
       try {
         const history = await chatApi.getRoomMessages(room.id);
+        if (activeRoomIdRef.current !== String(room.id) || deletedRoomIdsRef.current.has(String(room.id))) return;
         const normalized = history.map((message) =>
           normalizeIncomingMessage(message, currentUserIdRef.current, currentUserEmailRef.current)
         );
@@ -932,7 +936,7 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
       setRoomsError(null);
 
       try {
-        const data = await chatApi.getRooms();
+        const data = (await chatApi.getRooms()).filter(room => !deletedRoomIdsRef.current.has(String(room.id)));
         hasLoadedRoomsRef.current = true;
         setRooms(sortRooms(data));
 
@@ -1018,6 +1022,7 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
       currentUser?.email ?? undefined,
       (rawRoom) => {
         if (!rawRoom?.id) return;
+        if (deletedRoomIdsRef.current.has(String(rawRoom.id))) return;
         const updatedRoom = mapChatRoom(rawRoom);
         setRooms((prev) => {
           const idx = prev.findIndex((r) => String(r.id) === String(updatedRoom.id));
@@ -1077,6 +1082,8 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
   // ── Navigation within chat ────────────────────────────────
   const handleBack = () => {
     stopRoomRealtime();
+    activeRoomIdRef.current = null;
+    chatUiState.activeRoomId = null;
     setActiveRoom(null);
     setMessages([]);
     setMessagesError(null);
@@ -1336,20 +1343,35 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
   };
 
   const handleClearChat = async () => {
+    if (!activeRoom || deleting || sendingRef.current) return;
+    const room = activeRoom;
     const confirmed = await confirmDialog({
-      title: 'Xoá lịch sử trò chuyện?',
-      message: 'Tin nhắn chỉ bị xoá khỏi thiết bị này. Những người khác trong cuộc trò chuyện vẫn giữ nguyên.',
+      title: 'Xóa cuộc trò chuyện?',
+      message: 'Cuộc trò chuyện và tin nhắn trong phòng này sẽ được xóa. Thao tác này không gửi tin nhắn cho người khác.',
       confirmText: 'Xoá',
       destructive: true,
     });
-    if (!confirmed) return;
+    if (!confirmed || activeRoomIdRef.current !== String(room.id)) return;
 
-    setMessages([]);
-    showToast({
-      kind: 'success',
-      title: 'Đã xoá lịch sử',
-      message: 'Lịch sử trò chuyện trên thiết bị này đã được xoá.',
-    });
+    setDeleting(true);
+    try {
+      await chatApi.deleteRoom(room.id);
+      deletedRoomIdsRef.current.add(String(room.id));
+      initialRoomHandledRef.current = true;
+      stopRoomRealtime();
+      activeRoomIdRef.current = null;
+      chatUiState.activeRoomId = null;
+      setActiveRoom(null);
+      setMessages([]);
+      setInputText('');
+      setRooms(prev => prev.filter(item => String(item.id) !== String(room.id)));
+      await loadRooms(true);
+      showToast({ kind: 'success', title: 'Đã xóa cuộc trò chuyện' });
+    } catch (error: any) {
+      showToast({ kind: 'error', title: 'Không thể xóa cuộc trò chuyện', message: error?.message || 'Vui lòng thử lại.' });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // ── Derived data ──────────────────────────────────────────
@@ -1621,11 +1643,26 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
             router.push({ pathname: '/(tabs)/community', params: { postId: String(postId) } });
           }}
           onNavigate={(path) => {
+            const route = resolveAppRoute(path);
+            if (!route) {
+              showToast({ kind: 'info', title: 'Chưa mở được nội dung này trong ứng dụng' });
+              return;
+            }
             onClose();
-            router.push(path as any);
+            router.push(route as any);
           }}
         />
       );
+    }
+
+    const sharedLink = readSharedLink(message.content);
+    if (sharedLink) {
+      return <TouchableOpacity accessibilityLabel={`Mở ${sharedLink.title}`} style={[styles.attachmentCard, isMe && styles.attachmentCardMe]} onPress={() => {
+        const profile = sharedLink.url.match(/profile\?userId=(\d+)/);
+        if (profile) { setSelectedProfileUserId(Number(profile[1])); return; }
+        const route = resolveAppRoute(sharedLink.url);
+        if (route) { onClose(); router.push(route as any); }
+      }}><FontAwesome name="share-square-o" size={20} color={isMe ? '#FFFFFF' : WF_COLORS.primary} /><Text style={[styles.attachmentTitle, isMe && styles.attachmentTextMe]}>{sharedLink.title}</Text></TouchableOpacity>;
     }
 
     return (
@@ -1960,8 +1997,9 @@ export function ChatModal({ visible, onClose, initialRoomId, initialUserId }: Ch
                 style={styles.headerIconBtn}
                 activeOpacity={0.8}
                 onPress={handleClearChat}
+                disabled={deleting || sending}
                 accessibilityRole="button"
-                accessibilityLabel="Xoá lịch sử trò chuyện trên thiết bị">
+                accessibilityLabel="Xóa cuộc trò chuyện">
                 <FontAwesome name="trash-o" size={15} color={WF_COLORS.slate500} />
               </TouchableOpacity>
             </>
